@@ -1,0 +1,68 @@
+name: Deploy corerouter to VM
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Source
+        uses: actions/checkout@v4
+
+      - name: Execute Remote Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            set -o pipefail
+
+            APP_DIR="/home/rootuser/corerouter"
+            LOG_DIR="$APP_DIR/logs"
+            LOG_FILE="$LOG_DIR/deploy.log"
+
+            echo "Starting deployment process"
+
+            cd $APP_DIR
+
+            mkdir -p $LOG_DIR
+
+            {
+              echo "Pulling latest source code"
+              git fetch origin
+              git reset --hard origin/main
+
+              echo "Stopping existing container if running"
+              sudo docker stop corerouter || true
+              sudo docker rm corerouter || true
+
+              echo "Removing old unused images"
+              sudo docker image prune -f
+
+              echo "Building new Docker image"
+              sudo docker build -t corerouter:latest .
+
+              echo "Starting new container"
+              sudo docker run -d \
+                --name corerouter \
+                --restart unless-stopped \
+                -p 7777:7777 \
+                -e SERVER_PORT=${{ secrets.SERVER_PORT }} \
+                -e DB_HOST=${{ secrets.DB_HOST }} \
+                -e DB_PORT=${{ secrets.DB_PORT }} \
+                -e DB_NAME=${{ secrets.DB_NAME }} \
+                -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+                -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+                corerouter:latest
+
+              echo "Deployment completed successfully"
+
+            } 2>&1 | tee -a $LOG_FILE
+
+            echo "Showing last 50 deployment log lines"
+            tail -n 50 $LOG_FILE
