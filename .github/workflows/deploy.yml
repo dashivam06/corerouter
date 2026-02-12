@@ -52,7 +52,7 @@ jobs:
                 --name corerouter \
                 --restart unless-stopped \
                 -p 7777:7777 \
-                -v $LOG_DIR:/app/logs \ 
+                -v $LOG_DIR:/app/logs \
                 -e SERVER_PORT=${{ secrets.SERVER_PORT }} \
                 -e DB_HOST=${{ secrets.DB_HOST }} \
                 -e DB_PORT=${{ secrets.DB_PORT }} \
