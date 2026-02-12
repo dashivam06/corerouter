@@ -1,6 +1,7 @@
 HELP.md
 target/
 logs/
+.DS_Store
 .env
 private
 private.pub
