@@ -1,4 +1,4 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

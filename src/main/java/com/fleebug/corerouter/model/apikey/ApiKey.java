@@ -1,12 +1,8 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.apikey;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
-import jakarta.persistence.Id;
-
-import com.fleebug.corerouter.enums.payment.PaymentStatus;
-import com.fleebug.corerouter.enums.payment.PaymentType;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
+import com.fleebug.corerouter.model.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +11,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -25,44 +23,47 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "payments")
+@Table(
+    name = "api_keys",
+    indexes = {
+        @Index(name = "idx_api_key_key", columnList = "key")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Payment {
+public class ApiKey {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer paymentId;
+    private Integer apiKeyId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "related_request_id")
-    private Request relatedRequest;
+    @Column(nullable = false, length = 255, unique = true)
+    private String key;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal amount;
+    @Column(length = 255)
+    private String description;
 
-    @Column(nullable = false, length = 30)
-    private String transactionId;
+    @Column(nullable = false)
+    private Integer dailyLimit;
 
-
-    @Column(nullable = false, length = 20)
-    private PaymentType type;
-
-    @Column(length = 50)
-    private String productCode;
+    @Column(nullable = false)
+    private Integer monthlyLimit;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private PaymentStatus status;
+    @Builder.Default
+    private ApiKeyStatus status = ApiKeyStatus.ACTIVE;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
-}
 
+    @Column
+    private LocalDateTime lastUsedAt;
+}

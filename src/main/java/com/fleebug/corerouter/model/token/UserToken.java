@@ -1,10 +1,11 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.token;
 
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Id;
 
 import com.fleebug.corerouter.enums.token.TokenType;
+import com.fleebug.corerouter.model.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

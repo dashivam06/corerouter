@@ -1,8 +1,9 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.health;
 
 import java.time.LocalDateTime;
 
 import com.fleebug.corerouter.enums.health.HealthStatus;
+import com.fleebug.corerouter.model.model.Model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

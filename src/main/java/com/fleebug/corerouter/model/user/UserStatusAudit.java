@@ -1,9 +1,12 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.user;
 
 import java.time.LocalDateTime;
+import com.fleebug.corerouter.enums.user.UserStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,32 +21,36 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "activity_log")
+@Table(name = "user_status_audit")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ActivityLog {
+public class UserStatusAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer activityId;
+    private Long auditId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 100)
-    private String action;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus oldStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus newStatus;
 
     @Column(columnDefinition = "TEXT")
-    private String details;
-
-    @Column(nullable = false, length = 45)
-private String ipAddress;
-
+    private String reason;
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime changedAt = LocalDateTime.now();
+
+    @Column(length = 50)
+    private String changedBy; // Admin or system user who triggered the change
 }

@@ -1,7 +1,9 @@
-package com.fleebug.corerouter.model;
+package com.fleebug.corerouter.model.request;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
+import com.fleebug.corerouter.model.apikey.ApiKey;
 
 import jakarta.persistence.Id;
 
