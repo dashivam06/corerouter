@@ -49,6 +49,7 @@ public class UserStatusAudit {
     private String reason;
 
     @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime changedAt = LocalDateTime.now();
 
     @Column(length = 50)
