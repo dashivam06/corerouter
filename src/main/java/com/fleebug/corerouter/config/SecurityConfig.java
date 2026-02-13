@@ -2,9 +2,12 @@ package com.fleebug.corerouter.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,15 +19,18 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Lazy
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -46,14 +52,34 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
+                // Public endpoints - no authentication required
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                .requestMatchers("/api/v1/auth/**").authenticated()
-                .anyRequest().permitAll()
+                // User models - public read access
+                .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**").permitAll()
+                // Everything else requires authentication
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(401, "Unauthorized: " + authException.getMessage());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setStatus(401);
+                    response.getWriter().write(
+                        "{\"timestamp\":\"" + LocalDateTime.now() + 
+                        "\",\"status\":401,\"success\":false,\"message\":\"Unauthorized: Missing or invalid authentication token\"," +
+                        "\"path\":\"" + request.getRequestURI() + 
+                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
+                    );
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setStatus(403);
+                    response.getWriter().write(
+                        "{\"timestamp\":\"" + LocalDateTime.now() + 
+                        "\",\"status\":403,\"success\":false,\"message\":\"Forbidden: Admin role required\"," +
+                        "\"path\":\"" + request.getRequestURI() + 
+                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
+                    );
                 })
             );
 
