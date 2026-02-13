@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import jakarta.persistence.Id;
 
 import com.fleebug.corerouter.enums.model.ModelStatus;
+import com.fleebug.corerouter.enums.model.ModelType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,10 +35,16 @@ public class Model {
     private Integer modelId;
 
     @Column(nullable = false, length = 255)
-    private String name;
+    private String fullname;
+
+    @Column(nullable = false, length = 255)
+    private String username;
+
+    @Column(nullable = false, length = 255)
+    private String provider;
 
     @Column
-    private Long parameterCount;
+    private String parameterCount;
 
     @Column(nullable = false, precision = 10, scale = 4)
     private BigDecimal pricePer1kTokens;
@@ -56,5 +63,5 @@ public class Model {
     private LocalDateTime updatedAt;
 
     @Column(length = 50)
-    private String type; 
+    private ModelType type; 
 }
