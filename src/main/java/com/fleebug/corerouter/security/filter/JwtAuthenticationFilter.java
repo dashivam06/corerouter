@@ -32,7 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = extractTokenFromRequest(request);
 
             if (token != null && jwtUtil.validateToken(token)) {
-                String email = jwtUtil.extractEmail(token);
+                String email = jwtUtil.extractEmailFromClaims(token);
 
                 log.debug("JWT validated for user: {}", email);
 

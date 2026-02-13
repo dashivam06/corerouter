@@ -49,7 +49,7 @@ public class JwtUtil {
      * Create JWT token with claims
      * 
      * @param claims token claims
-     * @param subject email subject
+     * @param subject userId subject
      * @return generated JWT token
      */
     private String createToken(Map<String, Object> claims, String subject) {
@@ -66,24 +66,12 @@ public class JwtUtil {
         
     }
 
-    /**
-     * Extract email/subject from JWT token
-     * 
-     * @param token JWT token
-     * @return email/subject from token
-     */
-    public String extractEmail(String token) {
-        return extractClaims(token).getSubject();
+    public String extractUserId(String token) {
+    return extractClaims(token).getSubject(); 
     }
 
-    /**
-     * Extract user ID from JWT token
-     * 
-     * @param token JWT token
-     * @return user ID from token
-     */
-    public Integer extractUserId(String token) {
-        return extractClaims(token).get("userId", Integer.class);
+    public String extractEmailFromClaims(String token) {
+        return extractClaims(token).get("email", String.class); 
     }
 
     /**
