@@ -12,7 +12,7 @@ import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.model.user.User;
 import com.fleebug.corerouter.repository.user.UserRepository;
-import com.fleebug.corerouter.security.jwt.JwtUtil;
+import com.fleebug.corerouter.service.token.TokenService;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +22,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
+    private final TokenService tokenService;
 
     /**
      * Register a new user with email and password
@@ -68,17 +68,7 @@ public class UserService {
         User savedUser = userRepository.save(user);
         log.info("User registered successfully with ID: {}", savedUser.getUserId());
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(savedUser.getUserId(), savedUser.getEmail(), savedUser.getUsername());
-
-        return AuthResponse.builder()
-                .userId(savedUser.getUserId())
-                .username(savedUser.getUsername())
-                .email(savedUser.getEmail())
-                .token(token)
-                .message("User registered successfully")
-                .success(true)
-                .build();
+        return tokenService.buildAuthResponse(savedUser);
     }
 
     /**
@@ -113,17 +103,7 @@ public class UserService {
 
         log.info("User logged in successfully. User ID: {}", user.getUserId());
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername());
-
-        return AuthResponse.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .token(token)
-                .message("Login successful")
-                .success(true)
-                .build();
+        return tokenService.buildAuthResponse(user);
     }
 
     /**
@@ -183,16 +163,7 @@ public class UserService {
         userRepository.save(user);
         log.info("Password changed successfully for user ID: {}", userId);
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername());
-
-        return AuthResponse.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .token(token)
-                .message("Password changed successfully")
-                .success(true)
-                .build();
+        return tokenService.buildAuthResponse(user);
     }
-}
+
+  }

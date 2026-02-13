@@ -2,7 +2,6 @@ package com.fleebug.corerouter.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +25,9 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
+    @Value("${jwt.refresh-expiration:604800000}")
+    private long refreshTokenExpirationMs;
+
     /**
      * Generate JWT token from user details
      * 
@@ -34,13 +36,13 @@ public class JwtUtil {
      * @param username username
      * @return generated JWT token
      */
-    public String generateToken(Integer userId, String email, String username) {
+    public String generateToken(Integer userId, String email, String username, String role) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", userId);
         claims.put("email", email);
         claims.put("username", username);
+        claims.put("role", role);
 
-        return createToken(claims, email);
+        return createToken(claims, userId.toString());
     }
 
     /**
@@ -55,12 +57,13 @@ public class JwtUtil {
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .claims(claims)
+                .subject(subject)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey() ,Jwts.SIG.HS512)
                 .compact();
+        
     }
 
     /**
@@ -101,10 +104,10 @@ public class JwtUtil {
      */
     private Claims extractClaims(String token) {
         return Jwts.parser()
-                .setSigningKey(getSigningKey())
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     /**
@@ -116,9 +119,10 @@ public class JwtUtil {
     public boolean validateToken(String token) {
         try {
             Jwts.parser()
-                    .setSigningKey(getSigningKey())
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token);
+                    .parseSignedClaims(token);
+
             return true;
         } catch (Exception e) {
             log.error("JWT token validation failed: {}", e.getMessage());
@@ -148,6 +152,39 @@ public class JwtUtil {
         } catch (Exception e) {
             log.error("Error checking token expiration: {}", e.getMessage());
             return true;
+        }
+    }
+
+    /**
+     * Generate refresh token with minimal claims
+     * 
+     * @param userId user ID
+     * @return generated refresh token
+     */
+    public String generateRefreshToken(Integer userId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshTokenExpirationMs);
+
+        return Jwts.builder()
+                .subject(userId.toString())
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey() ,Jwts.SIG.HS512)
+                .compact();
+    }
+
+    /**
+     * Get token expiration time in milliseconds
+     * 
+     * @param token JWT token
+     * @return expiration time in milliseconds from now
+     */
+    public Long getTokenExpirationTimeInMs(String token) {
+        try {
+            return extractClaims(token).getExpiration().getTime() - System.currentTimeMillis();
+        } catch (Exception e) {
+            log.error("Error getting token expiration time: {}", e.getMessage());
+            return 0L;
         }
     }
 }
