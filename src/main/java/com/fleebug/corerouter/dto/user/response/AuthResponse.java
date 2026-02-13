@@ -11,10 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AuthResponse {
 
-    private Integer userId;
-    private String username;
-    private String email;
-    private String token;
-    private String message;
-    private boolean success;
+    private String accessToken;
+    private String refreshToken;
+    private Long expiresIn;
 }
