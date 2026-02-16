@@ -29,5 +29,7 @@ public class UpdateModelRequest {
 
     private String endpointUrl;
 
+    private String description;
+
     private ModelStatus status;
 }

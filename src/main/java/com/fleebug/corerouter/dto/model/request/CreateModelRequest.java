@@ -37,6 +37,9 @@ public class CreateModelRequest {
     @NotBlank(message = "Endpoint URL cannot be blank")
     private String endpointUrl;
 
+    @Size(max = 500, message = "Description must not exceed 500 characters")
+    private String description;
+
     @NotNull(message = "Type cannot be null")
     private ModelType type;
 }

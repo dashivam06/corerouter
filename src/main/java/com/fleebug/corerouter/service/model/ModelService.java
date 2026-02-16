@@ -1,12 +1,16 @@
 package com.fleebug.corerouter.service.model;
 
+import com.fleebug.corerouter.dto.documentation.response.ApiDocumentationResponse;
 import com.fleebug.corerouter.dto.model.request.CreateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelRequest;
+import com.fleebug.corerouter.dto.model.response.ModelDetailsResponse;
 import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.enums.model.ModelStatus;
+import com.fleebug.corerouter.model.documentation.ApiDocumentation;
 import com.fleebug.corerouter.model.model.Model;
 import com.fleebug.corerouter.model.model.ModelStatusAudit;
 import com.fleebug.corerouter.model.user.User;
+import com.fleebug.corerouter.repository.documentation.ApiDocumentationRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.model.ModelStatusAuditRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,7 @@ public class ModelService {
 
     private final ModelRepository modelRepository;
     private final ModelStatusAuditRepository modelStatusAuditRepository;
+    private final ApiDocumentationRepository documentationRepository;
 
     /**
      * Create a new model (Admin only)
@@ -50,6 +55,7 @@ public class ModelService {
                 .pricePer1kTokens(createRequest.getPricePer1kTokens())
                 .status(ModelStatus.ACTIVE)
                 .endpointUrl(createRequest.getEndpointUrl())
+                .description(createRequest.getDescription())
                 .type(createRequest.getType())
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -111,6 +117,31 @@ public class ModelService {
     }
 
     /**
+     * Get model details with documentation
+     * 
+     * @param modelId Model ID
+     * @return Model details with documentation
+     */
+    @Transactional(readOnly = true)
+    public ModelDetailsResponse getModelDetailsWithDocumentation(Integer modelId) {
+        log.info("Fetching model details with documentation for ID: {}", modelId);
+        
+        Model model = modelRepository.findById(modelId)
+                .orElseThrow(() -> {
+                    log.warn("Model not found with ID: {}", modelId);
+                    return new IllegalArgumentException("Model not found");
+                });
+
+        // Fetch documentation for this model
+        List<ApiDocumentation> docs = documentationRepository.findByModel_ModelId(modelId);
+        List<ApiDocumentationResponse> docResponses = docs.stream()
+                .map(this::mapDocToResponse)
+                .collect(Collectors.toList());
+
+        return mapToDetailsResponse(model, docResponses);
+    }
+
+    /**
      * Update model details (Admin only)
      * 
      * @param modelId Model ID
@@ -146,6 +177,9 @@ public class ModelService {
         }
         if (updateRequest.getEndpointUrl() != null && !updateRequest.getEndpointUrl().isBlank()) {
             model.setEndpointUrl(updateRequest.getEndpointUrl());
+        }
+        if (updateRequest.getDescription() != null && !updateRequest.getDescription().isBlank()) {
+            model.setDescription(updateRequest.getDescription());
         }
         if (updateRequest.getStatus() != null) {
             model.setStatus(updateRequest.getStatus());
@@ -309,7 +343,7 @@ public class ModelService {
                 .model(model)
                 .oldStatus(previousStatus)
                 .newStatus(newStatus)
-                .changedBy(admin.getUsername())
+                .changedBy(admin.getFullName())
                 .reason(changeReason)
                 .changedAt(LocalDateTime.now())
                 .build();
@@ -354,8 +388,52 @@ public class ModelService {
                 .status(model.getStatus())
                 .endpointUrl(model.getEndpointUrl())
                 .type(model.getType())
+                .description(model.getDescription())
                 .createdAt(model.getCreatedAt())
                 .updatedAt(model.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map model entity to details response DTO with documentation
+     * 
+     * @param model Model entity
+     * @param documentation List of documentation responses
+     * @return ModelDetailsResponse
+     */
+    private ModelDetailsResponse mapToDetailsResponse(Model model, List<ApiDocumentationResponse> documentation) {
+        return ModelDetailsResponse.builder()
+                .modelId(model.getModelId())
+                .fullname(model.getFullname())
+                .username(model.getUsername())
+                .provider(model.getProvider())
+                .parameterCount(model.getParameterCount())
+                .pricePer1kTokens(model.getPricePer1kTokens())
+                .status(model.getStatus())
+                .endpointUrl(model.getEndpointUrl())
+                .type(model.getType())
+                .description(model.getDescription())
+                .createdAt(model.getCreatedAt())
+                .updatedAt(model.getUpdatedAt())
+                .documentation(documentation)
+                .build();
+    }
+
+    /**
+     * Map documentation entity to response DTO
+     * 
+     * @param doc Documentation entity
+     * @return ApiDocumentationResponse
+     */
+    private ApiDocumentationResponse mapDocToResponse(ApiDocumentation doc) {
+        return ApiDocumentationResponse.builder()
+                .docId(doc.getDocId())
+                .title(doc.getTitle())
+                .content(doc.getContent())
+                .modelId(doc.getModel().getModelId())
+                .modelName(doc.getModel().getFullname())
+                .createdAt(doc.getCreatedAt())
+                .updatedAt(doc.getUpdatedAt())
                 .build();
     }
 }

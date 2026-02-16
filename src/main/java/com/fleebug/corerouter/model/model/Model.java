@@ -56,6 +56,9 @@ public class Model {
     @Column(nullable = false, length = 500)
     private String endpointUrl;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

@@ -34,6 +34,8 @@ public class ModelResponse {
 
     private ModelType type;
 
+    private String description;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
