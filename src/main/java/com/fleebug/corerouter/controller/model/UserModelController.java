@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.controller.model;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.dto.model.response.ModelDetailsResponse;
 import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.service.model.ModelService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,25 +67,25 @@ public class UserModelController {
     }
 
     /**
-     * Get active model by ID (For users)
-     * Returns only if the model is ACTIVE
+     * Get active model by ID with documentation (For users)
+     * Returns model details with all associated documentation if ACTIVE
      * 
      * @param modelId Model ID
      * @param request HttpServletRequest for response metadata
-     * @return ResponseEntity with ApiResponse containing model details
+     * @return ResponseEntity with ApiResponse containing model details and documentation
      */
     @GetMapping("/{modelId}")
-    public ResponseEntity<ApiResponse<ModelResponse>> getModelById(
+    public ResponseEntity<ApiResponse<ModelDetailsResponse>> getModelById(
             @PathVariable Integer modelId,
             HttpServletRequest request) {
         try {
             log.info("User requesting model details for ID: {}", modelId);
-            ModelResponse model = modelService.getModelById(modelId);
+            ModelDetailsResponse model = modelService.getModelDetailsWithDocumentation(modelId);
             
             // Check if model is ACTIVE
             if (!"ACTIVE".equals(model.getStatus().toString())) {
                 log.warn("User attempted to access inactive model ID: {}", modelId);
-                ApiResponse<ModelResponse> response = ApiResponse.<ModelResponse>builder()
+                ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
                         .timestamp(LocalDateTime.now())
                         .status(HttpStatus.NOT_FOUND.value())
                         .success(false)
@@ -97,11 +98,11 @@ public class UserModelController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
             
-            ApiResponse<ModelResponse> response = ApiResponse.<ModelResponse>builder()
+            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
                     .timestamp(LocalDateTime.now())
                     .status(HttpStatus.OK.value())
                     .success(true)
-                    .message("Model retrieved successfully")
+                    .message("Model and documentation retrieved successfully")
                     .path(request.getRequestURI())
                     .method(request.getMethod())
                     .data(model)
@@ -110,7 +111,7 @@ public class UserModelController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             log.error("Model not found: {}", e.getMessage());
-            ApiResponse<ModelResponse> response = ApiResponse.<ModelResponse>builder()
+            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
                     .timestamp(LocalDateTime.now())
                     .status(HttpStatus.NOT_FOUND.value())
                     .success(false)
@@ -123,7 +124,7 @@ public class UserModelController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         } catch (Exception e) {
             log.error("Unexpected error while fetching model", e);
-            ApiResponse<ModelResponse> response = ApiResponse.<ModelResponse>builder()
+            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
                     .timestamp(LocalDateTime.now())
                     .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                     .success(false)
