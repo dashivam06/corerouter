@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -106,6 +107,9 @@ public class JwtUtil {
      */
     public boolean validateToken(String token) {
         try {
+            if (token != null && token.startsWith("Bearer ")) {
+                token =  token.substring(7).trim();
+            }
             Jwts.parser()
                     .verifyWith(getSigningKey())
                     .build()
