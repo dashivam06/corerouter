@@ -9,8 +9,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
+import com.fleebug.corerouter.dto.otp.RequestOtpRequest;
+import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
+import com.fleebug.corerouter.dto.otp.VerifyOtpRequest;
+import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
-import com.fleebug.corerouter.dto.user.request.RegisterRequest;
 import com.fleebug.corerouter.dto.user.request.RefreshTokenRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.service.token.TokenService;
@@ -27,55 +31,211 @@ public class UserController {
     private final TokenService tokenService;
 
     /**
-     * Register a new user
+     * Request OTP Process for Registration
      * 
-     * @param registerRequest contains username, email, profileImage, emailSubscribed, password and confirmPassword
-     * @param request HttpServletRequest to extract path and method
-     * @return ResponseEntity with ApiResponse containing AuthResponse
+     * User provides only email
+     * Server generates verificationId and sends OTP to email
+     * 
+     * @param requestOtpRequest contains email only
+     * @param servletRequest HttpServletRequest to extract path and method
+     * @return ResponseEntity with verificationId
      */
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest registerRequest, HttpServletRequest request) {
+    @PostMapping("/request-otp")
+    public ResponseEntity<ApiResponse<RequestOtpResponse>> requestOtp(
+            @Valid @RequestBody RequestOtpRequest requestOtpRequest,
+            HttpServletRequest servletRequest) {
         try {
-            log.info("Register endpoint called for email: {}", registerRequest.getEmail());
-            AuthResponse authResponse = userService.register(registerRequest);
+            log.info("STEP 1: OTP request received for email: {}", requestOtpRequest.getEmail());
             
-            ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+            RequestOtpResponse otpResponse = userService.requestOtp(requestOtpRequest.getEmail());
+            
+            ApiResponse<RequestOtpResponse> apiResponse = ApiResponse.<RequestOtpResponse>builder()
                     .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.CREATED.value())
+                    .status(HttpStatus.OK.value())
                     .success(true)
-                    .message("User registered successfully")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(authResponse)
+                    .message("OTP sent successfully. Proceed to verify-otp with the verification ID.")
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(otpResponse)
                     .build();
             
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            return ResponseEntity.ok(apiResponse);
         } catch (IllegalArgumentException e) {
-            log.error("Registration error: {}", e.getMessage());
-            ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+            log.error("STEP 1 error: {}", e.getMessage());
+            ApiResponse<RequestOtpResponse> apiResponse = ApiResponse.<RequestOtpResponse>builder()
                     .timestamp(LocalDateTime.now())
                     .status(HttpStatus.BAD_REQUEST.value())
                     .success(false)
                     .message(e.getMessage())
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
                     .data(null)
                     .build();
             
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
         } catch (Exception e) {
-            log.error("Unexpected error during registration", e);
-            ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+            log.error("Unexpected error during STEP 1", e);
+            ApiResponse<RequestOtpResponse> apiResponse = ApiResponse.<RequestOtpResponse>builder()
                     .timestamp(LocalDateTime.now())
                     .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                     .success(false)
                     .message("An unexpected error occurred")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
                     .data(null)
                     .build();
             
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+    }
+
+    /**
+     * Verify OTP Process for Registration
+     * 
+     * User provides verificationId (from step 1) + OTP code from email
+     * If valid, verificationId becomes proof token for step 3
+     * Does NOT create user account yet - only validates OTP
+     * 
+     * @param verifyOtpRequest contains verificationId and otp
+     * @param servletRequest HttpServletRequest to extract path and method
+     * @return ResponseEntity with VerifyOtpResponse
+     */
+    @PostMapping("/verify-otp")
+    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtp(
+            @Valid @RequestBody VerifyOtpRequest verifyOtpRequest,
+            HttpServletRequest servletRequest) {
+        try {
+            log.info("STEP 2: OTP verification request received for verificationId: {}", verifyOtpRequest.getVerificationId());
+            
+            var otpResponse = userService.verifyOtp(
+                    verifyOtpRequest.getVerificationId(),
+                    verifyOtpRequest.getOtp()
+            );
+            
+            // Transform OtpResponseDto to VerifyOtpResponse
+            VerifyOtpResponse response = VerifyOtpResponse.builder()
+                    .verificationId(otpResponse.getVerificationId())
+                    .message(otpResponse.getMessage())
+                    .verified(otpResponse.isVerified())
+                    .profileCompletionTtlMinutes(otpResponse.getProfileCompletionTtlMinutes())
+                    .build();
+            
+            ApiResponse<VerifyOtpResponse> apiResponse = ApiResponse.<VerifyOtpResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.OK.value())
+                    .success(true)
+                    .message("OTP verified successfully. Proceed to register with profile details.")
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(response)
+                    .build();
+            
+            return ResponseEntity.ok(apiResponse);
+        } catch (IllegalArgumentException e) {
+            log.error("STEP 2 error: {}", e.getMessage());
+            ApiResponse<VerifyOtpResponse> apiResponse = ApiResponse.<VerifyOtpResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .success(false)
+                    .message(e.getMessage())
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(null)
+                    .build();
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
+        } catch (Exception e) {
+            log.error("Unexpected error during STEP 2", e);
+            ApiResponse<VerifyOtpResponse> apiResponse = ApiResponse.<VerifyOtpResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .success(false)
+                    .message("An unexpected error occurred")
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(null)
+                    .build();
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        }
+    }
+
+    /**
+     * User Registration Process Finally
+     * 
+     * User provides verificationId (proof from step 2) + profile details
+     * Creates user account with fullName, password, and profileImage
+     * Returns authentication tokens (access + refresh)
+     * 
+     * @param finalRegistrationRequest contains verificationId, fullName, password, confirmPassword, profileImage, emailSubscribed
+     * @param servletRequest HttpServletRequest to extract path and method
+     * @return ResponseEntity with AuthResponse (tokenized)
+     */
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
+            @Valid @RequestBody FinalRegistrationRequest finalRegistrationRequest,
+            HttpServletRequest servletRequest) {
+        try {
+            log.info("STEP 3: Final registration request received for verificationId: {}", finalRegistrationRequest.getVerificationId());
+            
+            // Validate that passwords match
+            if (!finalRegistrationRequest.getPassword().equals(finalRegistrationRequest.getConfirmPassword())) {
+                log.warn("STEP 3 error: Passwords do not match");
+                ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .success(false)
+                        .message("Passwords do not match")
+                        .path(servletRequest.getRequestURI())
+                        .method(servletRequest.getMethod())
+                        .data(null)
+                        .build();
+                
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
+            }
+            
+            AuthResponse response = userService.finalRegister(
+                    finalRegistrationRequest.getVerificationId(),
+                    finalRegistrationRequest
+            );
+            
+            ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.CREATED.value())
+                    .success(true)
+                    .message("User registered successfully. You are now logged in.")
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(response)
+                    .build();
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        } catch (IllegalArgumentException e) {
+            log.error("STEP 3 error: {}", e.getMessage());
+            ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.BAD_REQUEST.value())
+                    .success(false)
+                    .message(e.getMessage())
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(null)
+                    .build();
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
+        } catch (Exception e) {
+            log.error("Unexpected error during STEP 3", e);
+            ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .success(false)
+                    .message("An unexpected error occurred")
+                    .path(servletRequest.getRequestURI())
+                    .method(servletRequest.getMethod())
+                    .data(null)
+                    .build();
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
         }
     }
 
