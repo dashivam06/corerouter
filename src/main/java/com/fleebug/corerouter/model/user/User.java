@@ -21,9 +21,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer userId;
 
-    @NotBlank(message = "Username is required")
-    @Column(nullable = false, length = 50)
-    private String username;
+    @NotBlank(message = "Full name is required")
+    @Column(nullable = false, length = 100)
+    private String fullName;
 
     @Email(message = "Invalid email")
     @NotBlank(message = "Email is required")

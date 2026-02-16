@@ -35,7 +35,7 @@ public class TokenService {
         log.info("Building auth response for user ID: {}", user.getUserId());
         
         // Generate access token
-        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername(), user.getRole().toString());
+        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
         Long accessTokenExpiresIn = jwtUtil.getTokenExpirationTimeInMs(accessToken);
         
         // Save access token to UserToken table
@@ -138,7 +138,7 @@ public class TokenService {
      */
     public String generateAccessToken(User user) {
         log.info("Generating access token for user ID: {}", user.getUserId());
-        return jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getUsername(), user.getRole().toString());
+        return jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
     }
 
     /**

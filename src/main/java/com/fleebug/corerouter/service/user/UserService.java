@@ -1,17 +1,21 @@
 package com.fleebug.corerouter.service.user;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
+import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
+import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
-import com.fleebug.corerouter.dto.user.request.RegisterRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.model.user.User;
 import com.fleebug.corerouter.repository.user.UserRepository;
+import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
 
 @Service
@@ -23,52 +27,138 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
+    private final OtpService otpService;
 
     /**
-     * Register a new user with email and password
+     * Step 1: Request OTP for user registration
      * 
-     * @param registerRequest contains username, email, password and confirmPassword
-     * @return AuthResponse with user details and success status
-     * @throws IllegalArgumentException if email already exists or passwords don't match
+     * Takes only email address, validates it's not already registered,
+     * generates and sends OTP, returns verificationId for next step.
+     * 
+     * Security Model:
+     * - OTP Validity: 5 minutes
+     * - Max Verify Attempts: 5
+     * 
+     * @param email Email address to request OTP for
+     * @return RequestOtpResponse with verificationId
+     * @throws IllegalArgumentException if email already exists or validation fails
      */
-    public AuthResponse register(RegisterRequest registerRequest) {
-        log.info("Attempting to register user with email: {}", registerRequest.getEmail());
+    public RequestOtpResponse requestOtp(String email) {
+        log.info("OTP request for registration with email: {}", email);
 
-        // Validate passwords match
-        if (!registerRequest.getPassword().equals(registerRequest.getConfirmPassword())) {
-            log.warn("Password mismatch during registration for email: {}", registerRequest.getEmail());
-            throw new IllegalArgumentException("Passwords do not match");
-        }
-
-        // Check if email already exists
-        if (userRepository.existsByEmail(registerRequest.getEmail())) {
-            log.warn("Registration failed - email already exists: {}", registerRequest.getEmail());
+        // Validate email is not already registered
+        if (userRepository.existsByEmail(email)) {
+            log.warn("OTP request failed - email already exists: {}", email);
             throw new IllegalArgumentException("Email already registered");
         }
 
-        // Check if username already exists
-        if (userRepository.existsByUsername(registerRequest.getUsername())) {
-            log.warn("Registration failed - username already exists: {}", registerRequest.getUsername());
-            throw new IllegalArgumentException("Username already taken");
+        log.info("Email validation passed. Proceeding with OTP generation for: {}", email);
+
+        try {
+            String verificationId = otpService.requestOtp(email);
+            log.info("OTP sent successfully to email: {}. VerificationId: {}", email, verificationId);
+            
+            return RequestOtpResponse.builder()
+                    .verificationId(verificationId)
+                    .message("OTP sent to " + email)
+                    .ttlMinutes(5)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            log.error("OTP request failed for email: {}", email, e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to generate OTP for email: {}", email, e);
+            throw new IllegalArgumentException("Failed to send OTP: " + e.getMessage());
         }
+    }
 
-        // Hash password using BCrypt
-        String hashedPassword = passwordEncoder.encode(registerRequest.getPassword());
+    /**
+     * Step 2: Verify OTP
+     * 
+     * Takes verificationId and OTP, validates OTP matches the verificationId,
+     * returns verification status for profile completion.
+     * Does NOT create user yet - user creation happens in finalRegister().
+     * 
+     * @param verificationId Verification ID from Step 1 response
+     * @param otp OTP from email
+     * @return VerifyOtpResponse with verified status and verificationId
+     * @throws IllegalArgumentException if OTP is invalid or expired
+     */
+    public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
+        log.info("Verifying OTP with verificationId: {}", verificationId);
 
-        // Create new user
-        User user = User.builder()
-                .username(registerRequest.getUsername())
-                .email(registerRequest.getEmail())
-                .password(hashedPassword)
-                .profileImage(registerRequest.getProfileImage())
-                .emailSubscribed(registerRequest.isEmailSubscribed())
-                .status(UserStatus.ACTIVE)
-                .build();
+        try {
+            String email = otpService.validateOtp(verificationId, otp);
+            log.info("OTP verified successfully for verificationId: {}. Email: {}", verificationId, email);
 
-        User savedUser = userRepository.save(user);
-        log.info("User registered successfully with ID: {}", savedUser.getUserId());
+            return VerifyOtpResponse.builder()
+                    .verificationId(verificationId)
+                    .message("OTP verified successfully. Complete your profile within 20 minutes.")
+                    .verified(true)
+                    .profileCompletionTtlMinutes(20)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            log.error("OTP verification failed for verificationId: {}", verificationId, e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during OTP verification for verificationId: {}", verificationId, e);
+            throw new IllegalArgumentException("Failed to verify OTP: " + e.getMessage());
+        }
+    }
 
-        return tokenService.buildAuthResponse(savedUser);
+    /**
+     * Step 3: Final registration - creates user after OTP verification
+     * 
+     * Takes verified verificationId and profile data, creates user with provided information.
+     * Validates that verificationId is verified, retrieves email, creates user, and returns tokens.
+     * 
+     * @param verificationId Verified verificationId from Step 2
+     * @param finalRequest Contains profile data (fullName, password, profileImage, emailSubscribed)
+     * @return AuthResponse with tokens and user details
+     * @throws IllegalArgumentException if verificationId not verified or user creation fails
+     */
+    public AuthResponse finalRegister(String verificationId, FinalRegistrationRequest finalRequest) {
+        log.info("Final registration initiated for verificationId: {}", verificationId);
+
+        try {
+            // Step 1: Verify that the verificationId is verified
+            if (!otpService.isVerified(verificationId)) {
+                log.error("Final registration failed - verificationId not verified: {}", verificationId);
+                throw new IllegalArgumentException("Verification not completed. Please verify OTP first.");
+            }
+
+            // Step 2: Get email from verificationId
+            String email = otpService.getEmail(verificationId);
+            log.info("Retrieved email for verificationId: {}, email: {}", verificationId, email);
+
+            // Step 3: Hash password using BCrypt
+            String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
+
+            // Step 4: Create new user with profile data
+            User user = User.builder()
+                    .fullName(finalRequest.getFullName())
+                    .email(email)
+                    .password(hashedPassword)
+                    .profileImage(finalRequest.getProfileImage())
+                    .emailSubscribed(finalRequest.isEmailSubscribed())
+                    .status(UserStatus.ACTIVE)
+                    .build();
+
+            User savedUser = userRepository.save(user);
+            log.info("User registered successfully via verification flow. User ID: {}", savedUser.getUserId());
+
+            // Step 5: Cleanup verification data from Redis
+            otpService.cleanupVerification(verificationId);
+            log.info("Verification cleanup completed for verificationId: {}", verificationId);
+
+            return tokenService.buildAuthResponse(savedUser);
+        } catch (IllegalArgumentException e) {
+            log.error("Final registration failed for verificationId: {}", verificationId, e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during final registration for verificationId: {}", verificationId, e);
+            throw new IllegalArgumentException("Failed to complete registration: " + e.getMessage());
+        }
     }
 
     /**
