@@ -98,7 +98,7 @@ public class OtpService {
         log.debug("Initialized attempts counter: {}", attemptsKey);
 
         // Publish to email queue
-        publishOtpToQueue(email, otp);
+        publishOtpToQueue(email, otp, otpTtlMinutes);
 
         log.info("OTP_REQUEST_SUCCESS | Email: {} | VerificationId: {} | RemainingRequests: {}", 
                 email, verificationId, maxRequestsPerEmailPerHour - newCount);
@@ -222,11 +222,11 @@ public class OtpService {
     /**
      * Publish OTP to email queue
      */
-    private void publishOtpToQueue(String email, String otp) {
+    private void publishOtpToQueue(String email, String otp, long otpTtlMinutes) {
         try {
             String message = String.format(
-                    "{\"email\":\"%s\",\"otp\":\"%s\",\"type\":\"OTP_VERIFICATION\",\"timestamp\":%d}",
-                    email, otp, System.currentTimeMillis()
+                    "{\"email\":\"%s\",\"otp\":\"%s\",\"type\":\"OTP_VERIFICATION\",\"timestamp\":%d,\"otpTtlMinutes\":%d}",
+                    email, otp, System.currentTimeMillis(), otpTtlMinutes
             );
             
             redisService.publishToQueue(EMAIL_QUEUE_NAME, message);
