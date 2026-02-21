@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fleebug.corerouter.security.encryption.MessageEncryption;
 import com.fleebug.corerouter.service.redis.RedisService;
 
 import java.util.Random;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 public class OtpService {
 
     private final RedisService redisService;
+    private final MessageEncryption messageEncryption;
 
     @Value("${otp.length:6}")
     private int otpLength;
@@ -79,12 +81,14 @@ public class OtpService {
         // Generate verificationId (UUID) and OTP
         String verificationId = UUID.randomUUID().toString();
         String otp = generateOtp();
+
+        String encryptedOtp = messageEncryption.encrypt(otp);
         
         log.info("OTP_GENERATED | VerificationId: {} | Email: {}", verificationId, email);
 
         // Store OTP with TTL (5 minutes)
         String otpKey = OTP_KEY_PREFIX + verificationId;
-        redisService.saveToCache(otpKey, otp, otpTtlMinutes, TimeUnit.MINUTES);
+        redisService.saveToCache(otpKey, encryptedOtp, otpTtlMinutes, TimeUnit.MINUTES);
         log.debug("Stored OTP key: {}", otpKey);
 
         // Store email mapping with TTL (5 minutes)
@@ -129,13 +133,15 @@ public class OtpService {
         String otpKey = OTP_KEY_PREFIX + verificationId;
         String cachedOtp = redisService.getFromCache(otpKey);
 
-        if (cachedOtp == null) {
+        String decryptedOtp = messageEncryption.decrypt(cachedOtp);
+
+        if (decryptedOtp == null) {
             log.warn("OTP not found or expired for verificationId: {}", verificationId);
             throw new IllegalArgumentException("OTP has expired. Please request a new one.");
         }
 
         // Validate OTP
-        if (!cachedOtp.equals(otp)) {
+        if (!decryptedOtp.equals(otp)) {
             log.warn("Invalid OTP attempt for verificationId: {}", verificationId);
             redisService.incrementCounter(attemptsKey);
             long remainingAttempts = maxAttempts - attempts - 1;
@@ -229,8 +235,11 @@ public class OtpService {
                     email, otp, System.currentTimeMillis(), otpTtlMinutes
             );
             
-            redisService.publishToQueue(EMAIL_QUEUE_NAME, message);
-            log.info("OTP published to queue for email: {}", email);
+            // Encrypt message before publishing
+            String encryptedMessage = messageEncryption.encrypt(message);
+            
+            redisService.publishToQueue(EMAIL_QUEUE_NAME, encryptedMessage);
+            log.info("OTP published to queue for email: {} (encrypted)", email);
         } catch (Exception e) {
             log.error("Failed to publish OTP to queue for email: {}", email, e);
             throw new RuntimeException("Failed to queue email", e);
