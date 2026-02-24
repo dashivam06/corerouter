@@ -1,10 +1,11 @@
 package com.fleebug.corerouter.repository.health;
 
 
-import com.fleebug.corerouter.model.health.*;
-import com.fleebug.corerouter.model.model.Model;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.health.*;
+import com.fleebug.corerouter.entity.model.Model;
 
 import java.util.List;
 

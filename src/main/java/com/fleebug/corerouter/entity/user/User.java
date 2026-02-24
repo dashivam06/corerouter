@@ -1,4 +1,4 @@
-package com.fleebug.corerouter.model.user;
+package com.fleebug.corerouter.entity.user;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;

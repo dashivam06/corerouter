@@ -1,8 +1,8 @@
-package com.fleebug.corerouter.model.documentation;
+package com.fleebug.corerouter.entity.documentation;
 
 import java.time.LocalDateTime;
 
-import com.fleebug.corerouter.model.model.Model;
+import com.fleebug.corerouter.entity.model.Model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

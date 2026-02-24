@@ -1,8 +1,8 @@
-package com.fleebug.corerouter.model.apikey;
+package com.fleebug.corerouter.entity.model;
 
 import java.time.LocalDateTime;
-import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
-import com.fleebug.corerouter.model.user.User;
+
+import com.fleebug.corerouter.enums.model.ModelStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,7 +12,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -23,47 +22,37 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(
-    name = "api_keys",
-    indexes = {
-        @Index(name = "idx_api_key_key", columnList = "key")
-    }
-)
+@Table(name = "model_status_audit")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ApiKey {
+public class ModelStatusAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer apiKeyId;
+    private Long auditId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Column(nullable = false, length = 255, unique = true)
-    private String key;
-
-    @Column(length = 255)
-    private String description;
-
-    @Column(nullable = false)
-    private Integer dailyLimit;
-
-    @Column(nullable = false)
-    private Integer monthlyLimit;
+    @JoinColumn(name = "model_id", nullable = false)
+    private Model model;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Builder.Default
-    private ApiKeyStatus status = ApiKeyStatus.ACTIVE;
+    private ModelStatus oldStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ModelStatus newStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String reason;
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime changedAt = LocalDateTime.now();
 
-    @Column
-    private LocalDateTime lastUsedAt;
+    @Column(length = 50)
+    private String changedBy; // Admin or system user
 }

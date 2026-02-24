@@ -1,10 +1,11 @@
 package com.fleebug.corerouter.repository.payment;
 
-import com.fleebug.corerouter.model.payment.Payment;
-import com.fleebug.corerouter.model.user.User;
-import com.fleebug.corerouter.model.request.Request;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.payment.Payment;
+import com.fleebug.corerouter.entity.request.Request;
+import com.fleebug.corerouter.entity.user.User;
 
 import java.util.List;
 

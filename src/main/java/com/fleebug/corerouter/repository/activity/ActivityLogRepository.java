@@ -1,9 +1,10 @@
 package com.fleebug.corerouter.repository.activity;
 
-import com.fleebug.corerouter.model.activity.ActivityLog;
-import com.fleebug.corerouter.model.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.activity.ActivityLog;
+import com.fleebug.corerouter.entity.user.User;
 
 import java.util.List;
 import java.time.LocalDateTime;

@@ -6,7 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.fleebug.corerouter.model.user.User;
+import com.fleebug.corerouter.entity.user.User;
 
 import java.util.Collection;
 import java.util.Collections;

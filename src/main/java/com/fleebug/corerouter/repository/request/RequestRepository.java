@@ -1,9 +1,10 @@
 package com.fleebug.corerouter.repository.request;
 
-import com.fleebug.corerouter.model.request.Request;
-import com.fleebug.corerouter.model.apikey.ApiKey;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.apikey.ApiKey;
+import com.fleebug.corerouter.entity.request.Request;
 
 import java.util.List;
 

@@ -1,7 +1,9 @@
-package com.fleebug.corerouter.model.user;
+package com.fleebug.corerouter.entity.apikey;
 
 import java.time.LocalDateTime;
-import com.fleebug.corerouter.enums.user.UserStatus;
+
+import com.fleebug.corerouter.entity.user.User;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,6 +13,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -21,37 +24,47 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_status_audit")
+@Table(
+    name = "api_keys",
+    indexes = {
+        @Index(name = "idx_api_key_key", columnList = "key")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserStatusAudit {
+public class ApiKey {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long auditId;
+    private Integer apiKeyId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private UserStatus oldStatus;
+    @Column(nullable = false, length = 255, unique = true)
+    private String key;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private UserStatus newStatus;
-
-    @Column(columnDefinition = "TEXT")
-    private String reason;
+    @Column(length = 255)
+    private String description;
 
     @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime changedAt = LocalDateTime.now();
+    private Integer dailyLimit;
 
-    @Column(length = 50)
-    private String changedBy; // Admin or system user who triggered the change
+    @Column(nullable = false)
+    private Integer monthlyLimit;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ApiKeyStatus status = ApiKeyStatus.ACTIVE;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column
+    private LocalDateTime lastUsedAt;
 }

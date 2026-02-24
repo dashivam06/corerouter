@@ -1,8 +1,9 @@
 package com.fleebug.corerouter.repository.documentation;
 
-import com.fleebug.corerouter.model.documentation.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.documentation.*;
 
 import java.util.List;
 

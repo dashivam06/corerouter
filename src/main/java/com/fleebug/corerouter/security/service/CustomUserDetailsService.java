@@ -7,7 +7,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.fleebug.corerouter.model.user.User;
+import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 

@@ -1,13 +1,11 @@
-package com.fleebug.corerouter.model.model;
+package com.fleebug.corerouter.entity.activity;
 
 import java.time.LocalDateTime;
 
-import com.fleebug.corerouter.enums.model.ModelStatus;
+import com.fleebug.corerouter.entity.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,37 +20,31 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "model_status_audit")
+@Table(name = "activity_log")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ModelStatusAudit {
+public class ActivityLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long auditId;
+    private Integer activityId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "model_id", nullable = false)
-    private Model model;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ModelStatus oldStatus;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ModelStatus newStatus;
+    @Column(nullable = false, length = 100)
+    private String action;
 
     @Column(columnDefinition = "TEXT")
-    private String reason;
+    private String details;
+
+    @Column(nullable = false, length = 45)
+    private String ipAddress;
 
     @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime changedAt = LocalDateTime.now();
-
-    @Column(length = 50)
-    private String changedBy; // Admin or system user
+    private LocalDateTime createdAt;
 }

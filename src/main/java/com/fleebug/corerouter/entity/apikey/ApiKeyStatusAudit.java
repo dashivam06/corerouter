@@ -1,4 +1,4 @@
-package com.fleebug.corerouter.model.apikey;
+package com.fleebug.corerouter.entity.apikey;
 
 import java.time.LocalDateTime;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;

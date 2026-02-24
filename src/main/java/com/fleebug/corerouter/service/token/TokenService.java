@@ -1,9 +1,9 @@
 package com.fleebug.corerouter.service.token;
 
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
+import com.fleebug.corerouter.entity.token.UserToken;
+import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.token.TokenType;
-import com.fleebug.corerouter.model.token.UserToken;
-import com.fleebug.corerouter.model.user.User;
 import com.fleebug.corerouter.repository.token.UserTokenRepository;
 import com.fleebug.corerouter.security.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;

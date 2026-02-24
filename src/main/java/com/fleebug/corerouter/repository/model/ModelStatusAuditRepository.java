@@ -1,8 +1,9 @@
 package com.fleebug.corerouter.repository.model;
 
-import com.fleebug.corerouter.model.model.ModelStatusAudit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.fleebug.corerouter.entity.model.ModelStatusAudit;
 
 import java.util.List;
 

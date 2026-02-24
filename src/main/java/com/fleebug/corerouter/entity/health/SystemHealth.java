@@ -1,11 +1,9 @@
-package com.fleebug.corerouter.model.token;
+package com.fleebug.corerouter.entity.health;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Id;
-
-import com.fleebug.corerouter.enums.token.TokenType;
-import com.fleebug.corerouter.model.user.User;
+import com.fleebug.corerouter.entity.model.Model;
+import com.fleebug.corerouter.enums.health.HealthStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +12,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -24,43 +23,44 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_tokens")
+@Table(name = "system_health")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserToken {
+public class SystemHealth {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long tokenId;
+    private Integer healthId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "model_id", nullable = false)
+    private Model model;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private TokenType tokenType;
+    private HealthStatus status;
 
-    @Column(nullable = false, length = 500)
-    private String tokenValue;
+    @Column(nullable = false)
+    private Integer queueLength;
 
-    @Column(nullable = false, length = 50)
-    private String provider;
+    @Column(nullable = false)
+    private Integer concurrencyLevel;
 
     @Column(length = 500)
-    private String scopes;
+    private String description;
+
+    @Column
+    private Double cpuUsage; // percentage, optional
+
+    @Column
+    private Double memoryUsage; // percentage, optional
+
+    @Column
+    private Long lastResponseTime; // in milliseconds, optional
 
     @Column(nullable = false)
-    private LocalDateTime issuedAt;
-
-    @Column(nullable = false)
-    private LocalDateTime expiresAt;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean revoked = false;
-
+    private LocalDateTime checkedAt;
 }

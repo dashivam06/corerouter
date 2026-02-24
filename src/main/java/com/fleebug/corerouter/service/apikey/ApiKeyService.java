@@ -8,9 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fleebug.corerouter.dto.apikey.request.CreateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.request.UpdateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
+import com.fleebug.corerouter.entity.apikey.ApiKey;
+import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
-import com.fleebug.corerouter.model.apikey.ApiKey;
-import com.fleebug.corerouter.model.user.User;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
 
 import java.time.LocalDateTime;

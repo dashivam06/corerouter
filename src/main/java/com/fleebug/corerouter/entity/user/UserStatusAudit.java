@@ -1,9 +1,7 @@
-package com.fleebug.corerouter.model.health;
+package com.fleebug.corerouter.entity.user;
 
 import java.time.LocalDateTime;
-
-import com.fleebug.corerouter.enums.health.HealthStatus;
-import com.fleebug.corerouter.model.model.Model;
+import com.fleebug.corerouter.enums.user.UserStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,44 +21,37 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "system_health")
+@Table(name = "user_status_audit")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SystemHealth {
+public class UserStatusAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer healthId;
+    private Long auditId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "model_id", nullable = false)
-    private Model model;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private HealthStatus status;
+    private UserStatus oldStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus newStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String reason;
 
     @Column(nullable = false)
-    private Integer queueLength;
+    @Builder.Default
+    private LocalDateTime changedAt = LocalDateTime.now();
 
-    @Column(nullable = false)
-    private Integer concurrencyLevel;
-
-    @Column(length = 500)
-    private String description;
-
-    @Column
-    private Double cpuUsage; // percentage, optional
-
-    @Column
-    private Double memoryUsage; // percentage, optional
-
-    @Column
-    private Long lastResponseTime; // in milliseconds, optional
-
-    @Column(nullable = false)
-    private LocalDateTime checkedAt;
+    @Column(length = 50)
+    private String changedBy; // Admin or system user who triggered the change
 }

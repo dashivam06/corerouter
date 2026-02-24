@@ -4,8 +4,8 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.enums.model.ModelStatus;
-import com.fleebug.corerouter.model.model.Model;
 
 import java.util.List;
 

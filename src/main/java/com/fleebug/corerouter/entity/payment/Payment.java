@@ -1,14 +1,14 @@
-package com.fleebug.corerouter.model.payment;
+package com.fleebug.corerouter.entity.payment;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Id;
 
+import com.fleebug.corerouter.entity.request.Request;
+import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.payment.PaymentStatus;
 import com.fleebug.corerouter.enums.payment.PaymentType;
-import com.fleebug.corerouter.model.request.Request;
-import com.fleebug.corerouter.model.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
