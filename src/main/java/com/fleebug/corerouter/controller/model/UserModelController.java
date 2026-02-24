@@ -26,115 +26,47 @@ public class UserModelController {
 
     private final ModelService modelService;
 
-    /**
-     * Get all active models (For users)
-     * Returns only ACTIVE models that users can interact with
-     * 
-     * @param request HttpServletRequest for response metadata
-     * @return ResponseEntity with ApiResponse containing list of active models
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getActiveModels(HttpServletRequest request) {
-        try {
-            log.info("User requesting active models list");
-            List<ModelResponse> models = modelService.getActiveModels();
-            
-            ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
-                    .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.OK.value())
-                    .success(true)
-                    .message("Active models retrieved successfully")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(models)
-                    .build();
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Unexpected error while fetching active models", e);
-            ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
-                    .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                    .success(false)
-                    .message("An unexpected error occurred")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+        log.info("User requesting active models list");
+        List<ModelResponse> models = modelService.getActiveModels();
+        
+        ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.OK.value())
+                .success(true)
+                .message("Active models retrieved successfully")
+                .path(request.getRequestURI())
+                .method(request.getMethod())
+                .data(models)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 
-    /**
-     * Get active model by ID with documentation (For users)
-     * Returns model details with all associated documentation if ACTIVE
-     * 
-     * @param modelId Model ID
-     * @param request HttpServletRequest for response metadata
-     * @return ResponseEntity with ApiResponse containing model details and documentation
-     */
     @GetMapping("/{modelId}")
     public ResponseEntity<ApiResponse<ModelDetailsResponse>> getModelById(
             @PathVariable Integer modelId,
             HttpServletRequest request) {
-        try {
-            log.info("User requesting model details for ID: {}", modelId);
-            ModelDetailsResponse model = modelService.getModelDetailsWithDocumentation(modelId);
-            
-            // Check if model is ACTIVE
-            if (!"ACTIVE".equals(model.getStatus().toString())) {
-                log.warn("User attempted to access inactive model ID: {}", modelId);
-                ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
-                        .timestamp(LocalDateTime.now())
-                        .status(HttpStatus.NOT_FOUND.value())
-                        .success(false)
-                        .message("Model not found or is not available")
-                        .path(request.getRequestURI())
-                        .method(request.getMethod())
-                        .data(null)
-                        .build();
-                
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-            }
-            
-            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
-                    .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.OK.value())
-                    .success(true)
-                    .message("Model and documentation retrieved successfully")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(model)
-                    .build();
-            
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            log.error("Model not found: {}", e.getMessage());
-            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
-                    .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.NOT_FOUND.value())
-                    .success(false)
-                    .message("Model not found")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        } catch (Exception e) {
-            log.error("Unexpected error while fetching model", e);
-            ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
-                    .timestamp(LocalDateTime.now())
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                    .success(false)
-                    .message("An unexpected error occurred")
-                    .path(request.getRequestURI())
-                    .method(request.getMethod())
-                    .data(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        log.info("User requesting model details for ID: {}", modelId);
+        ModelDetailsResponse model = modelService.getModelDetailsWithDocumentation(modelId);
+        
+        // Check if model is ACTIVE
+        if (!"ACTIVE".equals(model.getStatus().toString())) {
+            log.warn("User attempted to access inactive model ID: {}", modelId);
+            throw new IllegalArgumentException("Model not found or is not available");
         }
+        
+        ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.OK.value())
+                .success(true)
+                .message("Model and documentation retrieved successfully")
+                .path(request.getRequestURI())
+                .method(request.getMethod())
+                .data(model)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 }
