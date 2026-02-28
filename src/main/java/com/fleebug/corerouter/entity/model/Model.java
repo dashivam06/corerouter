@@ -1,6 +1,5 @@
 package com.fleebug.corerouter.entity.model;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Id;
@@ -21,50 +20,46 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+
+
 @Entity
 @Table(name = "models")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Model {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer modelId;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, unique = true)
     private String fullname;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String provider;
 
-    @Column
-    private String parameterCount;
-
-    @Column(nullable = false, precision = 10, scale = 4)
-    private BigDecimal pricePer1kTokens;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ModelType type;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private ModelStatus status;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false)
     private String endpointUrl;
 
-    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
+    @Column(columnDefinition = "jsonb")
+    private String metadata;
+
     private LocalDateTime createdAt;
-
-    @Column
     private LocalDateTime updatedAt;
-
-    @Column(length = 50)
-    private ModelType type; 
 }
