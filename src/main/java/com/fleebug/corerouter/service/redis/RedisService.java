@@ -2,10 +2,13 @@ package com.fleebug.corerouter.service.redis;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -180,6 +183,26 @@ public class RedisService {
         } catch (Exception e) {
             log.error("Error setting counter with TTL. Key: {}", key, e);
             throw new RuntimeException("Failed to set counter: " + key, e);
+        }
+    }
+
+    /**
+     * Append a record to a Redis Stream.
+     *
+     * @param streamKey The stream key (e.g. "stream:tasks")
+     * @param fields    The entry fields
+     */
+    public void appendToStream(String streamKey, Map<String, String> fields) {
+        try {
+            MapRecord<String, String, String> record = StreamRecords
+                    .mapBacked(fields)
+                    .withStreamKey(streamKey);
+
+            stringRedisTemplate.opsForStream().add(record);
+            log.info("Appended record to Redis Stream '{}' with fields={}", streamKey, fields.keySet());
+        } catch (Exception e) {
+            log.error("Failed to append record to Redis Stream '{}'", streamKey, e);
+            throw new RuntimeException("Failed to append record to Redis Stream", e);
         }
     }
 }
