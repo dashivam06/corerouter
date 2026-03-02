@@ -34,7 +34,7 @@ public class ModelDetailsResponse {
     @Schema(
         description = "Display name of the model",
         requiredMode = RequiredMode.REQUIRED,
-        example = "GPT-4",
+        example = "MISTRAL-7B",
         maxLength = 255
     )
     private String fullname;
@@ -42,42 +42,24 @@ public class ModelDetailsResponse {
     @Schema(
         description = "Unique identifier/slug for the model",
         requiredMode = RequiredMode.REQUIRED,
-        example = "gpt4"
+        example = "mistral7b"
     )
     private String username;
 
     @Schema(
         description = "AI service provider",
         requiredMode = RequiredMode.REQUIRED,
-        example = "OpenAI"
+        example = "MISTRAL"
     )
     private String provider;
 
-    @Schema(
-        description = "Total number of model parameters",
-        example = "175B"
-    )
-    private String parameterCount;
-
-    @Schema(
-        description = "Pricing in USD per 1000 tokens",
-        requiredMode = RequiredMode.REQUIRED,
-        example = "0.03"
-    )
-    private BigDecimal pricePer1kTokens;
-
-    @Schema(
-        description = "Current status of the model",
-        requiredMode = RequiredMode.REQUIRED,
-        example = "ACTIVE",
-        enumAsRef = true
-    )
+    @Schema(description = "Current status", example = "ACTIVE")
     private ModelStatus status;
 
     @Schema(
         description = "API endpoint URL for requests",
         requiredMode = RequiredMode.REQUIRED,
-        example = "https://api.openai.com/v1/chat/completions"
+        example = "https://api.mistral.com/v1/chat/completions"
     )
     private String endpointUrl;
 

@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface ModelRepository extends JpaRepository<Model, Integer> {
 
+    Optional<Model> findByUsername(String username);
+
     Optional<Model> findByFullname(String fullname);
 
     boolean existsByFullname(String fullname);

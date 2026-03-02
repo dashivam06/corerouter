@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -19,7 +18,7 @@ import java.time.LocalDateTime;
 @Schema(
     title = "Model Response",
     description = "Contains detailed information about a single AI model including configuration, pricing, and metadata.",
-    example = "{\"modelId\": 1, \"fullname\": \"GPT-4\", \"username\": \"gpt4\", \"provider\": \"OpenAI\", \"parameterCount\": \"175B\", \"pricePer1kTokens\": 0.03, \"status\": \"ACTIVE\", \"endpointUrl\": \"https://api.openai.com/v1/chat/completions\", \"type\": \"LLM\", \"description\": \"Most capable model\", \"createdAt\": \"2024-01-15T10:30:00Z\", \"updatedAt\": \"2024-02-22T14:20:00Z\"}"
+    example = "{\"modelId\": 1, \"fullname\": \"MISTRAL-7B\", \"username\": \"mistral7b\", \"provider\": \"MISTRAL\", \"parameterCount\": \"175B\", \"pricePer1kTokens\": 0.03, \"status\": \"ACTIVE\", \"endpointUrl\": \"https://api.mistral.com/v1/chat/completions\", \"type\": \"LLM\", \"description\": \"Most capable model\", \"createdAt\": \"2024-01-15T10:30:00Z\", \"updatedAt\": \"2024-02-22T14:20:00Z\"}"
 )
 public class ModelResponse {
 
@@ -33,7 +32,7 @@ public class ModelResponse {
     @Schema(
         description = "Display name of the model",
         requiredMode = RequiredMode.REQUIRED,
-        example = "GPT-4",
+        example = "MISTRAL-7B",
         maxLength = 255
     )
     private String fullname;
@@ -41,7 +40,7 @@ public class ModelResponse {
     @Schema(
         description = "Unique identifier/slug for the model used in URLs",
         requiredMode = RequiredMode.REQUIRED,
-        example = "gpt4",
+        example = "mistral7b",
         maxLength = 255
     )
     private String username;
@@ -49,39 +48,18 @@ public class ModelResponse {
     @Schema(
         description = "AI service provider name",
         requiredMode = RequiredMode.REQUIRED,
-        example = "OpenAI",
+        example = "MISTRAL",
         maxLength = 255
     )
     private String provider;
 
-    @Schema(
-        description = "Total number of model parameters",
-        example = "175B",
-        maxLength = 50
-    )
-    private String parameterCount;
-
-    @Schema(
-        description = "Pricing in USD per 1000 tokens",
-        requiredMode = RequiredMode.REQUIRED,
-        example = "0.03",
-        minimum = "0.0001",
-        maximum = "999.99"
-    )
-    private BigDecimal pricePer1kTokens;
-
-    @Schema(
-        description = "Current status of the model (ACTIVE, INACTIVE, DEPRECATED)",
-        requiredMode = RequiredMode.REQUIRED,
-        example = "ACTIVE",
-        enumAsRef = true
-    )
+    @Schema(description = "Current status", example = "ACTIVE")
     private ModelStatus status;
 
     @Schema(
         description = "API endpoint URL for the model",
         requiredMode = RequiredMode.REQUIRED,
-        example = "https://api.openai.com/v1/chat/completions",
+        example = "https://api.mistral.com/v1/chat/completions",
         format = "uri"
     )
     private String endpointUrl;
@@ -96,7 +74,7 @@ public class ModelResponse {
 
     @Schema(
         description = "Description of model capabilities and features",
-        example = "OpenAI's most capable model with advanced reasoning abilities",
+        example = "MISTRAL's most capable model with advanced reasoning abilities",
         maxLength = 500
     )
     private String description;

@@ -33,11 +33,11 @@ public class ModelService {
     private final ApiDocumentationRepository documentationRepository;
 
     /**
-     * Create a new model (Admin only)
-     * 
-     * @param createRequest Create model request
-     * @param admin Admin user performing the action
-     * @return Created model response
+     * Create a new model.
+     *
+     * @param createRequest model creation request
+     * @param admin         admin user performing the action
+     * @return created model response
      */
     public ModelResponse createModel(CreateModelRequest createRequest, User admin) {
         log.info("Creating new model: {} by admin: {}", createRequest.getFullname(), admin.getUserId());
@@ -51,8 +51,6 @@ public class ModelService {
                 .fullname(createRequest.getFullname())
                 .username(createRequest.getUsername())
                 .provider(createRequest.getProvider())
-                .parameterCount(createRequest.getParameterCount())
-                .pricePer1kTokens(createRequest.getPricePer1kTokens())
                 .status(ModelStatus.ACTIVE)
                 .endpointUrl(createRequest.getEndpointUrl())
                 .description(createRequest.getDescription())
@@ -70,9 +68,9 @@ public class ModelService {
     }
 
     /**
-     * Get all models
-     * 
-     * @return List of model responses
+     * Get all models.
+     *
+     * @return list of all model responses
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getAllModels() {
@@ -84,10 +82,10 @@ public class ModelService {
     }
 
     /**
-     * Get models by status
-     * 
-     * @param status Model status
-     * @return List of model responses
+     * Get models filtered by status.
+     *
+     * @param status model status to filter by
+     * @return list of matching model responses
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getModelsByStatus(ModelStatus status) {
@@ -99,10 +97,10 @@ public class ModelService {
     }
 
     /**
-     * Get model by ID
-     * 
-     * @param modelId Model ID
-     * @return Model response
+     * Get a model by its ID.
+     *
+     * @param modelId model ID
+     * @return model response
      */
     @Transactional(readOnly = true)
     public ModelResponse getModelById(Integer modelId) {
@@ -117,10 +115,10 @@ public class ModelService {
     }
 
     /**
-     * Get model details with documentation
-     * 
-     * @param modelId Model ID
-     * @return Model details with documentation
+     * Get model details including associated API documentation.
+     *
+     * @param modelId model ID
+     * @return model details response with documentation
      */
     @Transactional(readOnly = true)
     public ModelDetailsResponse getModelDetailsWithDocumentation(Integer modelId) {
@@ -142,12 +140,12 @@ public class ModelService {
     }
 
     /**
-     * Update model details (Admin only)
-     * 
-     * @param modelId Model ID
-     * @param updateRequest Update model request
-     * @param admin Admin user performing the action
-     * @return Updated model response
+     * Update model fields.
+     *
+     * @param modelId       model ID
+     * @param updateRequest update request with new values
+     * @param admin         admin user performing the action
+     * @return updated model response
      */
     public ModelResponse updateModel(Integer modelId, UpdateModelRequest updateRequest, User admin) {
         log.info("Updating model with ID: {} by admin: {}", modelId, admin.getUserId());
@@ -168,12 +166,6 @@ public class ModelService {
         }
         if (updateRequest.getProvider() != null && !updateRequest.getProvider().isBlank()) {
             model.setProvider(updateRequest.getProvider());
-        }
-        if (updateRequest.getParameterCount() != null && !updateRequest.getParameterCount().isBlank()) {
-            model.setParameterCount(updateRequest.getParameterCount());
-        }
-        if (updateRequest.getPricePer1kTokens() != null) {
-            model.setPricePer1kTokens(updateRequest.getPricePer1kTokens());
         }
         if (updateRequest.getEndpointUrl() != null && !updateRequest.getEndpointUrl().isBlank()) {
             model.setEndpointUrl(updateRequest.getEndpointUrl());
@@ -200,12 +192,12 @@ public class ModelService {
     }
 
     /**
-     * Change model status
-     * 
-     * @param modelId Model ID
-     * @param newStatus New status
-     * @param admin Admin user performing the action
-     * @return Updated model response
+     * Change model status.
+     *
+     * @param modelId   model ID
+     * @param newStatus new status to set
+     * @param admin     admin user performing the action
+     * @return updated model response
      */
     public ModelResponse changeModelStatus(Integer modelId, ModelStatus newStatus, User admin) {
         log.info("Changing model status: ID {} to {} by admin: {}", modelId, newStatus, admin.getUserId());
@@ -235,10 +227,10 @@ public class ModelService {
     }
 
     /**
-     * Archive model (soft delete - sets status to ARCHIVED)
-     * 
-     * @param modelId Model ID
-     * @param admin Admin user performing the action
+     * Archive a model.
+     *
+     * @param modelId model ID
+     * @param admin   admin user performing the action
      */
     public void archiveModel(Integer modelId, User admin) {
         log.info("Archiving model ID: {} by admin: {}", modelId, admin.getUserId());
@@ -260,11 +252,11 @@ public class ModelService {
     }
 
     /**
-     * Inactivate model (sets status to INACTIVE)
-     * 
-     * @param modelId Model ID
-     * @param admin Admin user performing the action
-     * @return Updated model response
+     * Inactivate a model.
+     *
+     * @param modelId model ID
+     * @param admin   admin user performing the action
+     * @return updated model response
      */
     public ModelResponse inactivateModel(Integer modelId, User admin) {
         log.info("Inactivating model ID: {} by admin: {}", modelId, admin.getUserId());
@@ -293,10 +285,10 @@ public class ModelService {
     }
 
     /**
-     * Hard delete model (permanently removes from database)
-     * 
-     * @param modelId Model ID
-     * @param admin Admin user performing the action
+     * Permanently delete a model.
+     *
+     * @param modelId model ID
+     * @param admin   admin user performing the action
      */
     public void deleteModel(Integer modelId, User admin) {
         log.info("Hard deleting model ID: {} by admin: {}", modelId, admin.getUserId());
@@ -316,9 +308,9 @@ public class ModelService {
     }
 
     /**
-     * Get active models for users
-     * 
-     * @return List of active model responses
+     * Get all active models.
+     *
+     * @return list of active model responses
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getActiveModels() {
@@ -329,15 +321,6 @@ public class ModelService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Create audit log for model status changes
-     * 
-     * @param model Model entity
-     * @param previousStatus Previous status
-     * @param newStatus New status
-     * @param admin Admin user
-     * @param changeReason Reason for change
-     */
     private void createAuditLog(Model model, ModelStatus previousStatus, ModelStatus newStatus, User admin, String changeReason) {
         ModelStatusAudit audit = ModelStatusAudit.builder()
                 .model(model)
@@ -353,10 +336,10 @@ public class ModelService {
     }
 
     /**
-     * Get model audit history
-     * 
-     * @param modelId Model ID
-     * @return List of audit records for the model
+     * Get status audit history for a model.
+     *
+     * @param modelId model ID
+     * @return list of audit entries ordered by most recent first
      */
     @Transactional(readOnly = true)
     public List<ModelStatusAudit> getModelAuditHistory(Integer modelId) {
@@ -371,20 +354,12 @@ public class ModelService {
         return modelStatusAuditRepository.findByModelModelIdOrderByChangedAtDesc(modelId);
     }
 
-    /**
-     * Map model entity to response DTO
-     * 
-     * @param model Model entity
-     * @return ModelResponse
-     */
     private ModelResponse mapToResponse(Model model) {
         return ModelResponse.builder()
                 .modelId(model.getModelId())
                 .fullname(model.getFullname())
                 .username(model.getUsername())
                 .provider(model.getProvider())
-                .parameterCount(model.getParameterCount())
-                .pricePer1kTokens(model.getPricePer1kTokens())
                 .status(model.getStatus())
                 .endpointUrl(model.getEndpointUrl())
                 .type(model.getType())
@@ -394,21 +369,12 @@ public class ModelService {
                 .build();
     }
 
-    /**
-     * Map model entity to details response DTO with documentation
-     * 
-     * @param model Model entity
-     * @param documentation List of documentation responses
-     * @return ModelDetailsResponse
-     */
     private ModelDetailsResponse mapToDetailsResponse(Model model, List<ApiDocumentationResponse> documentation) {
         return ModelDetailsResponse.builder()
                 .modelId(model.getModelId())
                 .fullname(model.getFullname())
                 .username(model.getUsername())
                 .provider(model.getProvider())
-                .parameterCount(model.getParameterCount())
-                .pricePer1kTokens(model.getPricePer1kTokens())
                 .status(model.getStatus())
                 .endpointUrl(model.getEndpointUrl())
                 .type(model.getType())
@@ -419,12 +385,6 @@ public class ModelService {
                 .build();
     }
 
-    /**
-     * Map documentation entity to response DTO
-     * 
-     * @param doc Documentation entity
-     * @return ApiDocumentationResponse
-     */
     private ApiDocumentationResponse mapDocToResponse(ApiDocumentation doc) {
         return ApiDocumentationResponse.builder()
                 .docId(doc.getDocId())

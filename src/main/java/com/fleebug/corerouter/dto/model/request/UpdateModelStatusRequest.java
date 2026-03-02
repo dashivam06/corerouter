@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Schema(
     title = "Update Model Status Request",
     description = "Request to change the status of a model (activate, deactivate, deprecate). Optionally includes reason for the status change.",
-    example = "{\"status\": \"DEPRECATED\", \"reason\": \"Replaced by GPT-4 Turbo with better performance\"}"
+    example = "{\"status\": \"DEPRECATED\", \"reason\": \"Replaced by MISTRAL-7B Turbo with better performance\"}"
 )
 public class UpdateModelStatusRequest {
 
@@ -31,7 +31,7 @@ public class UpdateModelStatusRequest {
 
     @Schema(
         description = "Optional reason for the status change (e.g., 'Maintenance window', 'Deprecated in favor of V2', 'Cost optimization')",
-        example = "Replaced by GPT-4 Turbo with better performance",
+        example = "Replaced by MISTRAL-7B Turbo with better performance",
         maxLength = 500
     )
     private String reason;
