@@ -65,7 +65,7 @@ public class FinalRegistrationRequest {
 
     @Schema(
         description = "Boolean flag indicating whether user wants to subscribe to email newsletters and product updates.",
-        required = false,
+        requiredMode = RequiredMode.NOT_REQUIRED,
         example = "true"
     )
     private boolean emailSubscribed;

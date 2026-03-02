@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Schema(
     title = "API Documentation Response",
     description = "Contains detailed API documentation for a specific model endpoint. Includes title, content, and metadata.",
-    example = "{\"docId\": 42, \"title\": \"Chat Completions Endpoint\", \"content\": \"Handles real-time conversations with the model...\", \"modelId\": 1, \"modelName\": \"GPT-4\", \"createdAt\": \"2024-01-15T10:30:00Z\", \"updatedAt\": \"2024-02-22T14:20:00Z\"}"
+    example = "{\"docId\": 42, \"title\": \"Chat Completions Endpoint\", \"content\": \"Handles real-time conversations with the model...\", \"modelId\": 1, \"modelName\": \"MISTRAL-7B\", \"createdAt\": \"2024-01-15T10:30:00Z\", \"updatedAt\": \"2024-02-22T14:20:00Z\"}"
 )
 public class ApiDocumentationResponse {
 
@@ -53,7 +53,7 @@ public class ApiDocumentationResponse {
     @Schema(
         description = "Display name of the associated model",
         requiredMode = RequiredMode.REQUIRED,
-        example = "GPT-4",
+        example = "MISTRAL-7B",
         maxLength = 255
     )
     private String modelName;

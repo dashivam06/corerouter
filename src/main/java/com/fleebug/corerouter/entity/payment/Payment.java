@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Id;
 
-import com.fleebug.corerouter.entity.request.Request;
+import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.payment.PaymentStatus;
 import com.fleebug.corerouter.enums.payment.PaymentType;
@@ -45,7 +45,7 @@ public class Payment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "related_request_id")
-    private Request relatedRequest;
+    private Task relatedTask;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
