@@ -1,6 +1,6 @@
 package com.fleebug.corerouter.exception.handler;
 
-import com.fleebug.corerouter.dto.common.ErrorResponse;
+import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.apikey.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -8,8 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.LocalDateTime;
 
 /**
  * API Key domain exception handler
@@ -25,104 +23,59 @@ public class ApiKeyExceptionHandler {
      * Handle ApiKeyNotFoundException
      */
     @ExceptionHandler(ApiKeyNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleApiKeyNotFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleApiKeyNotFoundException(
             ApiKeyNotFoundException ex,
             HttpServletRequest request) {
         log.warn("API key not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
     
     /**
      * Handle ApiKeyExpiredException
      */
     @ExceptionHandler(ApiKeyExpiredException.class)
-    public ResponseEntity<ErrorResponse> handleApiKeyExpiredException(
+    public ResponseEntity<ApiResponse<Void>> handleApiKeyExpiredException(
             ApiKeyExpiredException ex,
             HttpServletRequest request) {
         log.warn("API key expired: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.GONE.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.GONE).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
     }
     
     /**
      * Handle ApiKeyRevokedException
      */
     @ExceptionHandler(ApiKeyRevokedException.class)
-    public ResponseEntity<ErrorResponse> handleApiKeyRevokedException(
+    public ResponseEntity<ApiResponse<Void>> handleApiKeyRevokedException(
             ApiKeyRevokedException ex,
             HttpServletRequest request) {
         log.warn("API key revoked: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.FORBIDDEN.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
     }
     
     /**
      * Handle RateLimitExceededException
      */
     @ExceptionHandler(RateLimitExceededException.class)
-    public ResponseEntity<ErrorResponse> handleRateLimitExceededException(
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
             RateLimitExceededException ex,
             HttpServletRequest request) {
         log.warn("Rate limit exceeded: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.TOO_MANY_REQUESTS.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
     }
     
     /**
      * Handle IllegalArgumentException (fallback for validation errors in apikey service)
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
         log.warn("Illegal argument in API key operation: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 }

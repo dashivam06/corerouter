@@ -10,6 +10,10 @@ import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 import com.fleebug.corerouter.service.model.ModelService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,17 +24,23 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/models")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Admin Models", description = "Model management for administrators — CRUD, status changes, archival, and audit history")
 public class ModelController {
 
     private final ModelService modelService;
 
+    @Operation(summary = "Create model", description = "Register a new AI model in the system")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Model created successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Model already exists")
+    })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ModelResponse>> createModel(
@@ -42,81 +52,46 @@ public class ModelController {
         
         ModelResponse response = modelService.createModel(createRequest, admin);
         
-        ApiResponse<ModelResponse> apiResponse = ApiResponse.<ModelResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("Model created successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "Model created successfully", response, request));
     }
 
+    @Operation(summary = "Get all models", description = "Retrieve all models regardless of status")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getAllModels(HttpServletRequest request) {
         log.info("Get all models request received");
         List<ModelResponse> models = modelService.getAllModels();
         
-        ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Models retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(models)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Models retrieved successfully", models, request));
     }
 
+    @Operation(summary = "Get models by status", description = "Retrieve models filtered by their current status")
     @GetMapping("/status/{status}")
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getModelsByStatus(
-            @PathVariable ModelStatus status,
+            @Parameter(description = "Model status filter", example = "ACTIVE") @PathVariable ModelStatus status,
             HttpServletRequest request) {
         log.info("Get models by status request received: {}", status);
         List<ModelResponse> models = modelService.getModelsByStatus(status);
         
-        ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Models retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(models)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Models retrieved successfully", models, request));
     }
 
+    @Operation(summary = "Get model by ID", description = "Retrieve a single model by its ID")
     @GetMapping("/{modelId}")
     public ResponseEntity<ApiResponse<ModelResponse>> getModelById(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             HttpServletRequest request) {
         log.info("Get model by ID request received: {}", modelId);
         ModelResponse model = modelService.getModelById(modelId);
         
-        ApiResponse<ModelResponse> response = ApiResponse.<ModelResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(model)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model retrieved successfully", model, request));
     }
 
+    @Operation(summary = "Update model", description = "Update an existing model's details")
     @PutMapping("/{modelId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ModelResponse>> updateModel(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             @Valid @RequestBody UpdateModelRequest updateRequest,
             Authentication authentication,
             HttpServletRequest request) {
@@ -125,23 +100,14 @@ public class ModelController {
         
         ModelResponse response = modelService.updateModel(modelId, updateRequest, admin);
         
-        ApiResponse<ModelResponse> apiResponse = ApiResponse.<ModelResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model updated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model updated successfully", response, request));
     }
 
+    @Operation(summary = "Update model status", description = "Change a model's status (e.g. ACTIVE, INACTIVE, ARCHIVED)")
     @PatchMapping("/{modelId}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ModelResponse>> updateModelStatus(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             @Valid @RequestBody UpdateModelStatusRequest statusRequest,
             Authentication authentication,
             HttpServletRequest request) {
@@ -150,23 +116,14 @@ public class ModelController {
         
         ModelResponse response = modelService.changeModelStatus(modelId, statusRequest.getStatus(), admin);
         
-        ApiResponse<ModelResponse> apiResponse = ApiResponse.<ModelResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model status updated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model status updated successfully", response, request));
     }
 
+    @Operation(summary = "Delete model", description = "Permanently delete a model")
     @DeleteMapping("/{modelId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteModel(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Delete model request received for ID: {}", modelId);
@@ -174,23 +131,14 @@ public class ModelController {
         
         modelService.deleteModel(modelId, admin);
         
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model deleted permanently")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model deleted permanently", null, request));
     }
 
+    @Operation(summary = "Archive model", description = "Soft-archive a model so it is no longer active")
     @PostMapping("/{modelId}/archive")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> archiveModel(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Archive model request received for ID: {}", modelId);
@@ -198,23 +146,14 @@ public class ModelController {
         
         modelService.archiveModel(modelId, admin);
         
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model archived successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model archived successfully", null, request));
     }
 
+    @Operation(summary = "Inactivate model", description = "Mark a model as inactive")
     @PostMapping("/{modelId}/inactivate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ModelResponse>> inactivateModel(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Inactivate model request received for ID: {}", modelId);
@@ -222,37 +161,18 @@ public class ModelController {
         
         ModelResponse response = modelService.inactivateModel(modelId, admin);
         
-        ApiResponse<ModelResponse> apiResponse = ApiResponse.<ModelResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model inactivated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model inactivated successfully", response, request));
     }
 
+    @Operation(summary = "Get audit history", description = "Retrieve the status-change audit trail for a model")
     @GetMapping("/{modelId}/audit-history")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<ModelStatusAudit>>> getAuditHistory(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             HttpServletRequest request) {
         log.info("Get audit history request received for model ID: {}", modelId);
         List<ModelStatusAudit> auditRecords = modelService.getModelAuditHistory(modelId);
         
-        ApiResponse<List<ModelStatusAudit>> response = ApiResponse.<List<ModelStatusAudit>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Audit history retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(auditRecords)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Audit history retrieved successfully", auditRecords, request));
     }
 }

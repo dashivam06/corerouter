@@ -1,7 +1,7 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.common.ErrorField;
-import com.fleebug.corerouter.dto.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,7 +36,7 @@ public class MainGlobalExceptionHandler {
      * allowing clients to easily identify which fields failed validation and why
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex,
             HttpServletRequest request) {
         log.warn("Validation failed for request: {}", request.getRequestURI());
@@ -50,15 +49,11 @@ public class MainGlobalExceptionHandler {
                 .build())
         );
         
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message("Validation failed. Please check the errors field for details.")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .errors(errors)
-                .build();
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.BAD_REQUEST,
+                "Validation failed. Please check the errors field for details.",
+                errors,
+                request);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
@@ -67,19 +62,15 @@ public class MainGlobalExceptionHandler {
      * Handle 404 errors for non-existent endpoints
      */
     @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoHandlerFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(
             NoHandlerFoundException ex,
             HttpServletRequest request) {
         log.warn("Endpoint not found: {} {}", ex.getHttpMethod(), ex.getRequestURL());
         
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message("Endpoint not found. Please check your request URL.")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.NOT_FOUND,
+                "Endpoint not found. Please check your request URL.",
+                request);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
@@ -91,19 +82,15 @@ public class MainGlobalExceptionHandler {
      * Returns a generic error message without exposing internal details
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(
+    public ResponseEntity<ApiResponse<Void>> handleGenericException(
             Exception ex,
             HttpServletRequest request) {
         log.error("Uncaught exception occurred", ex);
         
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .success(false)
-                .message("An unexpected error occurred. Please try again later.")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred. Please try again later.",
+                request);
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }

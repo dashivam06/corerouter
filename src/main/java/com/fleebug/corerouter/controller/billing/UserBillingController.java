@@ -53,17 +53,7 @@ public class UserBillingController {
 
         List<UsageRecordResponse> records = usageService.getUsageByTaskId(taskId);
 
-        ApiResponse<List<UsageRecordResponse>> apiResponse = ApiResponse.<List<UsageRecordResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage records retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(records)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage records retrieved successfully", records, request));
     }
 
     /**
@@ -89,17 +79,7 @@ public class UserBillingController {
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKey(apiKeyId, from, to);
 
-        ApiResponse<UsageSummaryResponse> apiResponse = ApiResponse.<UsageSummaryResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage summary retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage summary retrieved successfully", response, request));
     }
 
     /**
@@ -125,17 +105,7 @@ public class UserBillingController {
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 
-        ApiResponse<UsageSummaryResponse> apiResponse = ApiResponse.<UsageSummaryResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage summary by model retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage summary by model retrieved successfully", response, request));
     }
 
     /**
@@ -166,17 +136,7 @@ public class UserBillingController {
         Page<UsageRecordResponse> records = usageService.getUsageHistory(
                 apiKeyId, from, to, PageRequest.of(page, size, Sort.by("recordedAt").descending()));
 
-        ApiResponse<Page<UsageRecordResponse>> apiResponse = ApiResponse.<Page<UsageRecordResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage history retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(records)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage history retrieved successfully", records, request));
     }
 
     /**
@@ -203,16 +163,6 @@ public class UserBillingController {
 
         BigDecimal totalCost = usageService.getTotalCostByUser(user.getUserId(), from, to);
 
-        ApiResponse<BigDecimal> apiResponse = ApiResponse.<BigDecimal>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Total cost retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(totalCost)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total cost retrieved successfully", totalCost, request));
     }
 }

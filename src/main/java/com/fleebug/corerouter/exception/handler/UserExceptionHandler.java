@@ -1,6 +1,6 @@
 package com.fleebug.corerouter.exception.handler;
 
-import com.fleebug.corerouter.dto.common.ErrorResponse;
+import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.user.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -8,8 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.LocalDateTime;
 
 /**
  * User domain exception handler
@@ -25,146 +23,83 @@ public class UserExceptionHandler {
      * Handle UserNotFoundException
      */
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleUserNotFoundException(
             UserNotFoundException ex,
             HttpServletRequest request) {
         log.warn("User not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
     
     /**
      * Handle UserAlreadyExistsException
      */
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleUserAlreadyExistsException(
+    public ResponseEntity<ApiResponse<Void>> handleUserAlreadyExistsException(
             UserAlreadyExistsException ex,
             HttpServletRequest request) {
         log.warn("User already exists: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CONFLICT.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
     }
     
     /**
      * Handle InvalidCredentialsException
      */
     @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidCredentialsException(
+    public ResponseEntity<ApiResponse<Void>> handleInvalidCredentialsException(
             InvalidCredentialsException ex,
             HttpServletRequest request) {
         log.warn("Invalid credentials provided: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
     }
     
     /**
      * Handle OtpExpiredException
      */
     @ExceptionHandler(OtpExpiredException.class)
-    public ResponseEntity<ErrorResponse> handleOtpExpiredException(
+    public ResponseEntity<ApiResponse<Void>> handleOtpExpiredException(
             OtpExpiredException ex,
             HttpServletRequest request) {
         log.warn("OTP expired: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.GONE.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.GONE).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
     }
     
     /**
      * Handle InvalidOtpException
      */
     @ExceptionHandler(InvalidOtpException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidOtpException(
+    public ResponseEntity<ApiResponse<Void>> handleInvalidOtpException(
             InvalidOtpException ex,
             HttpServletRequest request) {
         log.warn("Invalid OTP provided: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
     
     /**
      * Handle InvalidTokenException
      */
     @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidTokenException(
+    public ResponseEntity<ApiResponse<Void>> handleInvalidTokenException(
             InvalidTokenException ex,
             HttpServletRequest request) {
         log.warn("Invalid token: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
     }
     
     /**
      * Handle IllegalArgumentException (fallback for validation errors in user service)
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
         log.warn("Illegal argument in user operation: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 }

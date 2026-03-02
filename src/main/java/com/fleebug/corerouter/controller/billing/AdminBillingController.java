@@ -59,17 +59,8 @@ public class AdminBillingController {
 
         BillingConfigResponse response = billingConfigService.createBillingConfig(createRequest);
 
-        ApiResponse<BillingConfigResponse> apiResponse = ApiResponse.<BillingConfigResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("Billing config created successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "Billing config created successfully", response, request));
     }
 
     /**
@@ -90,17 +81,7 @@ public class AdminBillingController {
 
         List<BillingConfigResponse> configs = billingConfigService.getAllBillingConfigs();
 
-        ApiResponse<List<BillingConfigResponse>> apiResponse = ApiResponse.<List<BillingConfigResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Billing configs retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(configs)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing configs retrieved successfully", configs, request));
     }
 
     /**
@@ -124,17 +105,7 @@ public class AdminBillingController {
 
         BillingConfigResponse response = billingConfigService.getBillingConfigById(billingId);
 
-        ApiResponse<BillingConfigResponse> apiResponse = ApiResponse.<BillingConfigResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Billing config retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config retrieved successfully", response, request));
     }
 
     /**
@@ -158,17 +129,7 @@ public class AdminBillingController {
 
         BillingConfigResponse response = billingConfigService.getBillingConfigByModelId(modelId);
 
-        ApiResponse<BillingConfigResponse> apiResponse = ApiResponse.<BillingConfigResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Billing config retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config retrieved successfully", response, request));
     }
 
     /**
@@ -194,17 +155,7 @@ public class AdminBillingController {
 
         BillingConfigResponse response = billingConfigService.updateBillingConfig(billingId, updateRequest);
 
-        ApiResponse<BillingConfigResponse> apiResponse = ApiResponse.<BillingConfigResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Billing config updated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config updated successfully", response, request));
     }
 
     /**
@@ -228,17 +179,7 @@ public class AdminBillingController {
 
         billingConfigService.deleteBillingConfig(billingId);
 
-        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Billing config deleted successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config deleted successfully", null, request));
     }
 
     // ---- Usage Recording (called internally or by admin) ----
@@ -265,17 +206,8 @@ public class AdminBillingController {
 
         UsageRecordResponse response = usageService.recordUsage(recordRequest);
 
-        ApiResponse<UsageRecordResponse> apiResponse = ApiResponse.<UsageRecordResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("Usage recorded successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "Usage recorded successfully", response, request));
     }
 
     // ---- Usage Queries (admin) ----
@@ -300,17 +232,7 @@ public class AdminBillingController {
 
         List<UsageRecordResponse> records = usageService.getUsageByTaskId(taskId);
 
-        ApiResponse<List<UsageRecordResponse>> apiResponse = ApiResponse.<List<UsageRecordResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage records retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(records)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage records retrieved successfully", records, request));
     }
 
     /**
@@ -337,17 +259,7 @@ public class AdminBillingController {
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKey(apiKeyId, from, to);
 
-        ApiResponse<UsageSummaryResponse> apiResponse = ApiResponse.<UsageSummaryResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage summary retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage summary retrieved successfully", response, request));
     }
 
     /**
@@ -374,16 +286,6 @@ public class AdminBillingController {
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 
-        ApiResponse<UsageSummaryResponse> apiResponse = ApiResponse.<UsageSummaryResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Usage summary by model retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage summary by model retrieved successfully", response, request));
     }
 }

@@ -9,8 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.documentation")
 @Slf4j
 public class DocumentationExceptionHandler {
@@ -20,18 +18,8 @@ public class DocumentationExceptionHandler {
             DocumentationNotFoundException ex,
             HttpServletRequest request) {
         log.warn("Documentation not found: {}", ex.getMessage());
-
-        ApiResponse<Void> errorResponse = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -39,17 +27,7 @@ public class DocumentationExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request) {
         log.warn("Invalid argument: {}", ex.getMessage());
-
-        ApiResponse<Void> errorResponse = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 }

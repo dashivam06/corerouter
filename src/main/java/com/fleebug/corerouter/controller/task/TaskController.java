@@ -10,6 +10,9 @@ import com.fleebug.corerouter.dto.task.response.TaskStatusResponse;
 import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.service.task.TaskService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,18 +27,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-
 @RestController
 @RequestMapping("/v1/tasks")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Tasks", description = "Async task management — create, poll status, and update results")
 public class TaskController {
 
     private final TaskService taskService;
     
     private final ObjectMapper objectMapper ;
 
+    @Operation(summary = "Create task", description = "Enqueue a new async task for processing")
     @PostMapping
     public ResponseEntity<ApiResponse<TaskAsyncResponse>> createTask(
             @Valid @RequestBody TaskCreateRequest request,
@@ -51,22 +54,14 @@ public class TaskController {
                 .status(task.getStatus())
                 .build();
 
-        ApiResponse<TaskAsyncResponse> apiResponse = ApiResponse.<TaskAsyncResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.ACCEPTED.value())
-                .success(true)
-                .message("Task enqueued successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(response)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(HttpStatus.ACCEPTED, "Task enqueued successfully", response, httpRequest));
     }
 
+    @Operation(summary = "Get task status", description = "Retrieve current status and result of a task")
     @GetMapping("/{taskId}")
     public ResponseEntity<ApiResponse<TaskStatusResponse>> getTask(
-            @PathVariable String taskId,
+            @Parameter(description = "Task ID", example = "abc-123") @PathVariable String taskId,
             HttpServletRequest httpRequest) {
 
         log.info("Received task status request - taskId={}", taskId);
@@ -88,19 +83,10 @@ public class TaskController {
                 .result(resultObject)
                 .build();
 
-        ApiResponse<TaskStatusResponse> apiResponse = ApiResponse.<TaskStatusResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Task status retrieved successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(taskStatusResponse)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Task status retrieved successfully", taskStatusResponse, httpRequest));
     }
 
+    @Operation(summary = "Update task status", description = "Update the status and optionally the result of a task")
     @PatchMapping("/status")
     public ResponseEntity<ApiResponse<TaskStatusResponse>> updateTaskStatus(
             @Valid @RequestBody TaskStatusUpdateRequest request,
@@ -125,17 +111,7 @@ public class TaskController {
                 .result(resultObject)
                 .build();
 
-        ApiResponse<TaskStatusResponse> apiResponse = ApiResponse.<TaskStatusResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Task status updated successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(taskStatusResponse)
-                .build();
-
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Task status updated successfully", taskStatusResponse, httpRequest));
     }
 }
 

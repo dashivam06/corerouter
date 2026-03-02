@@ -5,6 +5,9 @@ import com.fleebug.corerouter.dto.documentation.request.CreateApiDocumentationRe
 import com.fleebug.corerouter.dto.documentation.request.UpdateApiDocumentationRequest;
 import com.fleebug.corerouter.dto.documentation.response.ApiDocumentationResponse;
 import com.fleebug.corerouter.service.documentation.ApiDocumentationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-
 
 /**
  * Admin documentation management endpoints
@@ -24,75 +25,50 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/v1/admin/documentation")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Admin Documentation", description = "Manage API documentation for AI models")
 public class AdminDocumentationController {
 
     private final ApiDocumentationService documentationService;
 
+    @Operation(summary = "Create documentation", description = "Create API documentation for a specific model")
     @PostMapping("/models/{modelId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ApiDocumentationResponse>> createDocumentation(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             @Valid @RequestBody CreateApiDocumentationRequest request,
             HttpServletRequest httpRequest) {
         log.info("Admin creating documentation for model ID: {}", modelId);
         
         ApiDocumentationResponse response = documentationService.createDocumentation(modelId, request);
         
-        ApiResponse<ApiDocumentationResponse> apiResponse = ApiResponse.<ApiDocumentationResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("Documentation created successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "Documentation created successfully", response, httpRequest));
     }
 
+    @Operation(summary = "Update documentation", description = "Update existing API documentation")
     @PutMapping("/{docId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ApiDocumentationResponse>> updateDocumentation(
-            @PathVariable Integer docId,
+            @Parameter(description = "Documentation ID", example = "1") @PathVariable Integer docId,
             @Valid @RequestBody UpdateApiDocumentationRequest request,
             HttpServletRequest httpRequest) {
         log.info("Admin updating documentation with ID: {}", docId);
         
         ApiDocumentationResponse response = documentationService.updateDocumentation(docId, request);
         
-        ApiResponse<ApiDocumentationResponse> apiResponse = ApiResponse.<ApiDocumentationResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Documentation updated successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation updated successfully", response, httpRequest));
     }
 
+    @Operation(summary = "Delete documentation", description = "Delete API documentation by its ID")
     @DeleteMapping("/{docId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteDocumentation(
-            @PathVariable Integer docId,
+            @Parameter(description = "Documentation ID", example = "1") @PathVariable Integer docId,
             HttpServletRequest httpRequest) {
         log.info("Admin deleting documentation with ID: {}", docId);
         
         documentationService.deleteDocumentation(docId);
         
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Documentation deleted successfully")
-                .path(httpRequest.getRequestURI())
-                .method(httpRequest.getMethod())
-                .data(null)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation deleted successfully", null, httpRequest));
     }
 }

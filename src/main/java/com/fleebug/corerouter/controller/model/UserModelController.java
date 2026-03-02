@@ -4,6 +4,9 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.model.response.ModelDetailsResponse;
 import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.service.model.ModelService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -22,31 +24,24 @@ import java.util.List;
 @RequestMapping("/api/v1/models")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Models", description = "User-facing endpoints to browse active AI models")
 public class UserModelController {
 
     private final ModelService modelService;
 
+    @Operation(summary = "List active models", description = "Retrieve all models that are currently active")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getActiveModels(HttpServletRequest request) {
         log.info("User requesting active models list");
         List<ModelResponse> models = modelService.getActiveModels();
         
-        ApiResponse<List<ModelResponse>> response = ApiResponse.<List<ModelResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Active models retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(models)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Active models retrieved successfully", models, request));
     }
 
+    @Operation(summary = "Get model details", description = "Retrieve model details including documentation for an active model")
     @GetMapping("/{modelId}")
     public ResponseEntity<ApiResponse<ModelDetailsResponse>> getModelById(
-            @PathVariable Integer modelId,
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             HttpServletRequest request) {
         log.info("User requesting model details for ID: {}", modelId);
         ModelDetailsResponse model = modelService.getModelDetailsWithDocumentation(modelId);
@@ -57,16 +52,6 @@ public class UserModelController {
             throw new IllegalArgumentException("Model not found or is not available");
         }
         
-        ApiResponse<ModelDetailsResponse> response = ApiResponse.<ModelDetailsResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Model and documentation retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(model)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model and documentation retrieved successfully", model, request));
     }
 }

@@ -12,6 +12,8 @@ import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.exception.model.ModelNotFoundException;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.service.task.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +26,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Chat Completions", description = "LLM chat completion endpoints")
 public class LlmController {
 
     private static final String API_KEY_ID_HEADER = "X-API-Key-ID";
@@ -39,6 +41,7 @@ public class LlmController {
     private final ModelRepository modelRepository;
     private final ObjectMapper objectMapper;
 
+    @Operation(summary = "Chat completions", description = "Submit a chat completion request to the specified LLM model")
     @PostMapping("/completions")
     public ResponseEntity<ApiResponse<TaskAsyncResponse>> chatCompletions(
             @Valid @RequestBody ChatCompletionRequest chatRequest,
@@ -62,17 +65,9 @@ public class LlmController {
                 .taskId(task.getTaskId())
                 .status(task.getStatus())
                 .build();
-        ApiResponse<TaskAsyncResponse> apiResponse = ApiResponse.<TaskAsyncResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.ACCEPTED.value())
-                .success(true)
-                .message("Task enqueued successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(data)
-                .build();
 
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(HttpStatus.ACCEPTED, "Task enqueued successfully", data, request));
     }
 
     private static Integer requireApiKeyId(HttpServletRequest request) {

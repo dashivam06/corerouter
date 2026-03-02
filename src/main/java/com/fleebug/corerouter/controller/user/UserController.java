@@ -19,17 +19,20 @@ import com.fleebug.corerouter.dto.user.request.RefreshTokenRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.service.token.TokenService;
 import com.fleebug.corerouter.service.user.UserService;
-import java.time.LocalDateTime;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Authentication", description = "User registration, login, OTP verification, token refresh, and logout")
 public class UserController {
 
     private final UserService userService;
     private final TokenService tokenService;
 
+    @Operation(summary = "Request OTP", description = "Step 1 — Send a one-time password to the given email address")
     @PostMapping("/request-otp")
     public ResponseEntity<ApiResponse<RequestOtpResponse>> requestOtp(
             @Valid @RequestBody RequestOtpRequest requestOtpRequest,
@@ -38,19 +41,12 @@ public class UserController {
         
         RequestOtpResponse otpResponse = userService.requestOtp(requestOtpRequest.getEmail());
         
-        ApiResponse<RequestOtpResponse> apiResponse = ApiResponse.<RequestOtpResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("OTP sent successfully. Proceed to verify-otp with the verification ID.")
-                .path(servletRequest.getRequestURI())
-                .method(servletRequest.getMethod())
-                .data(otpResponse)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                "OTP sent successfully. Proceed to verify-otp with the verification ID.",
+                otpResponse, servletRequest));
     }
 
+    @Operation(summary = "Verify OTP", description = "Step 2 — Verify the OTP to proceed with registration")
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest verifyOtpRequest,
@@ -69,19 +65,12 @@ public class UserController {
                 .profileCompletionTtlMinutes(otpResponse.getProfileCompletionTtlMinutes())
                 .build();
         
-        ApiResponse<VerifyOtpResponse> apiResponse = ApiResponse.<VerifyOtpResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("OTP verified successfully. Proceed to register with profile details.")
-                .path(servletRequest.getRequestURI())
-                .method(servletRequest.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.ok(apiResponse);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                "OTP verified successfully. Proceed to register with profile details.",
+                response, servletRequest));
     }
 
+    @Operation(summary = "Register", description = "Step 3 — Complete registration with profile details after OTP verification")
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody FinalRegistrationRequest finalRegistrationRequest,
@@ -98,19 +87,13 @@ public class UserController {
                 finalRegistrationRequest
         );
         
-        ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("User registered successfully. You are now logged in.")
-                .path(servletRequest.getRequestURI())
-                .method(servletRequest.getMethod())
-                .data(response)
-                .build();
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED,
+                        "User registered successfully. You are now logged in.",
+                        response, servletRequest));
     }
 
+    @Operation(summary = "Login", description = "Authenticate with email and password to obtain access and refresh tokens")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest loginRequest,
@@ -118,19 +101,10 @@ public class UserController {
         log.info("Login endpoint called for email: {}", loginRequest.getEmail());
         AuthResponse authResponse = userService.login(loginRequest);
         
-        ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Login successful")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(authResponse)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Login successful", authResponse, request));
     }
 
+    @Operation(summary = "Refresh token", description = "Exchange a valid refresh token for a new access token")
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
@@ -152,19 +126,10 @@ public class UserController {
                 .expiresIn(expiresIn)
                 .build();
         
-        ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Access token refreshed successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(authResponse)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Access token refreshed successfully", authResponse, request));
     }
 
+    @Operation(summary = "Logout", description = "Revoke the refresh token to end the session")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
@@ -172,16 +137,6 @@ public class UserController {
         log.info("Logout endpoint called");
         tokenService.revokeRefreshToken(refreshTokenRequest.getRefreshToken());
         
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("Logged out successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Logged out successfully", null, request));
     }
 }

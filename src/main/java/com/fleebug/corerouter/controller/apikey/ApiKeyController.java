@@ -1,5 +1,9 @@
 package com.fleebug.corerouter.controller.apikey;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,25 +20,30 @@ import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
 import com.fleebug.corerouter.service.apikey.ApiKeyService;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/apikeys")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "API Keys", description = "API key management — generate, view, update, enable/disable, and delete API keys")
 public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;
 
     /**
      * Generate a new API key
-     * 
+     *
      * @param createRequest API key creation request
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing created API key
      */
+    @Operation(summary = "Generate API key", description = "Generate a new API key for the authenticated user with optional description and rate limits")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "API key generated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> generateApiKey(
             @Valid @RequestBody CreateApiKeyRequest createRequest,
@@ -45,26 +54,21 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.generateApiKey(userDetails.getUser(), createRequest);
 
-        ApiResponse<ApiKeyResponse> response = ApiResponse.<ApiKeyResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CREATED.value())
-                .success(true)
-                .message("API key generated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeyResponse)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "API key generated successfully", apiKeyResponse, request));
     }
 
     /**
      * Get all API keys for the authenticated user
-     * 
+     *
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing list of API keys
      */
+    @Operation(summary = "List API keys", description = "Retrieve all API keys belonging to the authenticated user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API keys retrieved successfully")
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<List<ApiKeyResponse>>> getAllApiKeys(
             Authentication authentication,
@@ -74,30 +78,25 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         List<ApiKeyResponse> apiKeys = apiKeyService.getUserApiKeys(userDetails.getUser().getUserId());
 
-        ApiResponse<List<ApiKeyResponse>> response = ApiResponse.<List<ApiKeyResponse>>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API keys retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeys)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API keys retrieved successfully", apiKeys, request));
     }
 
     /**
      * Get specific API key details (overview)
-     * 
+     *
      * @param apiKeyId API key ID
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing API key details
      */
+    @Operation(summary = "Get API key details", description = "Retrieve details of a specific API key by its ID")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key details retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
     @GetMapping("/{apiKeyId}")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> getApiKeyDetails(
-            @PathVariable Integer apiKeyId,
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Get API key details request - ID: {}", apiKeyId);
@@ -105,31 +104,26 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.getApiKeyDetails(apiKeyId, userDetails.getUser().getUserId());
 
-        ApiResponse<ApiKeyResponse> response = ApiResponse.<ApiKeyResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API key details retrieved successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeyResponse)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key details retrieved successfully", apiKeyResponse, request));
     }
 
     /**
      * Update API key (description and limits)
-     * 
+     *
      * @param apiKeyId API key ID
      * @param updateRequest Update request
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing updated API key
      */
+    @Operation(summary = "Update API key", description = "Update the description and rate limits of an existing API key")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key updated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
     @PutMapping("/{apiKeyId}")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> updateApiKey(
-            @PathVariable Integer apiKeyId,
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             @Valid @RequestBody UpdateApiKeyRequest updateRequest,
             Authentication authentication,
             HttpServletRequest request) {
@@ -138,30 +132,25 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.updateApiKey(apiKeyId, userDetails.getUser().getUserId(), updateRequest);
 
-        ApiResponse<ApiKeyResponse> response = ApiResponse.<ApiKeyResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API key updated successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeyResponse)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key updated successfully", apiKeyResponse, request));
     }
 
     /**
      * Disable/Inactive API key
-     * 
+     *
      * @param apiKeyId API key ID
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing updated API key
      */
+    @Operation(summary = "Disable API key", description = "Disable an active API key so it can no longer be used for requests")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key disabled successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
     @PatchMapping("/{apiKeyId}/disable")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> disableApiKey(
-            @PathVariable Integer apiKeyId,
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Disable API key request - ID: {}", apiKeyId);
@@ -169,30 +158,25 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), true);
 
-        ApiResponse<ApiKeyResponse> response = ApiResponse.<ApiKeyResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API key disabled successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeyResponse)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key disabled successfully", apiKeyResponse, request));
     }
 
     /**
      * Enable API key
-     * 
+     *
      * @param apiKeyId API key ID
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse containing updated API key
      */
+    @Operation(summary = "Enable API key", description = "Re-enable a previously disabled API key")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key enabled successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
     @PatchMapping("/{apiKeyId}/enable")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> enableApiKey(
-            @PathVariable Integer apiKeyId,
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Enable API key request - ID: {}", apiKeyId);
@@ -200,30 +184,25 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), false);
 
-        ApiResponse<ApiKeyResponse> response = ApiResponse.<ApiKeyResponse>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API key enabled successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(apiKeyResponse)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key enabled successfully", apiKeyResponse, request));
     }
 
     /**
      * Delete API key
-     * 
+     *
      * @param apiKeyId API key ID
      * @param authentication Authenticated user
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse indicating deletion
      */
+    @Operation(summary = "Delete API key", description = "Permanently delete an API key")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key deleted successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
     @DeleteMapping("/{apiKeyId}")
     public ResponseEntity<ApiResponse<Void>> deleteApiKey(
-            @PathVariable Integer apiKeyId,
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
         log.info("Delete API key request - ID: {}", apiKeyId);
@@ -231,17 +210,7 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         apiKeyService.deleteApiKey(apiKeyId, userDetails.getUser().getUserId());
 
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.OK.value())
-                .success(true)
-                .message("API key deleted successfully")
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .data(null)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key deleted successfully", null, request));
     }
 }
 

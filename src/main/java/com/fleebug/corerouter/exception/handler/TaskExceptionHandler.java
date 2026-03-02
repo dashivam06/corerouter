@@ -1,6 +1,6 @@
 package com.fleebug.corerouter.exception.handler;
 
-import com.fleebug.corerouter.dto.common.ErrorResponse;
+import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.apikey.ApiKeyNotFoundException;
 import com.fleebug.corerouter.exception.apikey.ApiKeyRevokedException;
 import com.fleebug.corerouter.exception.model.ModelNotFoundException;
@@ -17,8 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.LocalDateTime;
 
 /**
  * Task domain exception handler
@@ -38,230 +36,131 @@ public class TaskExceptionHandler {
      * Handle TaskNotFoundException
      */
     @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleTaskNotFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskNotFoundException(
             TaskNotFoundException ex,
             HttpServletRequest request) {
         log.warn("Task not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     /**
      * Handle ApiKeyNotFoundException
      */
     @ExceptionHandler(ApiKeyNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleApiKeyNotFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleApiKeyNotFoundException(
             ApiKeyNotFoundException ex,
             HttpServletRequest request) {
         log.warn("API key not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     /**
      * Handle ApiKeyRevokedException
      */
     @ExceptionHandler(ApiKeyRevokedException.class)
-    public ResponseEntity<ErrorResponse> handleApiKeyRevokedException(
+    public ResponseEntity<ApiResponse<Void>> handleApiKeyRevokedException(
             ApiKeyRevokedException ex,
             HttpServletRequest request) {
         log.warn("API key not usable: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.FORBIDDEN.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
     }
 
     /**
      * Handle ModelNotFoundException
      */
     @ExceptionHandler(ModelNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleModelNotFoundException(
+    public ResponseEntity<ApiResponse<Void>> handleModelNotFoundException(
             ModelNotFoundException ex,
             HttpServletRequest request) {
         log.warn("Model not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     /**
      * Handle TaskInvalidStatusException
      */
     @ExceptionHandler(TaskInvalidStatusException.class)
-    public ResponseEntity<ErrorResponse> handleTaskInvalidStatusException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskInvalidStatusException(
             TaskInvalidStatusException ex,
             HttpServletRequest request) {
         log.warn("Invalid task status operation: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     /**
      * Handle TaskTimeoutException
      */
     @ExceptionHandler(TaskTimeoutException.class)
-    public ResponseEntity<ErrorResponse> handleTaskTimeoutException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskTimeoutException(
             TaskTimeoutException ex,
             HttpServletRequest request) {
         log.warn("Task timeout: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.REQUEST_TIMEOUT.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT)
+                .body(ApiResponse.error(HttpStatus.REQUEST_TIMEOUT, ex.getMessage(), request));
     }
 
     /**
      * Handle TaskRetryExceededException
      */
     @ExceptionHandler(TaskRetryExceededException.class)
-    public ResponseEntity<ErrorResponse> handleTaskRetryExceededException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskRetryExceededException(
             TaskRetryExceededException ex,
             HttpServletRequest request) {
         log.warn("Task retry limit exceeded: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request));
     }
 
     /**
      * Handle TaskProcessingException
      */
     @ExceptionHandler(TaskProcessingException.class)
-    public ResponseEntity<ErrorResponse> handleTaskProcessingException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskProcessingException(
             TaskProcessingException ex,
             HttpServletRequest request) {
         log.error("Task processing failed: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request));
     }
 
     /**
      * Handle TaskPayloadInvalidException
      */
     @ExceptionHandler(TaskPayloadInvalidException.class)
-    public ResponseEntity<ErrorResponse> handleTaskPayloadInvalidException(
+    public ResponseEntity<ApiResponse<Void>> handleTaskPayloadInvalidException(
             TaskPayloadInvalidException ex,
             HttpServletRequest request) {
         log.warn("Invalid task payload: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     /**
      * Handle JsonProcessingException
      */
     @ExceptionHandler(JsonProcessingException.class)
-    public ResponseEntity<ErrorResponse> handleJsonProcessingException(
+    public ResponseEntity<ApiResponse<Void>> handleJsonProcessingException(
             JsonProcessingException ex,
             HttpServletRequest request) {
         log.warn("JSON processing error: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message("Invalid JSON format: " + ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Invalid JSON format: " + ex.getMessage(), request));
     }
 
     /**
      * Handle IllegalArgumentException (fallback for validation errors in task operations)
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
         log.warn("Invalid argument in task operation: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .success(false)
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .method(request.getMethod())
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 }
