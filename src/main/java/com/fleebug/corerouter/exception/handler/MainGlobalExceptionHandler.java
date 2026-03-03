@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -77,6 +78,28 @@ public class MainGlobalExceptionHandler {
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
+    
+    /**
+     * Handle Redis connection failures during request processing
+     * 
+     * Catches RedisConnectionFailureException which occurs when Redis becomes unavailable
+     * after application startup. Returns a user-friendly error message.
+     * Admin can check server logs for detailed connection information.
+     */
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRedisConnectionFailure(
+            RedisConnectionFailureException ex,
+            HttpServletRequest request) {
+        log.error("Redis connection failed for request: {}. Error: {}", request.getRequestURI(), ex.getMessage(), ex);
+        
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Service temporarily unavailable. Cache service is not accessible. Please try again later.",
+                request);
+        
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+    
     
     /**
      * Generic fallback handler for all uncaught exceptions
