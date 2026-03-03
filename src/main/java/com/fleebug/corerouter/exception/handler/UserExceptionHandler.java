@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.exception.handler;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
 import com.fleebug.corerouter.exception.user.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +93,18 @@ public class UserExceptionHandler {
         log.warn("Invalid token: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
+    }
+    
+    /**
+     * Handle RateLimitExceededException (OTP rate limiting)
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
+            RateLimitExceededException ex,
+            HttpServletRequest request) {
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
     }
     
     /**

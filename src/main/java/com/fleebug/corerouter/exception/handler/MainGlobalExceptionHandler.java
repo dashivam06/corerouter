@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -77,6 +78,26 @@ public class MainGlobalExceptionHandler {
                 request);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+    
+    /**
+     * Handle rate limit exceeded errors
+     * 
+     * Catches RateLimitExceededException thrown when request rate limits are exceeded.
+     * Returns 429 Too Many Requests status.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
+            RateLimitExceededException ex,
+            HttpServletRequest request) {
+        log.warn("Rate limit exceeded for request: {}. {}", request.getRequestURI(), ex.getMessage());
+        
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.TOO_MANY_REQUESTS,
+                ex.getMessage(),
+                request);
+        
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
     }
     
     /**

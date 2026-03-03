@@ -14,6 +14,8 @@ import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
+import com.fleebug.corerouter.exception.user.InvalidOtpException;
+import com.fleebug.corerouter.exception.user.UserAlreadyExistsException;
 import com.fleebug.corerouter.exception.user.UserNotFoundException;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.service.otp.OtpService;
@@ -50,27 +52,19 @@ public class UserService {
         // Validate email is not already registered
         if (userRepository.existsByEmail(email)) {
             log.warn("OTP request failed - email already exists: {}", email);
-            throw new IllegalArgumentException("Email already registered");
+            throw new UserAlreadyExistsException(email);
         }
 
         log.info("Email validation passed. Proceeding with OTP generation for: {}", email);
 
-        try {
-            String verificationId = otpService.requestOtp(email);
-            log.info("OTP sent successfully to email: {}. VerificationId: {}", email, verificationId);
-            
-            return RequestOtpResponse.builder()
-                    .verificationId(verificationId)
-                    .message("OTP sent to " + email)
-                    .ttlMinutes(5)
-                    .build();
-        } catch (IllegalArgumentException e) {
-            log.error("OTP request failed for email: {}", email, e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Failed to generate OTP for email: {}", email, e);
-            throw new IllegalArgumentException("Failed to send OTP: " + e.getMessage());
-        }
+        String verificationId = otpService.requestOtp(email);
+        log.info("OTP sent successfully to email: {}. VerificationId: {}", email, verificationId);
+        
+        return RequestOtpResponse.builder()
+                .verificationId(verificationId)
+                .message("OTP sent to " + email)
+                .ttlMinutes(5)
+                .build();
     }
 
     /**
@@ -88,23 +82,15 @@ public class UserService {
     public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
         log.info("Verifying OTP with verificationId: {}", verificationId);
 
-        try {
-            String email = otpService.validateOtp(verificationId, otp);
-            log.info("OTP verified successfully for verificationId: {}. Email: {}", verificationId, email);
+        String email = otpService.validateOtp(verificationId, otp);
+        log.info("OTP verified successfully for verificationId: {}. Email: {}", verificationId, email);
 
-            return VerifyOtpResponse.builder()
-                    .verificationId(verificationId)
-                    .message("OTP verified successfully. Complete your profile within 20 minutes.")
-                    .verified(true)
-                    .profileCompletionTtlMinutes(20)
-                    .build();
-        } catch (IllegalArgumentException e) {
-            log.error("OTP verification failed for verificationId: {}", verificationId, e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Error during OTP verification for verificationId: {}", verificationId, e);
-            throw new IllegalArgumentException("Failed to verify OTP: " + e.getMessage());
-        }
+        return VerifyOtpResponse.builder()
+                .verificationId(verificationId)
+                .message("OTP verified successfully. Complete your profile within 20 minutes.")
+                .verified(true)
+                .profileCompletionTtlMinutes(20)
+                .build();
     }
 
     /**
@@ -121,45 +107,37 @@ public class UserService {
     public AuthResponse finalRegister(String verificationId, FinalRegistrationRequest finalRequest) {
         log.info("Final registration initiated for verificationId: {}", verificationId);
 
-        try {
-            // Step 1: Verify that the verificationId is verified
-            if (!otpService.isVerified(verificationId)) {
-                log.error("Final registration failed - verificationId not verified: {}", verificationId);
-                throw new IllegalArgumentException("Verification not completed. Please verify OTP first.");
-            }
-
-            // Step 2: Get email from verificationId
-            String email = otpService.getEmail(verificationId);
-            log.info("Retrieved email for verificationId: {}, email: {}", verificationId, email);
-
-            // Step 3: Hash password using BCrypt
-            String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
-
-            // Step 4: Create new user with profile data
-            User user = User.builder()
-                    .fullName(finalRequest.getFullName())
-                    .email(email)
-                    .password(hashedPassword)
-                    .profileImage(finalRequest.getProfileImage())
-                    .emailSubscribed(finalRequest.isEmailSubscribed())
-                    .status(UserStatus.ACTIVE)
-                    .build();
-
-            User savedUser = userRepository.save(user);
-            log.info("User registered successfully via verification flow. User ID: {}", savedUser.getUserId());
-
-            // Step 5: Cleanup verification data from Redis
-            otpService.cleanupVerification(verificationId);
-            log.info("Verification cleanup completed for verificationId: {}", verificationId);
-
-            return tokenService.buildAuthResponse(savedUser);
-        } catch (IllegalArgumentException e) {
-            log.error("Final registration failed for verificationId: {}", verificationId, e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Error during final registration for verificationId: {}", verificationId, e);
-            throw new IllegalArgumentException("Failed to complete registration: " + e.getMessage());
+        // Step 1: Verify that the verificationId is verified
+        if (!otpService.isVerified(verificationId)) {
+            log.error("Final registration failed - verificationId not verified: {}", verificationId);
+            throw new InvalidOtpException("Verification not completed. Please verify OTP first.");
         }
+
+        // Step 2: Get email from verificationId
+        String email = otpService.getEmail(verificationId);
+        log.info("Retrieved email for verificationId: {}, email: {}", verificationId, email);
+
+        // Step 3: Hash password using BCrypt
+        String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
+
+        // Step 4: Create new user with profile data
+        User user = User.builder()
+                .fullName(finalRequest.getFullName())
+                .email(email)
+                .password(hashedPassword)
+                .profileImage(finalRequest.getProfileImage())
+                .emailSubscribed(finalRequest.isEmailSubscribed())
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        log.info("User registered successfully via verification flow. User ID: {}", savedUser.getUserId());
+
+        // Step 5: Cleanup verification data from Redis
+        otpService.cleanupVerification(verificationId);
+        log.info("Verification cleanup completed for verificationId: {}", verificationId);
+
+        return tokenService.buildAuthResponse(savedUser);
     }
 
     /**
@@ -210,7 +188,7 @@ public class UserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.warn("User not found with email: {}", email);
-                    return new IllegalArgumentException("User not found");
+                    return new UserNotFoundException(email);
                 });
     }
 
@@ -226,7 +204,7 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("User not found with ID: {}", userId);
-                    return new IllegalArgumentException("User not found");
+                    return new UserNotFoundException(userId);
                 });
     }
 
@@ -247,7 +225,7 @@ public class UserService {
         // Verify old password
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             log.warn("Change password failed - invalid old password for user ID: {}", userId);
-            throw new IllegalArgumentException("Invalid old password");
+            throw new InvalidCredentialsException("Invalid old password");
         }
 
         // Hash and update new password

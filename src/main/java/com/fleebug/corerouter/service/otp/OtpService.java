@@ -8,6 +8,10 @@ import org.springframework.stereotype.Service;
 import com.fleebug.corerouter.security.encryption.MessageEncryption;
 import com.fleebug.corerouter.service.redis.RedisService;
 
+import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
+import com.fleebug.corerouter.exception.user.InvalidOtpException;
+import com.fleebug.corerouter.exception.user.OtpExpiredException;
+
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +67,7 @@ public class OtpService {
             long ttlRemaining = redisService.getTTL(emailRateLimitKey);
             log.warn("EMAIL_RATE_LIMIT_EXCEEDED | Email: {} | Requests: {} | MaxLimit: {} | RetryIn: {} seconds", 
                     email, requestCount, maxRequestsPerEmailPerHour, ttlRemaining);
-            throw new IllegalArgumentException("Too many OTP requests to this email. Maximum " + maxRequestsPerEmailPerHour + 
+            throw new RateLimitExceededException("Too many OTP requests to this email. Maximum " + maxRequestsPerEmailPerHour + 
                     " requests allowed per hour. Try again in " + ttlRemaining + " seconds.");
         }
 
@@ -126,7 +130,7 @@ public class OtpService {
             redisService.deleteFromCache(attemptsKey);
             redisService.deleteFromCache(VERIFICATION_EMAIL_PREFIX + verificationId);
             
-            throw new IllegalArgumentException("Max OTP attempts exceeded. Please request a new OTP.");
+            throw new InvalidOtpException("Max OTP attempts exceeded. Please request a new OTP.");
         }
 
         // Get OTP from cache
@@ -137,7 +141,7 @@ public class OtpService {
 
         if (decryptedOtp == null) {
             log.warn("OTP not found or expired for verificationId: {}", verificationId);
-            throw new IllegalArgumentException("OTP has expired. Please request a new one.");
+            throw new OtpExpiredException();
         }
 
         // Validate OTP
@@ -145,7 +149,7 @@ public class OtpService {
             log.warn("Invalid OTP attempt for verificationId: {}", verificationId);
             redisService.incrementCounter(attemptsKey);
             long remainingAttempts = maxAttempts - attempts - 1;
-            throw new IllegalArgumentException("Invalid OTP. Attempts remaining: " + remainingAttempts);
+            throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + remainingAttempts);
         }
 
         log.info("OTP validated successfully for verificationId: {}", verificationId);
@@ -156,7 +160,7 @@ public class OtpService {
 
         if (email == null) {
             log.error("Email not found for verificationId: {}", verificationId);
-            throw new IllegalArgumentException("Verification session expired.");
+            throw new OtpExpiredException("Verification session expired.");
         }
 
         // Set verified flag (20 minutes TTL - user has 20 min to complete registration)
