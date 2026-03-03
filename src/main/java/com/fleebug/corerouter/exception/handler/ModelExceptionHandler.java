@@ -4,6 +4,8 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.model.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * with proper HTTP status codes and logging via SLF4J
  */
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.model")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class ModelExceptionHandler {
     

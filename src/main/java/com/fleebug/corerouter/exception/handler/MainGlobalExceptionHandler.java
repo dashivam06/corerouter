@@ -4,6 +4,8 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.common.ErrorField;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,6 +28,7 @@ import java.util.List;
  * All exceptions are logged via SLF4J and return standardized error responses
  */
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 @Slf4j
 public class MainGlobalExceptionHandler {
     

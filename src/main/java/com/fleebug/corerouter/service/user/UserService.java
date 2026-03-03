@@ -13,6 +13,8 @@ import com.fleebug.corerouter.dto.user.request.LoginRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.user.UserStatus;
+import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
+import com.fleebug.corerouter.exception.user.UserNotFoundException;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
@@ -165,7 +167,8 @@ public class UserService {
      * 
      * @param loginRequest contains email and password
      * @return AuthResponse with user details and success status
-     * @throws IllegalArgumentException if user not found or password is incorrect
+     * @throws UserNotFoundException if user not found
+     * @throws InvalidCredentialsException if password is incorrect
      */
     public AuthResponse login(LoginRequest loginRequest) {
         log.info("Login attempt for email: {}", loginRequest.getEmail());
@@ -174,20 +177,20 @@ public class UserService {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> {
                     log.warn("Login failed - user not found with email: {}", loginRequest.getEmail());
-                    return new IllegalArgumentException("Invalid email or password");
+                    return new UserNotFoundException("email", loginRequest.getEmail());
                 });
 
         // Check if user is active
         if (user.getStatus() != UserStatus.ACTIVE) {
             log.warn("Login failed - user account is not active. Email: {}, Status: {}", 
                     loginRequest.getEmail(), user.getStatus());
-            throw new IllegalArgumentException("User account is not active");
+            throw new InvalidCredentialsException("User account is not active");
         }
 
         // Verify password using BCrypt
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             log.warn("Login failed - invalid password for email: {}", loginRequest.getEmail());
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new InvalidCredentialsException();
         }
 
         log.info("User logged in successfully. User ID: {}", user.getUserId());

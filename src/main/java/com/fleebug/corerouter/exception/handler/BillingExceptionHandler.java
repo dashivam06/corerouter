@@ -8,12 +8,15 @@ import com.fleebug.corerouter.exception.model.ModelNotFoundException;
 import com.fleebug.corerouter.exception.task.TaskNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.billing")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class BillingExceptionHandler {
 
