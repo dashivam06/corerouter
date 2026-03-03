@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Id;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.enums.model.ModelType;
 
@@ -57,6 +60,7 @@ public class Model {
 
     private String description;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String metadata;
 

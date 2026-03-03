@@ -19,6 +19,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 @Entity
@@ -57,6 +60,7 @@ public class Task {
     private Long processingTimeMs;
 
     // Raw provider response for audit/debugging — billing uses UsageRecord
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String usageMetadata;
 

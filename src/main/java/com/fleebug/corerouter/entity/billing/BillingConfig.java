@@ -2,6 +2,9 @@ package com.fleebug.corerouter.entity.billing;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fleebug.corerouter.entity.model.Model;
 
 import jakarta.persistence.*;
@@ -38,6 +41,7 @@ public class BillingConfig {
     private String pricingType;
 
     // JSON rates: PER_TOKEN → {"inputRate":0.00003,"outputRate":0.00006}, PER_IMAGE → {"rate":0.01}
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String pricingMetadata;
 
