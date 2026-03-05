@@ -9,6 +9,7 @@ import com.fleebug.corerouter.exception.billing.BillingConfigNotFoundException;
 import com.fleebug.corerouter.exception.model.ModelNotFoundException;
 import com.fleebug.corerouter.repository.billing.BillingConfigRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
+import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,9 @@ public class BillingConfigService {
 
     private final BillingConfigRepository billingConfigRepository;
     private final ModelRepository modelRepository;
+    private final RedisService redisService;
+
+    private static final String BILLING_CACHE_PREFIX = "billing:config:";
 
     /**
      * Create a new billing configuration for a model.
@@ -52,6 +56,10 @@ public class BillingConfigService {
 
         BillingConfig saved = billingConfigRepository.save(config);
         log.info("Billing config created with ID={} for modelId={}", saved.getBillingId(), request.getModelId());
+
+        // Invalidate billing config cache
+        redisService.deleteFromCache(BILLING_CACHE_PREFIX + request.getModelId());
+
         return mapToResponse(saved);
     }
 
@@ -78,6 +86,10 @@ public class BillingConfigService {
 
         BillingConfig saved = billingConfigRepository.save(config);
         log.info("Billing config ID={} updated", saved.getBillingId());
+
+        // Invalidate billing config cache
+        redisService.deleteFromCache(BILLING_CACHE_PREFIX + saved.getModel().getModelId());
+
         return mapToResponse(saved);
     }
 
@@ -132,6 +144,9 @@ public class BillingConfigService {
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
         billingConfigRepository.delete(config);
         log.info("Billing config ID={} deleted", billingId);
+
+        // Invalidate billing config cache
+        redisService.deleteFromCache(BILLING_CACHE_PREFIX + config.getModel().getModelId());
     }
 
     /**

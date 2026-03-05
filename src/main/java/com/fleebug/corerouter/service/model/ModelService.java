@@ -13,6 +13,7 @@ import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.repository.documentation.ApiDocumentationRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.model.ModelStatusAuditRepository;
+import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ public class ModelService {
     private final ModelRepository modelRepository;
     private final ModelStatusAuditRepository modelStatusAuditRepository;
     private final ApiDocumentationRepository documentationRepository;
+    private final RedisService redisService;
+
+    private static final String MODEL_CACHE_PREFIX = "model:";
 
     /**
      * Create a new model.
@@ -181,6 +185,9 @@ public class ModelService {
         Model updatedModel = modelRepository.save(model);
         log.info("Model updated successfully with ID: {}", modelId);
 
+        // Invalidate model cache
+        redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
+
         // Audit log
         if (!oldStatus.equals(updateRequest.getStatus())) {
             createAuditLog(updatedModel, oldStatus, updateRequest.getStatus(), admin, "Model status changed");
@@ -220,6 +227,9 @@ public class ModelService {
         Model updatedModel = modelRepository.save(model);
         log.info("Model status changed successfully from {} to {} for ID: {}", oldStatus, newStatus, modelId);
 
+        // Invalidate model cache
+        redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
+
         // Audit log
         createAuditLog(updatedModel, oldStatus, newStatus, admin, "Status changed from " + oldStatus + " to " + newStatus);
 
@@ -246,6 +256,9 @@ public class ModelService {
         model.setUpdatedAt(LocalDateTime.now());
         modelRepository.save(model);
         log.info("Model archived successfully with ID: {}", modelId);
+
+        // Invalidate model cache
+        redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
 
         // Audit log
         createAuditLog(model, oldStatus, ModelStatus.ARCHIVED, admin, "Model archived");
@@ -278,6 +291,9 @@ public class ModelService {
         Model updatedModel = modelRepository.save(model);
         log.info("Model inactivated successfully with ID: {}", modelId);
 
+        // Invalidate model cache
+        redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
+
         // Audit log
         createAuditLog(updatedModel, oldStatus, ModelStatus.INACTIVE, admin, "Model inactivated");
 
@@ -305,6 +321,9 @@ public class ModelService {
         // Hard delete
         modelRepository.deleteById(modelId);
         log.info("Model permanently deleted with ID: {}", modelId);
+
+        // Invalidate model cache
+        redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
     }
 
     /**
