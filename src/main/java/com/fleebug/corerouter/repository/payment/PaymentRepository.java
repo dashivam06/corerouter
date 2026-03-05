@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.fleebug.corerouter.entity.payment.Payment;
-import com.fleebug.corerouter.entity.request.Request;
 import com.fleebug.corerouter.entity.user.User;
 
 import java.util.List;
