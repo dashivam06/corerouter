@@ -133,7 +133,7 @@ public class ApiDocumentationService {
     public void deleteDocumentation(Integer docId) {
         log.info("Deleting documentation with ID: {}", docId);
 
-        ApiDocumentation documentation = documentationRepository.findById(docId)
+        documentationRepository.findById(docId)
                 .orElseThrow(() -> {
                     log.warn("Documentation not found with ID: {}", docId);
                     return new IllegalArgumentException("Documentation not found");

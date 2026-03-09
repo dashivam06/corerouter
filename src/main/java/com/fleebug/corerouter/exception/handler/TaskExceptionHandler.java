@@ -115,8 +115,8 @@ public class TaskExceptionHandler {
             TaskRetryExceededException ex,
             HttpServletRequest request) {
         log.warn("Task retry limit exceeded: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(ApiResponse.error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request));
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(ApiResponse.error(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request));
     }
 
     /**
