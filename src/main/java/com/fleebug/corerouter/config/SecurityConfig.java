@@ -67,7 +67,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers(HttpMethod.POST, "/v1/tasks").hasRole("USER")
                 .requestMatchers(HttpMethod.GET, "/v1/tasks/**").hasRole("USER")
-                .requestMatchers(HttpMethod.PATCH, "/v1/tasks/worker/status").hasRole("WORKER")
+                .requestMatchers(HttpMethod.PATCH, "/v1/tasks/status", "/v1/tasks/status/").hasRole("WORKER")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception
@@ -109,6 +109,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints - no authentication required
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login","/api/v1/auth/**").permitAll()
+                // Worker endpoint for chat completions
+                .requestMatchers(HttpMethod.POST, "/api/v1/chat/completions").hasRole("WORKER")
                 // User models - public read access
                 .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Admin-only service token management endpoints
@@ -116,6 +118,7 @@ public class SecurityConfig {
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
