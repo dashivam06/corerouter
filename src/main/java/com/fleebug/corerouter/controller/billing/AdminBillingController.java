@@ -120,8 +120,8 @@ public class AdminBillingController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Billing config retrieved successfully"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Billing config not found for model")
     })
-    @GetMapping("/configs/model/{modelId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping({"/configs/model/{modelId}"})
+    @PreAuthorize("hasAnyRole('ADMIN','WORKER')")
     public ResponseEntity<ApiResponse<BillingConfigResponse>> getBillingConfigByModelId(
             @Parameter(description = "Model ID", example = "5") @PathVariable Integer modelId,
             HttpServletRequest request) {
@@ -198,7 +198,7 @@ public class AdminBillingController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Task not found or billing config missing")
     })
     @PostMapping("/usage")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','WORKER')")
     public ResponseEntity<ApiResponse<UsageRecordResponse>> recordUsage(
             @Valid @RequestBody RecordUsageRequest recordRequest,
             HttpServletRequest request) {

@@ -111,6 +111,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login","/api/v1/auth/**").permitAll()
                 // Worker endpoint for chat completions
                 .requestMatchers(HttpMethod.POST, "/api/v1/chat/completions").hasRole("WORKER")
+                // Worker internal calls for model/billing
+                .requestMatchers(HttpMethod.GET, "/api/v1/admin/models/*").hasAnyRole("ADMIN", "WORKER")
+                .requestMatchers(HttpMethod.GET, "/api/v1/admin/billing/config/*", "/api/v1/admin/billing/configs/model/*").hasAnyRole("ADMIN", "WORKER")
+                .requestMatchers(HttpMethod.POST, "/api/v1/admin/billing/usage").hasAnyRole("ADMIN", "WORKER")
                 // User models - public read access
                 .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Admin-only service token management endpoints
