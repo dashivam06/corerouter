@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -87,7 +88,8 @@ public class TaskController {
     }
 
     @Operation(summary = "Update task status", description = "Update the status and optionally the result of a task")
-    @PatchMapping("/status")
+    @PatchMapping("/worker/status")
+    @PreAuthorize("hasRole('WORKER')")
     public ResponseEntity<ApiResponse<TaskStatusResponse>> updateTaskStatus(
             @Valid @RequestBody TaskStatusUpdateRequest request,
             HttpServletRequest httpRequest) {
