@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/chat")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Chat Completions", description = "LLM chat completion endpoints")
