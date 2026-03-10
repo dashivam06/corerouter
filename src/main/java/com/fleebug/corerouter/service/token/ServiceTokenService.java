@@ -28,6 +28,7 @@ public class ServiceTokenService {
     private static final int SECRET_BYTES = 32;
     private static final String TOKEN_PREFIX = "svc_";
     private static final String TOKEN_SEPARATOR = ".";
+    private static final int MAX_TOKEN_ID_GENERATION_ATTEMPTS = 10;
 
     private final ServiceTokenRepository serviceTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -46,7 +47,7 @@ public class ServiceTokenService {
             throw new ServiceTokenAlreadyExistsException(name);
         }
 
-        String tokenId = generateRandomBase64Url(TOKEN_ID_BYTES);
+        String tokenId = generateUniqueTokenId();
         String secret = generateRandomBase64Url(SECRET_BYTES);
         String hash = passwordEncoder.encode(secret);
 
@@ -105,6 +106,24 @@ public class ServiceTokenService {
     }
 
     /**
+     * Get a service token by tokenId.
+     */
+    @Transactional(readOnly = true)
+    public ServiceToken getByTokenId(String tokenId) {
+        return serviceTokenRepository.findByTokenId(tokenId)
+                .orElseThrow(() -> new ServiceTokenNotFoundException(tokenId));
+    }
+
+    /**
+     * Get a service token by unique name.
+     */
+    @Transactional(readOnly = true)
+    public ServiceToken getByName(String name) {
+        return serviceTokenRepository.findByName(name)
+                .orElseThrow(() -> new ServiceTokenNotFoundException(name));
+    }
+
+    /**
      * Revoke (deactivate) a service token by name.
      */
     @Transactional
@@ -118,6 +137,17 @@ public class ServiceTokenService {
     }
 
     /**
+     * Revoke (deactivate) a service token by tokenId.
+     */
+    @Transactional
+    public void revokeTokenByTokenId(String tokenId) {
+        ServiceToken token = getByTokenId(tokenId);
+        token.setActive(false);
+        serviceTokenRepository.save(token);
+        log.info("Service token revoked — tokenId={}", tokenId);
+    }
+
+    /**
      * Re-activate a previously revoked token.
      */
     @Transactional
@@ -128,6 +158,17 @@ public class ServiceTokenService {
         token.setActive(true);
         serviceTokenRepository.save(token);
         log.info("Service token activated — name={}", name);
+    }
+
+    /**
+     * Re-activate a previously revoked token by tokenId.
+     */
+    @Transactional
+    public void activateTokenByTokenId(String tokenId) {
+        ServiceToken token = getByTokenId(tokenId);
+        token.setActive(true);
+        serviceTokenRepository.save(token);
+        log.info("Service token activated — tokenId={}", tokenId);
     }
 
     /**
@@ -158,6 +199,16 @@ public class ServiceTokenService {
         log.info("Service token deleted — name={}", name);
     }
 
+    /**
+     * Delete a service token permanently by tokenId.
+     */
+    @Transactional
+    public void deleteTokenByTokenId(String tokenId) {
+        ServiceToken token = getByTokenId(tokenId);
+        serviceTokenRepository.delete(token);
+        log.info("Service token deleted — tokenId={}", tokenId);
+    }
+
     // ── internal ────────────────────────────────────────────────────────
 
     private String generateRandomBase64Url(int byteLength) {
@@ -165,5 +216,16 @@ public class ServiceTokenService {
         byte[] bytes = new byte[byteLength];
         random.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String generateUniqueTokenId() {
+        for (int i = 0; i < MAX_TOKEN_ID_GENERATION_ATTEMPTS; i++) {
+            String candidate = generateRandomBase64Url(TOKEN_ID_BYTES);
+            if (!serviceTokenRepository.existsByTokenId(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalStateException("Unable to generate a unique service token ID");
     }
 }

@@ -111,6 +111,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login","/api/v1/auth/**").permitAll()
                 // User models - public read access
                 .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // Admin-only service token management endpoints
+                .requestMatchers("/api/v1/service-tokens/**").hasRole("ADMIN")
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )

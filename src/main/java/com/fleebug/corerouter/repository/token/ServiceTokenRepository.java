@@ -14,6 +14,8 @@ public interface ServiceTokenRepository extends JpaRepository<ServiceToken, Long
 
     Optional<ServiceToken> findByTokenId(String tokenId);
 
+    boolean existsByTokenId(String tokenId);
+
     Optional<ServiceToken> findByName(String name);
 
     List<ServiceToken> findByRole(ServiceRole role);
