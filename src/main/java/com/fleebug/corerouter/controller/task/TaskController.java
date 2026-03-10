@@ -88,7 +88,7 @@ public class TaskController {
     }
 
     @Operation(summary = "Update task status", description = "Update the status and optionally the result of a task")
-    @PatchMapping("/worker/status")
+    @PatchMapping("/status")
     @PreAuthorize("hasRole('WORKER')")
     public ResponseEntity<ApiResponse<TaskStatusResponse>> updateTaskStatus(
             @Valid @RequestBody TaskStatusUpdateRequest request,
