@@ -98,6 +98,7 @@ public class TaskService {
         Task task = getTaskById(request.getTaskId());
         task.setStatus(request.getStatus());
         task.setUpdatedAt(LocalDateTime.now());
+        task.setUsageMetadata(request.getUsageMetadata());
 
         if (request.getResult() != null) {
             try {
@@ -109,6 +110,8 @@ public class TaskService {
 
         if (request.getStatus() == TaskStatus.COMPLETED || request.getStatus() == TaskStatus.FAILED) {
             task.setCompletedAt(LocalDateTime.now());
+            long processingTimeMs = java.time.Duration.between(task.getCreatedAt(), task.getCompletedAt()).toMillis();
+            task.setProcessingTimeMs(processingTimeMs);
         }
 
         Task saved = taskRepository.save(task);

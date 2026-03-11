@@ -11,6 +11,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Getter
 @Setter
@@ -47,5 +48,12 @@ public class TaskStatusUpdateRequest {
         example = "{\"output\": \"Generated response text\", \"tokens_used\": 150}"
     )
     private Object result;
+
+    @JsonProperty("usageMetadata")
+    @Schema(
+        description = "Raw provider response for audit and debugging",
+        example = "{\"usage\": {\"latency\": 60 token/sec, \"completion_tokens\": 50}}"
+    )
+    private String usageMetadata;
 }
 
