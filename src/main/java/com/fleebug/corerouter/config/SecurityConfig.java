@@ -109,6 +109,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints - no authentication required
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login","/api/v1/auth/**").permitAll()
+                .requestMatchers(HttpMethod.POST,  "/api/v1/auth/login","/api/v1/auth/**").permitAll()
+                .requestMatchers("/scalar/**", "/v3/api-docs/**", "/v3/api-docs").permitAll()
                 // Worker endpoint for chat completions
                 .requestMatchers(HttpMethod.POST, "/api/v1/chat/completions").hasRole("WORKER")
                 // Worker internal calls for model/billing
@@ -116,7 +118,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/admin/billing/config/*", "/api/v1/admin/billing/configs/model/*").hasAnyRole("ADMIN", "WORKER")
                 .requestMatchers(HttpMethod.POST, "/api/v1/admin/billing/usage").hasAnyRole("ADMIN", "WORKER")
                 // User models - public read access
-                .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**").permitAll()
                 // Admin-only service token management endpoints
                 .requestMatchers("/api/v1/service-tokens/**").hasRole("ADMIN")
                 // Everything else requires authentication
