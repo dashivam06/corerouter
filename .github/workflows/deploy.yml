@@ -22,7 +22,7 @@ jobs:
             set -e
             set -o pipefail
 
-            APP_DIR="/home/rootuser/corerouter"
+            APP_DIR="/home/fleebug/corerouter"
             LOG_DIR="$APP_DIR/logs"
             LOG_FILE="$LOG_DIR/deploy.log"
 
