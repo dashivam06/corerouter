@@ -1,13 +1,17 @@
 package com.fleebug.corerouter.security.jwt;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import com.fleebug.corerouter.enums.token.TokenValidationStatus;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -105,19 +109,27 @@ public class JwtUtil {
      * @return true if token is valid
      */
     public boolean validateToken(String token) {
+        return getTokenValidationStatus(token) == TokenValidationStatus.VALID;
+    }
+
+    public TokenValidationStatus getTokenValidationStatus(String token) {
         try {
             if (token != null && token.startsWith("Bearer ")) {
-                token =  token.substring(7).trim();
+                token = token.substring(7).trim();
             }
+
             Jwts.parser()
                     .verifyWith(getSigningKey())
                     .build()
                     .parseSignedClaims(token);
 
-            return true;
-        } catch (Exception e) {
-            log.error("JWT token validation failed: {}", e.getMessage());
-            return false;
+            return TokenValidationStatus.VALID;
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT token expired: {}", e.getMessage());
+            return TokenValidationStatus.EXPIRED;
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("JWT token validation failed: {}", e.getMessage());
+            return TokenValidationStatus.INVALID;
         }
     }
 

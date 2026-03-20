@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String SERVICE_TOKEN_HEADER = "X-Service-Token";
+    private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
 
     private final ServiceTokenService serviceTokenService;
 
@@ -57,6 +58,7 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
             log.debug("Service token authenticated — name={}, role={}", serviceToken.getName(), serviceToken.getRole());
         } catch (InvalidServiceTokenException ex) {
             log.warn("Service token authentication failed: {}", ex.getMessage());
+            request.setAttribute(AUTH_ERROR_REASON_ATTR, "invalid");
             // Don't set auth — Spring Security will reject with 401 downstream
         }
 

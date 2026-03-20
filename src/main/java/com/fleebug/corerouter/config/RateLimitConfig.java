@@ -1,0 +1,33 @@
+package com.fleebug.corerouter.config;
+
+import io.github.bucket4j.Bandwidth;
+import org.springframework.context.annotation.Configuration;
+import java.time.Duration;
+
+@Configuration
+public class RateLimitConfig {
+
+    // 5 OTP requests per IP per 10 minutes
+    public Bandwidth otpIpBandwidth() {
+        return Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(10))
+                .build();
+    }
+
+    // 3 OTP requests per email per 10 minutes
+    public Bandwidth otpEmailBandwidth() {
+        return Bandwidth.builder()
+                .capacity(3)
+                .refillIntervally(3, Duration.ofMinutes(10))
+                .build();
+    }
+
+    // 10 login attempts per IP per minute
+    public Bandwidth loginIpBandwidth() {
+        return Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(1))
+                .build();
+    }
+}

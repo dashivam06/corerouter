@@ -1,104 +1,75 @@
 package com.fleebug.corerouter.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fleebug.corerouter.constants.ApiPaths;
+import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.security.filter.AuthRateLimitFilter;
+import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
+import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
-import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
-import java.time.LocalDateTime;
+
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
+    private final ObjectMapper objectMapper;
 
-    @Lazy
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.serviceTokenAuthenticationFilter = serviceTokenAuthenticationFilter;
-    }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-    /**
-     * Filter chain for task endpoints — supports both JWT (users) and service-token (workers).
-     * Ordered first so it matches before the main chain.
-     */
     @Bean
     @Order(1)
     public SecurityFilterChain taskFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/v1/tasks/**")
+            .securityMatcher(ApiPaths.TASKS_ALL)
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers(HttpMethod.POST, "/v1/tasks").hasRole("USER")
-                .requestMatchers(HttpMethod.GET, "/v1/tasks/**").hasRole("USER")
-                .requestMatchers(HttpMethod.PATCH, "/v1/tasks/status", "/v1/tasks/status/").hasRole("WORKER")
+                .requestMatchers(HttpMethod.POST,  ApiPaths.TASKS).hasRole("USER")
+                .requestMatchers(HttpMethod.GET,   ApiPaths.TASKS_ALL).hasRole("USER")
+                .requestMatchers(HttpMethod.PATCH, ApiPaths.TASKS_STATUS).hasRole("WORKER")
                 .anyRequest().authenticated()
             )
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setStatus(401);
-                    response.getWriter().write(
-                        "{\"timestamp\":\"" + LocalDateTime.now() +
-                        "\",\"status\":401,\"success\":false,\"message\":\"Unauthorized: Missing or invalid authentication token\"," +
-                        "\"path\":\"" + request.getRequestURI() +
-                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
-                    );
-                })
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setStatus(403);
-                    response.getWriter().write(
-                        "{\"timestamp\":\"" + LocalDateTime.now() +
-                        "\",\"status\":403,\"success\":false,\"message\":\"Forbidden: Insufficient role for this endpoint\"," +
-                        "\"path\":\"" + request.getRequestURI() +
-                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
-                    );
-                })
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e) ->
+                        writeError(req, res, HttpStatus.UNAUTHORIZED, resolveUnauthorizedMessage(req)))
+                .accessDeniedHandler((req, res, e) ->
+                        writeError(req, res, HttpStatus.FORBIDDEN, "Forbidden: Insufficient role for this endpoint"))
             );
 
         return http.build();
     }
 
-    /**
-     * Main filter chain — everything except /v1/tasks/**.
-     */
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -107,46 +78,41 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // Public endpoints - no authentication required
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login","/api/v1/auth/**").permitAll()
-                .requestMatchers(HttpMethod.POST,  "/api/v1/auth/login","/api/v1/auth/**").permitAll()
-                .requestMatchers("/scalar/**", "/v3/api-docs/**", "/v3/api-docs").permitAll()
-                // Worker endpoint for chat completions
-                .requestMatchers(HttpMethod.POST, "/api/v1/chat/completions").hasRole("WORKER")
-                // Worker internal calls for model/billing
-                .requestMatchers(HttpMethod.GET, "/api/v1/admin/models/*").hasAnyRole("ADMIN", "WORKER")
-                .requestMatchers(HttpMethod.GET, "/api/v1/admin/billing/config/*", "/api/v1/admin/billing/configs/model/*").hasAnyRole("ADMIN", "WORKER")
-                .requestMatchers(HttpMethod.POST, "/api/v1/admin/billing/usage").hasAnyRole("ADMIN", "WORKER")
-                // User models - public read access
-                .requestMatchers(HttpMethod.GET, "/api/v1/models", "/api/v1/models/**","/api/v1/auth/**", "/v3/api-docs/**").permitAll()
-                // Admin-only service token management endpoints
-                .requestMatchers("/api/v1/service-tokens/**").hasRole("ADMIN")
-                // Everything else requires authentication
+                // ── Public ─────────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.POST,
+                        ApiPaths.AUTH_REGISTER,
+                        ApiPaths.AUTH_LOGIN,
+                        ApiPaths.AUTH_REQUEST_OTP).permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        ApiPaths.MODELS,
+                        ApiPaths.MODELS_ALL).permitAll()
+                .requestMatchers(
+                        ApiPaths.SCALAR_ALL,
+                        ApiPaths.API_DOCS,
+                        ApiPaths.API_DOCS_ALL).permitAll()
+                // ── Worker ─────────────────────────────────────────────────────
+                .requestMatchers(HttpMethod.POST,
+                        ApiPaths.CHAT_COMPLETIONS).hasRole("WORKER")
+                // ── Admin + Worker ──────────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,
+                        ApiPaths.ADMIN_MODELS,
+                        ApiPaths.ADMIN_BILLING_CONFIG,
+                        ApiPaths.ADMIN_BILLING_CONFIG_MODEL).hasAnyRole("ADMIN", "WORKER")
+                .requestMatchers(HttpMethod.POST,
+                        ApiPaths.ADMIN_BILLING_USAGE).hasAnyRole("ADMIN", "WORKER")
+                // ── Admin only ──────────────────────────────────────────────────
+                .requestMatchers(ApiPaths.ADMIN_SERVICE_TOKENS).hasRole("ADMIN")
+                // ── Everything else ─────────────────────────────────────────────
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setStatus(401);
-                    response.getWriter().write(
-                        "{\"timestamp\":\"" + LocalDateTime.now() + 
-                        "\",\"status\":401,\"success\":false,\"message\":\"Unauthorized: Missing or invalid authentication token\"," +
-                        "\"path\":\"" + request.getRequestURI() + 
-                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
-                    );
-                })
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setStatus(403);
-                    response.getWriter().write(
-                        "{\"timestamp\":\"" + LocalDateTime.now() + 
-                        "\",\"status\":403,\"success\":false,\"message\":\"Forbidden: Admin role required\"," +
-                        "\"path\":\"" + request.getRequestURI() + 
-                        "\",\"method\":\"" + request.getMethod() + "\",\"data\":null}"
-                    );
-                })
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, e) ->
+                        writeError(req, res, HttpStatus.UNAUTHORIZED, resolveUnauthorizedMessage(req)))
+                .accessDeniedHandler((req, res, e) ->
+                        writeError(req, res, HttpStatus.FORBIDDEN, "Forbidden: Admin role required"))
             );
 
         return http.build();
@@ -166,4 +132,29 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
+    private void writeError(HttpServletRequest request,
+                            HttpServletResponse response,
+                            HttpStatus status,
+                            String message) throws IOException {
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setStatus(status.value());
+        response.getWriter().write(
+                objectMapper.writeValueAsString(ApiResponse.error(status, message, request))
+        );
+    }
+
+        private String resolveUnauthorizedMessage(HttpServletRequest request) {
+                Object reason = request.getAttribute(AUTH_ERROR_REASON_ATTR);
+
+                if ("expired".equals(reason)) {
+                        return "Token expired. Please log in again";
+                }
+
+                if ("invalid".equals(reason)) {
+                        return "Invalid authentication token";
+                }
+
+                return "Authentication token is missing";
+        }
 }
