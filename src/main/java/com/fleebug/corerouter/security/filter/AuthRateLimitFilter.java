@@ -38,7 +38,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
         if ("/api/v1/auth/request-otp".equals(path)) {
             handleOtpRateLimit(request, response, filterChain);
-        } else if ("/login".equals(path)) {
+        } else if ("/api/v1/auth/login".equals(path)) {
             handleLoginRateLimit(request, response, filterChain);
         } else {
             filterChain.doFilter(request, response);
