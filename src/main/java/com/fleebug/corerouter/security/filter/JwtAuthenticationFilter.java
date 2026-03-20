@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fleebug.corerouter.enums.token.TokenValidationStatus;
 import com.fleebug.corerouter.security.jwt.JwtUtil;
 import com.fleebug.corerouter.security.service.CustomUserDetailsService;
 
@@ -22,6 +23,8 @@ import java.io.IOException;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
+
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
 
@@ -29,8 +32,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
+            String authorizationHeader = request.getHeader("Authorization");
             String token = extractTokenFromRequest(request);
-            if (token != null && jwtUtil.validateToken(token)) {
+            TokenValidationStatus validationStatus = null;
+
+            if (authorizationHeader != null && !authorizationHeader.isBlank() && token == null) {
+                request.setAttribute(AUTH_ERROR_REASON_ATTR, "invalid");
+            }
+
+            if (token != null) {
+                validationStatus = jwtUtil.getTokenValidationStatus(token);
+
+                if (validationStatus == TokenValidationStatus.EXPIRED) {
+                    request.setAttribute(AUTH_ERROR_REASON_ATTR, "expired");
+                } else if (validationStatus == TokenValidationStatus.INVALID) {
+                    request.setAttribute(AUTH_ERROR_REASON_ATTR, "invalid");
+                }
+            }
+
+            if (token != null && validationStatus == TokenValidationStatus.VALID) {
                 String email = jwtUtil.extractEmailFromClaims(token);
 
                 log.debug("JWT validated for user: {}", email);
@@ -62,7 +82,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String extractTokenFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7).trim();
+            String token = bearerToken.substring(7).trim();
+            return token.isBlank() ? null : token;
         }
         return null;
     }

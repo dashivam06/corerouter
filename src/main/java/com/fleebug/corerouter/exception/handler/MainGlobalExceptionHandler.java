@@ -10,6 +10,7 @@ import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -99,6 +100,16 @@ public class MainGlobalExceptionHandler {
         
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
     }
+
+
+        @ExceptionHandler(HttpMessageNotReadableException.class)
+        public ResponseEntity<ApiResponse<Void>> handleMissingBody(HttpMessageNotReadableException ex,
+                                                                HttpServletRequest request) {
+
+                ApiResponse<Void> response =  ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
     
     /**
      * Handle Redis connection failures during request processing
