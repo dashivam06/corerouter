@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fleebug.corerouter.constants.ApiPaths;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 import com.fleebug.corerouter.service.redis.RedisBucketService;
@@ -49,14 +50,14 @@ public class TaskRateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        if (HttpMethod.POST.matches(method) && path.equals("/v1/tasks")) {
+        if (HttpMethod.POST.matches(method) && path.equals(ApiPaths.TASKS)) {
             handleTaskCreationRateLimit(request, response, filterChain);
         } else {
             filterChain.doFilter(request, response);
         }
     }
 
-    private void handleTaskCreationRateLimit(HttpServletRequest request,
+            private void handleTaskCreationRateLimit(HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain)
             throws ServletException, IOException {

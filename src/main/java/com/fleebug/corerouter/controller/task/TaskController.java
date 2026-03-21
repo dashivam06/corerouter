@@ -7,7 +7,11 @@ import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
 import com.fleebug.corerouter.dto.task.response.TaskAsyncResponse;
 import com.fleebug.corerouter.dto.task.response.TaskStatusResponse;
+import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.task.Task;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
+import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
+import com.fleebug.corerouter.service.apikey.ApiKeyService;
 import com.fleebug.corerouter.service.task.TaskService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,7 +39,12 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Tasks", description = "Async task management — create, poll status, and update results")
 public class TaskController {
 
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+
     private final TaskService taskService;
+    private final ApiKeyRepository apiKeyRepository;
+    private final ApiKeyService apiKeyService;
     
     private final ObjectMapper objectMapper ;
 
@@ -73,7 +82,13 @@ public class TaskController {
 
         log.info("Received task status request - taskId={}", taskId);
 
+        ApiKey apiKey = requireApiKey(httpRequest);
+
         Task task = taskService.getTaskById(taskId);
+
+        if (!task.getApiKey().getApiKeyId().equals(apiKey.getApiKeyId())) {
+            throw new IllegalArgumentException("This API key does not have permission to access this task");
+        }
 
         Object resultObject = null;
         if (task.getResultPayload() != null) {
@@ -120,6 +135,25 @@ public class TaskController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Task status updated successfully", taskStatusResponse, httpRequest));
+    }
+
+    private ApiKey requireApiKey(HttpServletRequest request) {
+        String authHeader = request.getHeader(AUTHORIZATION_HEADER);
+        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            throw new IllegalArgumentException("Missing or invalid Authorization header. Expected 'Bearer <API_KEY>'");
+        }
+
+        String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+        String hashedToken = apiKeyService.hashKey(token);
+
+        ApiKey apiKey = apiKeyRepository.findByKey(hashedToken)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid API Key"));
+
+        if (apiKey.getStatus() != ApiKeyStatus.ACTIVE) {
+            throw new IllegalArgumentException("API Key is not active");
+        }
+
+        return apiKey;
     }
 }
 

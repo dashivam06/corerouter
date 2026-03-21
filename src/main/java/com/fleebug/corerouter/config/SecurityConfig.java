@@ -61,7 +61,7 @@ public class SecurityConfig {
                         .addFilterAfter(taskRateLimitFilter, JwtAuthenticationFilter.class)
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers(HttpMethod.POST,  ApiPaths.TASKS).hasRole("USER")
-                .requestMatchers(HttpMethod.GET,   ApiPaths.TASKS_ALL).hasRole("USER")
+                                .requestMatchers(HttpMethod.GET,   ApiPaths.TASKS_ALL).permitAll()
                 .requestMatchers(HttpMethod.PATCH, ApiPaths.TASKS_STATUS).hasRole("WORKER")
                 .anyRequest().authenticated()
             )

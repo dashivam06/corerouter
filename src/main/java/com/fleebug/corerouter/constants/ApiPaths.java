@@ -25,9 +25,9 @@ public final class ApiPaths {
     public static final String ADMIN_SERVICE_TOKENS     = "/api/v1/service-tokens/**";
 
     // ── Tasks ──────────────────────────────────────────────────────────
-    public static final String TASKS            = "/v1/tasks";
-    public static final String TASKS_ALL        = "/v1/tasks/**";
-    public static final String TASKS_STATUS     = "/v1/tasks/status";
+    public static final String TASKS            = "/api/v1/tasks";
+    public static final String TASKS_ALL        = "/api/v1/tasks/**";
+    public static final String TASKS_STATUS     = "/api/v1/tasks/status";
 
     // ── Docs ───────────────────────────────────────────────────────────
     public static final String SCALAR_ALL       = "/scalar/**";
