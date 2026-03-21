@@ -57,8 +57,9 @@ public class LlmController {
         log.info("Chat completion request - model: {}", chatRequest.getModel());
 
         ApiKey apiKey = requireApiKey(request);
-        Model model = modelRepository.findByUsername(chatRequest.getModel())
+        Model model = modelRepository.findByFullname(chatRequest.getModel())
                 .orElseThrow(() -> new ModelNotFoundException("username", chatRequest.getModel()));
+
 
         Map<String, Object> payload = objectMapper.convertValue(chatRequest, new TypeReference<>() {});
         TaskCreateRequest taskRequest = TaskCreateRequest.builder()

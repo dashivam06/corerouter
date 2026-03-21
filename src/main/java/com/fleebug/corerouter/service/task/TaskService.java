@@ -24,7 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 
@@ -69,7 +71,7 @@ public class TaskService {
                 .model(model)
                 .requestPayload(payloadJson)
                 .status(TaskStatus.QUEUED)
-                .createdAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
                 .build();
 
         Task saved = taskRepository.save(task);
