@@ -30,4 +30,28 @@ public class RateLimitConfig {
                 .refillIntervally(10, Duration.ofMinutes(1))
                 .build();
     }
+
+    // 10 verify OTP attempts per IP per minute
+    public Bandwidth verifyIpBandwidth() {
+        return Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(1))
+                .build();
+    }
+
+    // 20 token refresh attempts per IP per minute
+    public Bandwidth refreshIpBandwidth() {
+        return Bandwidth.builder()
+                .capacity(20)
+                .refillIntervally(20, Duration.ofMinutes(1))
+                .build();
+    }
+
+    // Task creation: 5 per authenticated user per minute (EXPENSIVE — strictly limited)
+    public Bandwidth taskCreationUserBandwidth() {
+        return Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(1))
+                .build();
+    }
 }

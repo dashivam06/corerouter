@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -40,6 +39,10 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             handleOtpRateLimit(request, response, filterChain);
         } else if ("/api/v1/auth/login".equals(path)) {
             handleLoginRateLimit(request, response, filterChain);
+        } else if ("/api/v1/auth/verify-otp".equals(path)) {
+            handleVerifyRateLimit(request, response, filterChain);
+        } else if ("/api/v1/auth/refresh".equals(path)) {
+            handleRefreshRateLimit(request, response, filterChain);
         } else {
             filterChain.doFilter(request, response);
         }
@@ -82,6 +85,48 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", String.valueOf(retryAfter));
             writeTooManyRequests(response, request,
                     "Too many login attempts. Retry after " + retryAfter + "s");
+            return;
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private void handleVerifyRateLimit(HttpServletRequest request,
+                                      HttpServletResponse response,
+                                      FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String clientIp = resolveClientIp(request);
+
+        Bucket bucket = redisBucketService.resolveVerifyIpBucket(clientIp);
+        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+
+        if (!probe.isConsumed()) {
+            long retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()) + 1;
+            response.setHeader("Retry-After", String.valueOf(retryAfter));
+            writeTooManyRequests(response, request,
+                    "Too many verification attempts. Retry after " + retryAfter + "s");
+            return;
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private void handleRefreshRateLimit(HttpServletRequest request,
+                                       HttpServletResponse response,
+                                       FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String clientIp = resolveClientIp(request);
+
+        Bucket bucket = redisBucketService.resolveRefreshIpBucket(clientIp);
+        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+
+        if (!probe.isConsumed()) {
+            long retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()) + 1;
+            response.setHeader("Retry-After", String.valueOf(retryAfter));
+            writeTooManyRequests(response, request,
+                    "Too many token refresh attempts. Retry after " + retryAfter + "s");
             return;
         }
 

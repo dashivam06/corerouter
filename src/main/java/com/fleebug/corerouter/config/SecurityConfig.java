@@ -6,6 +6,7 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.security.filter.AuthRateLimitFilter;
 import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
+import com.fleebug.corerouter.security.filter.TaskRateLimitFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter;
     private final AuthRateLimitFilter authRateLimitFilter;
+    private final TaskRateLimitFilter taskRateLimitFilter;
     private final ObjectMapper objectMapper;
 
 
@@ -54,6 +56,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                        .addFilterAfter(taskRateLimitFilter, JwtAuthenticationFilter.class)
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers(HttpMethod.POST,  ApiPaths.TASKS).hasRole("USER")
                 .requestMatchers(HttpMethod.GET,   ApiPaths.TASKS_ALL).hasRole("USER")

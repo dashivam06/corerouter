@@ -61,6 +61,28 @@ public class RedisBucketService {
         Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
                 .addLimit(rateLimitConfig.loginIpBandwidth())
                 .build();
+        // Uses simple-bucket keys
         return proxyManager.builder().build("rl:login:ip:" + clientIp, config);
+    }
+
+    public Bucket resolveVerifyIpBucket(String clientIp) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.verifyIpBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:auth:verify:ip:" + clientIp, config);
+    }
+
+    public Bucket resolveRefreshIpBucket(String clientIp) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.refreshIpBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:auth:refresh:ip:" + clientIp, config);
+    }
+
+    public Bucket resolveTaskCreationUserBucket(String userKey) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.taskCreationUserBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:task:create:user:" + userKey, config);
     }
 }
