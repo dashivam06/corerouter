@@ -56,7 +56,6 @@ jobs:
               echo "Starting new container"
               sudo docker run -d \
                 --name corerouter \
-                --restart unless-stopped \
                 -p 7777:7777 \
                 -v $LOG_DIR:/app/logs \
                 -e SERVER_PORT=${{ secrets.SERVER_PORT }} \
@@ -71,6 +70,7 @@ jobs:
                 -e REDIS_PORT=${{ secrets.REDIS_PORT }} \
                 -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
                 -e ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
+                -e SECURITY_APIKEY_PEPPER=${{ secrets.SECURITY_APIKEY_PEPPER }} \
                 corerouter:latest
 
               echo "Deployment completed successfully"

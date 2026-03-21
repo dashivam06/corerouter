@@ -85,4 +85,11 @@ public class RedisBucketService {
                 .build();
         return proxyManager.builder().build("rl:task:create:user:" + userKey, config);
     }
+    
+    public Bucket resolveChatApiKeyBucket(String apiKeyHash) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.chatApiKeyBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:chat:apikey:" + apiKeyHash, config);
+    }
 }

@@ -2,6 +2,7 @@ package com.fleebug.corerouter.service.apikey;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,10 +14,13 @@ import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
 
-import java.time.LocalDateTime;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -26,22 +30,33 @@ public class ApiKeyService {
 
     private final ApiKeyRepository apiKeyRepository;
 
+    @Value("${security.apikey.pepper}")
+    private String pepper;
+
     /**
      * Generate a new API key for user
      * 
      * @param user User object
      * @param createRequest Create API key request
-     * @return ApiKeyResponse with generated key
+     * @return ApiKeyResponse with generated key (RAW key only shown ONCE)
      */
     public ApiKeyResponse generateApiKey(User user, CreateApiKeyRequest createRequest) {
         log.info("Generating new API key for user ID: {}", user.getUserId());
 
-        // Generate unique key
-        String uniqueKey = generateUniqueKey();
+        // 1. Generate the RAW key (sk_...)
+        String rawKey = generateRawKey();
+        
+        // 2. Hash it for storage
+        String hashedKey = hashKey(rawKey);
+
+        // 3. Ensure hash uniqueness (though collision is extremely unlikely)
+        if (apiKeyRepository.existsByKey(hashedKey)) {
+             throw new IllegalStateException("Key collision error. Please try again.");
+        }
 
         ApiKey apiKey = ApiKey.builder()
                 .user(user)
-                .key(uniqueKey)
+                .key(hashedKey) // STORE THE HASH
                 .description(createRequest.getDescription())
                 .dailyLimit(createRequest.getDailyLimit())
                 .monthlyLimit(createRequest.getMonthlyLimit())
@@ -52,7 +67,10 @@ public class ApiKeyService {
         ApiKey savedApiKey = apiKeyRepository.save(apiKey);
         log.info("API key generated successfully for user ID: {}", user.getUserId());
 
-        return mapToResponse(savedApiKey);
+        // 4. Return the RAW key to the user (Response only)
+        ApiKeyResponse response = mapToResponse(savedApiKey);
+        response.setKey(rawKey); // Override the hash with the raw key for display
+        return response;
     }
 
     /**
@@ -179,19 +197,21 @@ public class ApiKeyService {
         log.info("API key deleted successfully - ID: {}", apiKeyId);
     }
 
-    /**
-     * Generate unique API key
-     * 
-     * @return Unique key string
-     */
-    private String generateUniqueKey() {
-        String key;
-        do {
-            key = "sk_" + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-        } while (apiKeyRepository.existsByKey(key));
-
-        return key;
+    private String generateRawKey() {
+        return "sk_" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
+    
+    public String hashKey(String rawKey) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            // Combine raw key with server-side pepper for additional security
+            byte[] hash = digest.digest((rawKey + pepper).getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("Error hashing API key", e);
+        }
+    }
+
 
     /**
      * Map ApiKey entity to ApiKeyResponse DTO
@@ -202,7 +222,7 @@ public class ApiKeyService {
     private ApiKeyResponse mapToResponse(ApiKey apiKey) {
         return ApiKeyResponse.builder()
                 .apiKeyId(apiKey.getApiKeyId())
-                .key(apiKey.getKey())
+                .key(apiKey.getKey()) // This will contain the HASH usually
                 .description(apiKey.getDescription())
                 .dailyLimit(apiKey.getDailyLimit())
                 .monthlyLimit(apiKey.getMonthlyLimit())

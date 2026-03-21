@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v1/tasks")
+@RequestMapping("/api/v1/tasks")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Tasks", description = "Async task management — create, poll status, and update results")
@@ -39,6 +39,12 @@ public class TaskController {
     
     private final ObjectMapper objectMapper ;
 
+    /**
+     * @deprecated This method is generic and works, but it is **encouraged** 
+     * to use the respective chat or OCR endpoint to complete the task properly.
+     * Using this directly may bypass validations or workflow-specific logic.
+     */
+    @Deprecated
     @Operation(summary = "Create task", description = "Enqueue a new async task for processing")
     @PostMapping
     public ResponseEntity<ApiResponse<TaskAsyncResponse>> createTask(

@@ -54,4 +54,12 @@ public class RateLimitConfig {
                 .refillIntervally(5, Duration.ofMinutes(1))
                 .build();
     }
+
+    // Chat completions: 10 per API key per minute
+    public Bandwidth chatApiKeyBandwidth() {
+        return Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(1))
+                .build();
+    }
 }

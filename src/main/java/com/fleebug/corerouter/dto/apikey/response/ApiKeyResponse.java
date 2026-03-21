@@ -28,10 +28,10 @@ public class ApiKeyResponse {
     private Integer apiKeyId;
 
     @Schema(
-        description = "The actual API key credential. Keep this secret and use it to authenticate API requests. Store securely.",
-        requiredMode = RequiredMode.REQUIRED,
-        example = "pk_live_51234567890abcdefghijklmnop",
-        pattern = "^[a-zA-Z0-9_-]{20,}$"
+    description = "API key used for authentication. The plaintext key is returned only once upon creation and cannot be retrieved again. Store it securely. Subsequent responses return only a hashed value.",
+    requiredMode = RequiredMode.REQUIRED,
+    example = "sk_test_xxxxxxxxxxxxxxx",
+    pattern = "^[a-zA-Z0-9_-]{20,}$"
     )
     private String key;
 

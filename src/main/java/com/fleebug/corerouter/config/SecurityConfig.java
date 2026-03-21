@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleebug.corerouter.constants.ApiPaths;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.security.filter.AuthRateLimitFilter;
+import com.fleebug.corerouter.security.filter.ChatRateLimitFilter;
 import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.TaskRateLimitFilter;
@@ -43,6 +44,7 @@ public class SecurityConfig {
     private final ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter;
     private final AuthRateLimitFilter authRateLimitFilter;
     private final TaskRateLimitFilter taskRateLimitFilter;
+    private final ChatRateLimitFilter chatRateLimitFilter;
     private final ObjectMapper objectMapper;
 
 
@@ -93,9 +95,9 @@ public class SecurityConfig {
                         ApiPaths.SCALAR_ALL,
                         ApiPaths.API_DOCS,
                         ApiPaths.API_DOCS_ALL).permitAll()
-                // ── Worker ─────────────────────────────────────────────────────
+                // ── Worker (API Key Only) ──────────────────────────────────────
                 .requestMatchers(HttpMethod.POST,
-                        ApiPaths.CHAT_COMPLETIONS).hasRole("WORKER")
+                        ApiPaths.CHAT_COMPLETIONS).permitAll()
                 // ── Admin + Worker ──────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.ADMIN_MODELS,
@@ -111,6 +113,7 @@ public class SecurityConfig {
             .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(chatRateLimitFilter, JwtAuthenticationFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) ->
                         writeError(req, res, HttpStatus.UNAUTHORIZED, resolveUnauthorizedMessage(req)))
