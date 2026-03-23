@@ -18,12 +18,15 @@ import com.fleebug.corerouter.security.service.CustomUserDetailsService;
 
 import java.io.IOException;
 
+import org.slf4j.MDC;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
+    private static final String MDC_KEY_USER_ID = "userId";
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
@@ -64,6 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(userDetails);
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                
+                // Add userId to MDC for logging context
+                if (email != null) {
+                    MDC.put(MDC_KEY_USER_ID, email);
+                }
+                
                 log.debug("Authentication set for user: {}", email);
             }
         } catch (Exception e) {

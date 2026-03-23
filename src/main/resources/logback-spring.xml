@@ -1,0 +1,44 @@
+<configuration>
+
+    <springProperty name="APP_NAME"
+                    source="spring.application.name"
+                    defaultValue="corerouter"/>
+
+    <!-- CONSOLE -->
+    <appender name="CONSOLE"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${APP_NAME},%X{requestId:-},%X{userId:-},%X{worker:-}] --- [%15.15t] %-40.40c{1} : %m%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- FILE -->
+    <appender name="FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/app/logs/corerouter-backend/${APP_NAME}-current.log</file>
+        <rollingPolicy
+            class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>
+                /app/logs/corerouter-backend/${APP_NAME}-%d{yyyy-MM-dd}.log
+            </fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${APP_NAME},%X{requestId:-},%X{userId:-},%X{worker:-}] --- [%15.15t] %-40.40c{1} : %m%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.fleebug.corerouter" level="INFO"/>
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+        <!-- NO AZURE APPENDER NEEDED -->
+    </root>
+
+</configuration>

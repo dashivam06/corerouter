@@ -7,6 +7,10 @@ RUN ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:21-jdk
 WORKDIR /app
+
+# Create logs directory
+RUN mkdir -p /app/logs/corerouter-backend
+
 COPY --from=builder /app/target/corerouter-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 7777
 ENTRYPOINT ["java","-jar","app.jar"]

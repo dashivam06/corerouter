@@ -6,6 +6,7 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.security.filter.AuthRateLimitFilter;
 import com.fleebug.corerouter.security.filter.ChatRateLimitFilter;
 import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
+import com.fleebug.corerouter.security.filter.MdcLoggingFilter;
 import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.TaskRateLimitFilter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,6 +46,7 @@ public class SecurityConfig {
     private final AuthRateLimitFilter authRateLimitFilter;
     private final TaskRateLimitFilter taskRateLimitFilter;
     private final ChatRateLimitFilter chatRateLimitFilter;
+    private final MdcLoggingFilter mdcLoggingFilter;
     private final ObjectMapper objectMapper;
 
 
@@ -56,6 +58,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(mdcLoggingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                         .addFilterAfter(taskRateLimitFilter, JwtAuthenticationFilter.class)
@@ -115,6 +118,7 @@ public class SecurityConfig {
                 // ── Everything else ─────────────────────────────────────────────
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(mdcLoggingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

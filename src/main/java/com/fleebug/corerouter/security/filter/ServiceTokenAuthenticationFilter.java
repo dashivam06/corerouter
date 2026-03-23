@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 
 @Component
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String SERVICE_TOKEN_HEADER = "X-Service-Token";
     private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
+    private static final String MDC_KEY_WORKER = "worker";
 
     private final ServiceTokenService serviceTokenService;
 
@@ -55,6 +57,10 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
             authentication.setDetails(serviceToken);
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // Add worker identity to logging context
+            MDC.put(MDC_KEY_WORKER, serviceToken.getName());
+            
             log.debug("Service token authenticated — name={}, role={}", serviceToken.getName(), serviceToken.getRole());
         } catch (InvalidServiceTokenException ex) {
             log.warn("Service token authentication failed: {}", ex.getMessage());
