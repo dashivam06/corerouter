@@ -73,6 +73,7 @@ jobs:
                 -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
                 -e ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
                 -e SECURITY_APIKEY_PEPPER=${{ secrets.SECURITY_APIKEY_PEPPER }} \
+                -e APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }} \
                 "$DOCKER_IMAGE"
 
               echo "Deployment completed successfully"
