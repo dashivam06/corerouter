@@ -22,6 +22,8 @@ jobs:
             set -e
             set -o pipefail
 
+            DOCKER_IMAGE="corerouter:latest"
+
             APP_DIR="/home/fleebug/corerouter"
             LOG_DIR="$APP_DIR/logs"
             LOG_FILE="$LOG_DIR/deploy.log"
@@ -71,7 +73,7 @@ jobs:
                 -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
                 -e ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
                 -e SECURITY_APIKEY_PEPPER=${{ secrets.SECURITY_APIKEY_PEPPER }} \
-                corerouter:latest
+                "$DOCKER_IMAGE"
 
               echo "Deployment completed successfully"
 
