@@ -72,9 +72,8 @@ jobs:
                 -e ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
                 -e SECURITY_APIKEY_PEPPER=${{ secrets.SECURITY_APIKEY_PEPPER }} \
                 -e APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }} \
-                
                 corerouter:latest
-
+                
               echo "Deployment completed successfully"
 
             } 2>&1 | tee -a $LOG_FILE
