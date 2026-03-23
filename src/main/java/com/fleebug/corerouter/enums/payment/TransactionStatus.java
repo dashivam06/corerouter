@@ -1,7 +1,7 @@
 package com.fleebug.corerouter.enums.payment;
 
-public enum PaymentStatus {
+public enum TransactionStatus {
     PENDING,
-    SUCCESS,
+    COMPLETED,
     FAILED
 }

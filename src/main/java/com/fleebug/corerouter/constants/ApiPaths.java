@@ -17,6 +17,11 @@ public final class ApiPaths {
     // ── Chat ───────────────────────────────────────────────────────────
     public static final String CHAT_COMPLETIONS = "/api/v1/chat/completions";
 
+    // ── Wallet ─────────────────────────────────────────────────────────
+    public static final String WALLET_TOPUP_INITIATE = "/api/wallet/topup/initiate";
+    public static final String WALLET_TOPUP_SUCCESS = "/api/wallet/topup/success";
+    public static final String WALLET_TOPUP_FAILURE = "/api/wallet/topup/failure";
+
     // ── Admin ──────────────────────────────────────────────────────────
     public static final String ADMIN_MODELS             = "/api/v1/admin/models/*";
     public static final String ADMIN_BILLING_CONFIG     = "/api/v1/admin/billing/config/*";

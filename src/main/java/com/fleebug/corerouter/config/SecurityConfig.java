@@ -90,11 +90,16 @@ public class SecurityConfig {
                         ApiPaths.AUTH_REQUEST_OTP).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.MODELS,
+                        "/test-payment.html",
                         ApiPaths.MODELS_ALL).permitAll()
                 .requestMatchers(
                         ApiPaths.SCALAR_ALL,
                         ApiPaths.API_DOCS,
                         ApiPaths.API_DOCS_ALL).permitAll()
+                // ── Wallet / Payment ──────────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,
+                        ApiPaths.WALLET_TOPUP_SUCCESS,
+                        ApiPaths.WALLET_TOPUP_FAILURE).permitAll()
                 // ── Worker (API Key Only) ──────────────────────────────────────
                 .requestMatchers(HttpMethod.POST,
                         ApiPaths.CHAT_COMPLETIONS).permitAll()

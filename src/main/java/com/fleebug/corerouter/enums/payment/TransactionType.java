@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.enums.payment;
 
-public enum PaymentType {
+public enum TransactionType {
     WALLET,
-    CARD
+    CARD,
+    WALLET_TOPUP
 }

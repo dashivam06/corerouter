@@ -106,9 +106,9 @@ public class ApiResponse<T> {
     /**
      * Build an error response (no field-level errors).
      */
-    public static ApiResponse<Void> error(HttpStatus httpStatus, String message,
+    public static <T> ApiResponse<T> error(HttpStatus httpStatus, String message,
                                            HttpServletRequest request) {
-        return ApiResponse.<Void>builder()
+        return ApiResponse.<T>builder()
                 .timestamp(LocalDateTime.now())
                 .status(httpStatus.value())
                 .success(false)
@@ -121,10 +121,10 @@ public class ApiResponse<T> {
     /**
      * Build an error response with field-level validation errors.
      */
-    public static ApiResponse<Void> error(HttpStatus httpStatus, String message,
+    public static <T> ApiResponse<T> error(HttpStatus httpStatus, String message,
                                            List<ErrorField> errors,
                                            HttpServletRequest request) {
-        return ApiResponse.<Void>builder()
+        return ApiResponse.<T>builder()
                 .timestamp(LocalDateTime.now())
                 .status(httpStatus.value())
                 .success(false)

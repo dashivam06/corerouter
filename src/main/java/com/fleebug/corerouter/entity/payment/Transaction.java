@@ -7,8 +7,8 @@ import jakarta.persistence.Id;
 
 import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.entity.user.User;
-import com.fleebug.corerouter.enums.payment.PaymentStatus;
-import com.fleebug.corerouter.enums.payment.PaymentType;
+import com.fleebug.corerouter.enums.payment.TransactionStatus;
+import com.fleebug.corerouter.enums.payment.TransactionType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,17 +27,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "transactions")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Payment {
+public class Transaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer paymentId;
+    private Integer transactionId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -50,19 +50,23 @@ public class Payment {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = 30)
-    private String transactionId;
+    @Column(nullable = false, length = 100)
+    private String esewaTransactionId;
 
 
     @Column(nullable = false, length = 20)
-    private PaymentType type;
+    @Enumerated(EnumType.STRING)
+    private TransactionType type;
 
     @Column(length = 50)
     private String productCode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private PaymentStatus status;
+    private TransactionStatus status;
+
+    @Column
+    private LocalDateTime completedAt;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
