@@ -49,7 +49,7 @@ public class ApiKeyController {
             @Valid @RequestBody CreateApiKeyRequest createRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Generate API key request received");
+        log.debug("Generate API key request received");
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.generateApiKey(userDetails.getUser(), createRequest);
@@ -73,7 +73,7 @@ public class ApiKeyController {
     public ResponseEntity<ApiResponse<List<ApiKeyResponse>>> getAllApiKeys(
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Get all API keys request received");
+        log.debug("Get all API keys request received");
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         List<ApiKeyResponse> apiKeys = apiKeyService.getUserApiKeys(userDetails.getUser().getUserId());
@@ -99,7 +99,7 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Get API key details request - ID: {}", apiKeyId);
+        log.debug("Get API key details request - ID: {}", apiKeyId);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.getApiKeyDetails(apiKeyId, userDetails.getUser().getUserId());
@@ -127,7 +127,7 @@ public class ApiKeyController {
             @Valid @RequestBody UpdateApiKeyRequest updateRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Update API key request - ID: {}", apiKeyId);
+        log.debug("Update API key request - ID: {}", apiKeyId);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.updateApiKey(apiKeyId, userDetails.getUser().getUserId(), updateRequest);
@@ -153,7 +153,7 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Disable API key request - ID: {}", apiKeyId);
+        log.debug("Disable API key request - ID: {}", apiKeyId);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), true);
@@ -179,7 +179,7 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Enable API key request - ID: {}", apiKeyId);
+        log.debug("Enable API key request - ID: {}", apiKeyId);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), false);

@@ -9,7 +9,6 @@ import com.fleebug.corerouter.enums.payment.TransactionStatus;
 import com.fleebug.corerouter.enums.payment.TransactionType;
 import com.fleebug.corerouter.exception.payment.TransactionNotFoundException;
 import com.fleebug.corerouter.exception.payment.TransactionVerificationException;
-import com.fleebug.corerouter.exception.payment.InvalidTransactionAmountException;
 import com.fleebug.corerouter.repository.payment.TransactionRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;

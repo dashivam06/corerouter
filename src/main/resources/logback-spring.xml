@@ -16,28 +16,11 @@
         </encoder>
     </appender>
 
-    <!-- FILE -->
-    <appender name="FILE"
-              class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/app/logs/corerouter-backend/${APP_NAME}-current.log</file>
-        <rollingPolicy
-            class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>
-                /app/logs/corerouter-backend/${APP_NAME}-%d{yyyy-MM-dd}.log
-            </fileNamePattern>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>5GB</totalSizeCap>
-        </rollingPolicy>
-        <encoder>
-            <pattern>${FILE_LOG_PATTERN}</pattern>
-        </encoder>
-    </appender>
-
+   
     <logger name="com.fleebug.corerouter" level="INFO"/>
 
     <root level="WARN">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
         <appender-ref ref="aiAppender"/>
     </root>
 

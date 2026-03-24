@@ -43,8 +43,8 @@ public class ApiKeyService {
     public ApiKeyResponse generateApiKey(User user, CreateApiKeyRequest createRequest) {
         log.debug("Generating new API key for user ID: {}", user.getUserId());
 
-        // 1. Generate the RAW key (sk_...)
-        String rawKey = generateRawKey();
+        // 1. Generate the RAW key (cr_live_...)
+        String rawKey = generateRawKey(user.getUserId());
         
         // 2. Hash it for storage
         String hashedKey = hashKey(rawKey);
@@ -197,8 +197,8 @@ public class ApiKeyService {
         log.info("API key deleted successfully - ID: {}", apiKeyId);
     }
 
-    private String generateRawKey() {
-        return "sk_" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    private String generateRawKey(Integer userId) {
+        return "cr_live_" + userId + "_" + UUID.randomUUID().toString().replace("-", "");
     }
     
     public String hashKey(String rawKey) {

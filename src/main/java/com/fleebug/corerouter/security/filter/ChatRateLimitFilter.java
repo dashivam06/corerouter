@@ -24,12 +24,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.slf4j.MDC;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ChatRateLimitFilter extends OncePerRequestFilter {
 
     private final RedisBucketService redisBucketService;
+    private static final String MDC_KEY_USER_ID = "userId";
     private final ApiKeyService apiKeyService;
     private final ObjectMapper objectMapper;
 
@@ -44,6 +47,13 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
         if (HttpMethod.POST.matches(method) && ApiPaths.CHAT_COMPLETIONS.equals(path)) {
             String token = extractToken(request);
             if (token != null) {
+                // Extract userId from API key format (cr_live_<userId>_<random>)
+                Integer userId = extractUserIdFromApiKey(token);
+                if (userId != null) {
+                    MDC.put(MDC_KEY_USER_ID, String.valueOf(userId));
+                    log.debug("Chat request from user ID: {}", userId);
+                }
+
                 // We use the HASH of the API key as the bucket identifier
                 // This ensures we limit based on the actual key, even if rotated or different raw values map to same (unlikely)
                 String apiKeyHash = apiKeyService.hashKey(token);
@@ -62,6 +72,21 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private Integer extractUserIdFromApiKey(String apiKey) {
+        if (apiKey == null || !apiKey.startsWith("cr_live_")) {
+            return null;
+        }
+        try {
+            String[] parts = apiKey.split("_");
+            if (parts.length >= 3) {
+                return Integer.parseInt(parts[2]);
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Failed to extract user ID from API key: {}", apiKey);
+        }
+        return null;
     }
 
     private String extractToken(HttpServletRequest request) {

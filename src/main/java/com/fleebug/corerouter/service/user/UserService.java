@@ -82,7 +82,7 @@ public class UserService {
     public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
         log.debug("Verifying OTP with verificationId: {}", verificationId);
 
-        String email = otpService.validateOtp(verificationId, otp);
+        otpService.validateOtp(verificationId, otp);
         log.info("OTP verified successfully for verificationId: {}", verificationId);
 
         return VerifyOtpResponse.builder()
