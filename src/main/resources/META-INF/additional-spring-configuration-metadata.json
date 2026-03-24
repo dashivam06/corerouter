@@ -1,0 +1,97 @@
+{"properties": [
+  {
+    "name": "security.apikey.pepper",
+    "type": "java.lang.String",
+    "description": "Application-specific secret used as a pepper when hashing API keys. Keep this value private and stable across deployments."
+  },
+  {
+    "name": "encryption.key",
+    "type": "java.lang.String",
+    "description": "Master key used by the application for encryption/decryption operations. Use a strong key and store it securely."
+  },
+  {
+    "name": "otp.max.requests.per.email.per.hour",
+    "type": "java.lang.String",
+    "description": "Maximum number of OTP generation requests allowed per email address within one hour."
+  },
+  {
+    "name": "otp.resend.cooldown.seconds",
+    "type": "java.lang.String",
+    "description": "Minimum wait time in seconds before an OTP can be resent for the same email."
+  },
+  {
+    "name": "otp.max.attempts",
+    "type": "java.lang.String",
+    "description": "Maximum number of OTP verification attempts allowed before the OTP is rejected."
+  },
+  {
+    "name": "otp.ttl.minutes",
+    "type": "java.lang.String",
+    "description": "OTP validity duration in minutes before the code expires."
+  },
+  {
+    "name": "otp.ttl.minutes",
+    "type": "java.lang.String",
+    "description": "OTP validity duration in minutes before the code expires."
+  },
+  {
+    "name": "otp.length",
+    "type": "java.lang.String",
+    "description": "Number of digits/characters generated for each OTP code."
+  },
+  {
+    "name": "otp.max.resends.per.hour",
+    "type": "java.lang.String",
+    "description": "Maximum number of OTP resend operations allowed per hour."
+  },
+  {
+    "name": "jwt.expiration",
+    "type": "java.lang.String",
+    "description": "JWT access token lifetime (for example in milliseconds) used when issuing authentication tokens."
+  },
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "Secret key used to sign and validate JWT tokens. This value must be kept confidential."
+  },
+  {
+    "name": "esewa.secret.key",
+    "type": "java.lang.String",
+    "description": "Secret key used for signing and validating eSewa payment requests/responses."
+  },
+  {
+    "name": "esewa.merchant.id",
+    "type": "java.lang.String",
+    "description": "Merchant identifier registered with eSewa for payment processing."
+  },
+  {
+    "name": "esewa.payment.url",
+    "type": "java.lang.String",
+    "description": "eSewa endpoint URL used to initiate payment transactions."
+  },
+  {
+    "name": "esewa.success.url",
+    "type": "java.lang.String",
+    "description": "Application callback URL that eSewa redirects to after a successful payment."
+  },
+  {
+    "name": "esewa.verify.url",
+    "type": "java.lang.String",
+    "description": "eSewa API endpoint used to verify payment transaction status."
+  },
+  {
+    "name": "esewa.failure.url",
+    "type": "java.lang.String",
+    "description": "Application callback URL that eSewa redirects to when a payment fails or is canceled."
+  },
+  {
+    "name": "applicationinsights.connection.string",
+    "type": "java.lang.String",
+    "description": "Azure Application Insights connection string used by the telemetry agent to send logs, traces, and metrics."
+  },
+  {
+    "name": "azure.application-insights.instrumentation-key",
+    "type": "java.lang.String",
+    "description": "Legacy Application Insights instrumentation key. Prefer using the connection string setting instead."
+  }
+]}
