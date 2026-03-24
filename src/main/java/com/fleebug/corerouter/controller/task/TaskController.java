@@ -60,7 +60,7 @@ public class TaskController {
             @Valid @RequestBody TaskCreateRequest request,
             HttpServletRequest httpRequest) {
 
-        log.info("Received task creation request for modelId={}, apiKeyId={}",
+        log.debug("Received task creation request for modelId={}, apiKeyId={}",
                 request.getModelId(), request.getApiKeyId());
 
         Task task = taskService.createTask(request);
@@ -80,7 +80,7 @@ public class TaskController {
             @Parameter(description = "Task ID", example = "abc-123") @PathVariable String taskId,
             HttpServletRequest httpRequest) {
 
-        log.info("Received task status request - taskId={}", taskId);
+        log.debug("Received task status request - taskId={}", taskId);
 
         ApiKey apiKey = requireApiKey(httpRequest);
 

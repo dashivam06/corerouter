@@ -41,7 +41,7 @@ public class ApiKeyService {
      * @return ApiKeyResponse with generated key (RAW key only shown ONCE)
      */
     public ApiKeyResponse generateApiKey(User user, CreateApiKeyRequest createRequest) {
-        log.info("Generating new API key for user ID: {}", user.getUserId());
+        log.debug("Generating new API key for user ID: {}", user.getUserId());
 
         // 1. Generate the RAW key (sk_...)
         String rawKey = generateRawKey();
@@ -80,7 +80,7 @@ public class ApiKeyService {
      * @return List of API key responses
      */
     public List<ApiKeyResponse> getUserApiKeys(Integer userId) {
-        log.info("Fetching all API keys for user ID: {}", userId);
+        log.debug("Fetching all API keys for user ID: {}", userId);
         List<ApiKey> apiKeys = apiKeyRepository.findByUserUserId(userId);
         return apiKeys.stream()
                 .map(this::mapToResponse)
@@ -95,7 +95,7 @@ public class ApiKeyService {
      * @return ApiKeyResponse
      */
     public ApiKeyResponse getApiKeyDetails(Integer apiKeyId, Integer userId) {
-        log.info("Fetching API key details - ID: {}, User ID: {}", apiKeyId, userId);
+        log.debug("Fetching API key details - ID: {}, User ID: {}", apiKeyId, userId);
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
@@ -118,7 +118,7 @@ public class ApiKeyService {
      * @return Updated ApiKeyResponse
      */
     public ApiKeyResponse updateApiKey(Integer apiKeyId, Integer userId, UpdateApiKeyRequest updateRequest) {
-        log.info("Updating API key - ID: {}, User ID: {}", apiKeyId, userId);
+        log.debug("Updating API key - ID: {}, User ID: {}", apiKeyId, userId);
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));

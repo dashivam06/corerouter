@@ -47,18 +47,18 @@ public class UserService {
      * @throws IllegalArgumentException if email already exists or validation fails
      */
     public RequestOtpResponse requestOtp(String email) {
-        log.info("OTP request for registration with email: {}", email);
+        log.debug("OTP request for registration");
 
         // Validate email is not already registered
         if (userRepository.existsByEmail(email)) {
-            log.warn("OTP request failed - email already exists: {}", email);
+            log.warn("OTP request failed - email already exists");
             throw new UserAlreadyExistsException(email);
         }
 
-        log.info("Email validation passed. Proceeding with OTP generation for: {}", email);
+        log.debug("Email validation passed. Proceeding with OTP generation");
 
         String verificationId = otpService.requestOtp(email);
-        log.info("OTP sent successfully to email: {}. VerificationId: {}", email, verificationId);
+        log.info("OTP sent successfully. VerificationId: {}", verificationId);
         
         return RequestOtpResponse.builder()
                 .verificationId(verificationId)
@@ -80,10 +80,10 @@ public class UserService {
      * @throws IllegalArgumentException if OTP is invalid or expired
      */
     public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
-        log.info("Verifying OTP with verificationId: {}", verificationId);
+        log.debug("Verifying OTP with verificationId: {}", verificationId);
 
         String email = otpService.validateOtp(verificationId, otp);
-        log.info("OTP verified successfully for verificationId: {}. Email: {}", verificationId, email);
+        log.info("OTP verified successfully for verificationId: {}", verificationId);
 
         return VerifyOtpResponse.builder()
                 .verificationId(verificationId)
@@ -105,17 +105,17 @@ public class UserService {
      * @throws IllegalArgumentException if verificationId not verified or user creation fails
      */
     public AuthResponse finalRegister(String verificationId, FinalRegistrationRequest finalRequest) {
-        log.info("Final registration initiated for verificationId: {}", verificationId);
+        log.debug("Final registration initiated for verificationId: {}", verificationId);
 
         // Step 1: Verify that the verificationId is verified
         if (!otpService.isVerified(verificationId)) {
-            log.error("Final registration failed - verificationId not verified: {}", verificationId);
+            log.warn("Final registration failed - verificationId not verified: {}", verificationId);
             throw new InvalidOtpException("Verification not completed. Please verify OTP first.");
         }
 
         // Step 2: Get email from verificationId
         String email = otpService.getEmail(verificationId);
-        log.info("Retrieved email for verificationId: {}, email: {}", verificationId, email);
+        log.debug("Retrieved email for verificationId: {}", verificationId);
 
         // Step 3: Hash password using BCrypt
         String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
@@ -149,25 +149,25 @@ public class UserService {
      * @throws InvalidCredentialsException if password is incorrect
      */
     public AuthResponse login(LoginRequest loginRequest) {
-        log.info("Login attempt for email: {}", loginRequest.getEmail());
+        log.debug("Login attempt for user");
 
         // Find user by email
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> {
-                    log.warn("Login failed - user not found with email: {}", loginRequest.getEmail());
+                    log.warn("Login failed - user not found");
                     return new UserNotFoundException("email", loginRequest.getEmail());
                 });
 
         // Check if user is active
         if (user.getStatus() != UserStatus.ACTIVE) {
-            log.warn("Login failed - user account is not active. Email: {}, Status: {}", 
-                    loginRequest.getEmail(), user.getStatus());
+            log.warn("Login failed - user account is not active. UserId: {}, Status: {}", 
+                    user.getUserId(), user.getStatus());
             throw new InvalidCredentialsException("User account is not active");
         }
 
         // Verify password using BCrypt
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            log.warn("Login failed - invalid password for email: {}", loginRequest.getEmail());
+            log.warn("Login failed - invalid password for user: {}", user.getUserId());
             throw new InvalidCredentialsException();
         }
 

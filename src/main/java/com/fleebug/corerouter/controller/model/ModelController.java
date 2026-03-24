@@ -47,7 +47,7 @@ public class ModelController {
             @Valid @RequestBody CreateModelRequest createRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Create model request received: {}", createRequest.getFullname());
+        log.debug("Create model request received: {}", createRequest.getFullname());
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.createModel(createRequest, admin);
@@ -59,7 +59,7 @@ public class ModelController {
     @Operation(summary = "Get all models", description = "Retrieve all models regardless of status")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getAllModels(HttpServletRequest request) {
-        log.info("Get all models request received");
+        log.debug("Get all models request received");
         List<ModelResponse> models = modelService.getAllModels();
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Models retrieved successfully", models, request));
@@ -70,7 +70,7 @@ public class ModelController {
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getModelsByStatus(
             @Parameter(description = "Model status filter", example = "ACTIVE") @PathVariable ModelStatus status,
             HttpServletRequest request) {
-        log.info("Get models by status request received: {}", status);
+        log.debug("Get models by status request received: {}", status);
         List<ModelResponse> models = modelService.getModelsByStatus(status);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Models retrieved successfully", models, request));
@@ -81,7 +81,7 @@ public class ModelController {
     public ResponseEntity<ApiResponse<ModelResponse>> getModelById(
             @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             HttpServletRequest request) {
-        log.info("Get model by ID request received: {}", modelId);
+        log.debug("Get model by ID request received: {}", modelId);
         ModelResponse model = modelService.getModelById(modelId);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model retrieved successfully", model, request));
@@ -95,7 +95,7 @@ public class ModelController {
             @Valid @RequestBody UpdateModelRequest updateRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Update model request received for ID: {}", modelId);
+        log.debug("Update model request received for ID: {}", modelId);
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.updateModel(modelId, updateRequest, admin);
@@ -111,7 +111,7 @@ public class ModelController {
             @Valid @RequestBody UpdateModelStatusRequest statusRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Update model status request received for ID: {} to {}", modelId, statusRequest.getStatus());
+        log.debug("Update model status request received for ID: {} to {}", modelId, statusRequest.getStatus());
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.changeModelStatus(modelId, statusRequest.getStatus(), admin);
@@ -126,7 +126,7 @@ public class ModelController {
             @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Delete model request received for ID: {}", modelId);
+        log.debug("Delete model request received for ID: {}", modelId);
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         modelService.deleteModel(modelId, admin);
@@ -141,7 +141,7 @@ public class ModelController {
             @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Archive model request received for ID: {}", modelId);
+        log.debug("Archive model request received for ID: {}", modelId);
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         modelService.archiveModel(modelId, admin);

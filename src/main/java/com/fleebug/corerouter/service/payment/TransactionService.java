@@ -177,14 +177,14 @@ public class TransactionService {
 
     @Transactional
     public void markTransactionFailed(String encodedData, String fallbackUuid) {
-        log.info("Processing failure callback with data: {}, fallbackUuid: {}", encodedData, fallbackUuid);
+        log.info("Processing failure callback. fallbackUuid: {}", fallbackUuid);
         String transactionUuid = null;
         try {
             if (encodedData != null && !encodedData.isEmpty()) {
                 // Attempt standard Base64
                 byte[] decodedBytes = Base64.getDecoder().decode(encodedData);
                 String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
-                log.debug("Decoded failure data: {}", decodedString);
+                log.debug("Decoded failure data successfully");
                 
                 JsonNode jsonNode = objectMapper.readTree(decodedString);
                 transactionUuid = jsonNode.path("transaction_uuid").asText();

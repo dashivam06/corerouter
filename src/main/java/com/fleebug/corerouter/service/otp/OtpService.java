@@ -53,20 +53,20 @@ public class OtpService {
    
     public String requestOtp(String email) {
         
-        log.info("OTP_REQUEST | Email: {} | Action: CheckEmailRateLimit", email);
+        log.debug("OTP_REQUEST | Action: CheckEmailRateLimit");
 
         // Check email rate limit
         String emailRateLimitKey = OTP_REQUEST_COUNT_PREFIX + email;
         String requestCountStr = redisService.getFromCache(emailRateLimitKey);
         long requestCount = requestCountStr != null ? Long.parseLong(requestCountStr) : 0;
 
-        log.debug("EMAIL_RATE_LIMIT_CHECK | Email: {} | CurrentCount: {} | MaxLimit: {}", 
-                email, requestCount, maxRequestsPerEmailPerHour);
+        log.debug("EMAIL_RATE_LIMIT_CHECK | CurrentCount: {} | MaxLimit: {}", 
+                 requestCount, maxRequestsPerEmailPerHour);
 
         if (requestCount >= maxRequestsPerEmailPerHour) {
             long ttlRemaining = redisService.getTTL(emailRateLimitKey);
-            log.warn("EMAIL_RATE_LIMIT_EXCEEDED | Email: {} | Requests: {} | MaxLimit: {} | RetryIn: {} seconds", 
-                    email, requestCount, maxRequestsPerEmailPerHour, ttlRemaining);
+            log.warn("EMAIL_RATE_LIMIT_EXCEEDED | Requests: {} | MaxLimit: {} | RetryIn: {} seconds", 
+                    requestCount, maxRequestsPerEmailPerHour, ttlRemaining);
             throw new RateLimitExceededException("Too many OTP requests to this email. Maximum " + maxRequestsPerEmailPerHour + 
                     " requests allowed per hour. Try again in " + ttlRemaining + " seconds.");
         }
@@ -74,13 +74,13 @@ public class OtpService {
         // Initialize counter with TTL on first request
         if (requestCount == 0) {
             redisService.setCounterWithTTL(emailRateLimitKey, 1, TimeUnit.HOURS);
-            log.debug("EMAIL_RATE_LIMIT_COUNTER_CREATED | Email: {} | TTL: 1 hour", email);
+            log.debug("EMAIL_RATE_LIMIT_COUNTER_CREATED | TTL: 1 hour");
         }
 
         // Increment counter for current request
         long newCount = redisService.incrementCounter(emailRateLimitKey);
-        log.info("EMAIL_RATE_LIMIT_INCREMENTED | Email: {} | NewCount: {} | RemainingBudget: {}", 
-                email, newCount, maxRequestsPerEmailPerHour - newCount);
+        log.debug("EMAIL_RATE_LIMIT_INCREMENTED | NewCount: {} | RemainingBudget: {}", 
+                 newCount, maxRequestsPerEmailPerHour - newCount);
 
         // Generate verificationId (UUID) and OTP
         String verificationId = UUID.randomUUID().toString();
@@ -88,7 +88,7 @@ public class OtpService {
 
         String encryptedOtp = messageEncryption.encrypt(otp);
         
-        log.info("OTP_GENERATED | VerificationId: {} | Email: {}", verificationId, email);
+        log.debug("OTP_GENERATED | VerificationId: {}", verificationId);
 
         // Store OTP with TTL (5 minutes)
         String otpKey = OTP_KEY_PREFIX + verificationId;
@@ -108,14 +108,14 @@ public class OtpService {
         // Publish to email queue
         publishOtpToQueue(email, otp, otpTtlMinutes);
 
-        log.info("OTP_REQUEST_SUCCESS | Email: {} | VerificationId: {} | RemainingRequests: {}", 
-                email, verificationId, maxRequestsPerEmailPerHour - newCount);
+        log.info("OTP_REQUEST_SUCCESS | VerificationId: {} | RemainingRequests: {}", 
+                verificationId, maxRequestsPerEmailPerHour - newCount);
         return verificationId;
     }
 
     
     public String validateOtp(String verificationId, String otp) {
-        log.info("Validating OTP for verificationId: {}", verificationId);
+        log.debug("Validating OTP for verificationId: {}", verificationId);
 
         // Check attempt counter
         String attemptsKey = OTP_ATTEMPTS_PREFIX + verificationId;
