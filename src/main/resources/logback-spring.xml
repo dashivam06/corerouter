@@ -4,13 +4,15 @@
                     source="spring.application.name"
                     defaultValue="corerouter"/>
 
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+    <appender name="aiAppender" class="com.microsoft.applicationinsights.logback.ApplicationInsightsAppender"/>
+
     <!-- CONSOLE -->
     <appender name="CONSOLE"
               class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>
-                %d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${APP_NAME},%X{requestId:-},%X{userId:-},%X{worker:-}] --- [%15.15t] %-40.40c{1} : %m%n
-            </pattern>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
@@ -27,9 +29,7 @@
             <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>
-                %d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${APP_NAME},%X{requestId:-},%X{userId:-},%X{worker:-}] --- [%15.15t] %-40.40c{1} : %m%n
-            </pattern>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
@@ -38,7 +38,7 @@
     <root level="WARN">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
-        <!-- NO AZURE APPENDER NEEDED -->
+        <appender-ref ref="aiAppender"/>
     </root>
 
 </configuration>
