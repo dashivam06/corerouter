@@ -52,6 +52,22 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
+    public SecurityFilterChain chatFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher(ApiPaths.CHAT_COMPLETIONS)
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(mdcLoggingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(chatRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(authz -> authz
+                    .anyRequest().permitAll() 
+                );
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain taskFilterChain(HttpSecurity http) throws Exception {
         http
             .securityMatcher(ApiPaths.TASKS_ALL)
@@ -79,7 +95,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2)
+    @Order(3)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
@@ -103,9 +119,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.WALLET_TOPUP_SUCCESS,
                         ApiPaths.WALLET_TOPUP_FAILURE).permitAll()
-                // ── Worker (API Key Only) ──────────────────────────────────────
-                .requestMatchers(HttpMethod.POST,
-                        ApiPaths.CHAT_COMPLETIONS).permitAll()
                 // ── Admin + Worker ──────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.ADMIN_MODELS,
@@ -122,7 +135,6 @@ public class SecurityConfig {
             .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(chatRateLimitFilter, JwtAuthenticationFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) ->
                         writeError(req, res, HttpStatus.UNAUTHORIZED, resolveUnauthorizedMessage(req)))
