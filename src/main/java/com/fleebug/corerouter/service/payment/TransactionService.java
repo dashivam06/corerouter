@@ -11,12 +11,12 @@ import com.fleebug.corerouter.exception.payment.TransactionNotFoundException;
 import com.fleebug.corerouter.exception.payment.TransactionVerificationException;
 import com.fleebug.corerouter.repository.payment.TransactionRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
+import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -37,7 +37,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final HttpClientUtil httpClientUtil;
     private final ObjectMapper objectMapper;
 
     @Value("${esewa.merchant.id}")
@@ -131,8 +131,7 @@ public class TransactionService {
             
             try {
                 // eSewa status check returns JSON
-                @SuppressWarnings("unchecked")
-                Map<String, Object> response = restTemplate.getForObject(verificationUrl, Map.class);
+                Map<String, Object> response = httpClientUtil.getJsonMap(verificationUrl, Map.of(), 5000, 10000);
                 String verifiedStatus = (String) response.get("status");
                 
                 if ("COMPLETE".equals(verifiedStatus)) {

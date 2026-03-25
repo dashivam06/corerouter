@@ -8,11 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.fleebug.corerouter.enums.token.TokenValidationStatus;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
 import com.fleebug.corerouter.security.jwt.JwtUtil;
 import com.fleebug.corerouter.security.service.CustomUserDetailsService;
 
@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("JWT validated for user: {}", email);
 
                 // Load user details from database using UserDetailsService
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                CustomUserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 // Create authentication token with proper authorities
                 UsernamePasswordAuthenticationToken authentication = 
@@ -70,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 
                 // Add userId to MDC for logging context
                 if (email != null) {
-                    MDC.put(MDC_KEY_USER_ID, email);
+                    MDC.put(MDC_KEY_USER_ID, userDetails.getUserId().toString());
                 }
                 
                 log.debug("Authentication set for user: {}", email);

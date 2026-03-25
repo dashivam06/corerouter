@@ -119,6 +119,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.WALLET_TOPUP_SUCCESS,
                         ApiPaths.WALLET_TOPUP_FAILURE).permitAll()
+                .requestMatchers(HttpMethod.POST,
+                        ApiPaths.INTERNAL_WORKER_HEARTBEAT).permitAll()
                 // ── Admin + Worker ──────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.ADMIN_MODELS,
@@ -127,7 +129,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,
                         ApiPaths.ADMIN_BILLING_USAGE).hasAnyRole("ADMIN", "WORKER")
                 // ── Admin only ──────────────────────────────────────────────────
-                .requestMatchers(ApiPaths.ADMIN_SERVICE_TOKENS).hasRole("ADMIN")
+                .requestMatchers(ApiPaths.ADMIN_SERVICE_TOKENS,
+                        ApiPaths.ADMIN_TECHNICAL_ALL).hasRole("ADMIN")
                 // ── Everything else ─────────────────────────────────────────────
                 .anyRequest().authenticated()
             )
