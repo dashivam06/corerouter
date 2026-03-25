@@ -1,9 +1,14 @@
 package com.fleebug.corerouter.service.token;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,12 +22,12 @@ import com.fleebug.corerouter.exception.token.ServiceTokenNotFoundException;
 import com.fleebug.corerouter.repository.token.ServiceTokenRepository;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ServiceTokenService {
+
+    private final TelemetryClient telemetryClient;
 
     private static final int TOKEN_ID_BYTES = 12;
     private static final int SECRET_BYTES = 32;
@@ -61,7 +66,11 @@ public class ServiceTokenService {
                 .build();
 
         serviceTokenRepository.save(entity);
-        log.info("Service token created — name={}, role={}", name, role);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("name", name);
+        properties.put("role", role.name());
+        telemetryClient.trackTrace("Service token created", SeverityLevel.Information, properties);
 
         // Return full token: svc_<tokenId>.<secret>
         return TOKEN_PREFIX + tokenId + TOKEN_SEPARATOR + secret;
@@ -101,7 +110,12 @@ public class ServiceTokenService {
 
         token.setLastUsedAt(LocalDateTime.now());
         serviceTokenRepository.save(token);
-        log.debug("Service token authenticated — name={}, role={}", token.getName(), token.getRole());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("name", token.getName());
+        properties.put("role", token.getRole().name());
+        telemetryClient.trackTrace("Service token authenticated", SeverityLevel.Verbose, properties);
+        
         return token;
     }
 
@@ -133,7 +147,7 @@ public class ServiceTokenService {
 
         token.setActive(false);
         serviceTokenRepository.save(token);
-        log.info("Service token revoked — name={}", name);
+        telemetryClient.trackTrace("Service token revoked", SeverityLevel.Information, Collections.singletonMap("name", name));
     }
 
     /**
@@ -144,7 +158,7 @@ public class ServiceTokenService {
         ServiceToken token = getByTokenId(tokenId);
         token.setActive(false);
         serviceTokenRepository.save(token);
-        log.info("Service token revoked — tokenId={}", tokenId);
+        telemetryClient.trackTrace("Service token revoked", SeverityLevel.Information, Collections.singletonMap("tokenId", tokenId));
     }
 
     /**
@@ -157,7 +171,7 @@ public class ServiceTokenService {
 
         token.setActive(true);
         serviceTokenRepository.save(token);
-        log.info("Service token activated — name={}", name);
+        telemetryClient.trackTrace("Service token activated", SeverityLevel.Information, Collections.singletonMap("name", name));
     }
 
     /**
@@ -168,7 +182,7 @@ public class ServiceTokenService {
         ServiceToken token = getByTokenId(tokenId);
         token.setActive(true);
         serviceTokenRepository.save(token);
-        log.info("Service token activated — tokenId={}", tokenId);
+        telemetryClient.trackTrace("Service token activated", SeverityLevel.Information, Collections.singletonMap("tokenId", tokenId));
     }
 
     /**
@@ -196,7 +210,7 @@ public class ServiceTokenService {
                 .orElseThrow(() -> new ServiceTokenNotFoundException(name));
 
         serviceTokenRepository.delete(token);
-        log.info("Service token deleted — name={}", name);
+        telemetryClient.trackTrace("Service token deleted", SeverityLevel.Information, Collections.singletonMap("name", name));
     }
 
     /**
@@ -206,7 +220,7 @@ public class ServiceTokenService {
     public void deleteTokenByTokenId(String tokenId) {
         ServiceToken token = getByTokenId(tokenId);
         serviceTokenRepository.delete(token);
-        log.info("Service token deleted — tokenId={}", tokenId);
+        telemetryClient.trackTrace("Service token deleted", SeverityLevel.Information, Collections.singletonMap("tokenId", tokenId));
     }
 
     // ── internal ────────────────────────────────────────────────────────

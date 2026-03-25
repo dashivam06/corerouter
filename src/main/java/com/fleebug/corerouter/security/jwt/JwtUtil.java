@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.security.jwt;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -7,7 +9,6 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -20,8 +21,9 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class JwtUtil {
+
+    private final TelemetryClient telemetryClient;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -125,10 +127,14 @@ public class JwtUtil {
 
             return TokenValidationStatus.VALID;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT token expired: {}", e.getMessage());
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackTrace("JWT token expired", SeverityLevel.Warning, properties);
             return TokenValidationStatus.EXPIRED;
         } catch (JwtException | IllegalArgumentException e) {
-            log.warn("JWT token validation failed: {}", e.getMessage());
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackTrace("JWT token validation failed", SeverityLevel.Warning, properties);
             return TokenValidationStatus.INVALID;
         }
     }
@@ -153,7 +159,9 @@ public class JwtUtil {
         try {
             return extractClaims(token).getExpiration().before(new Date());
         } catch (Exception e) {
-            log.error("Error checking token expiration: {}", e.getMessage());
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackException(e, properties, null);
             return true;
         }
     }
@@ -186,7 +194,9 @@ public class JwtUtil {
         try {
             return extractClaims(token).getExpiration().getTime() - System.currentTimeMillis();
         } catch (Exception e) {
-            log.error("Error getting token expiration time: {}", e.getMessage());
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackException(e, properties, null);
             return 0L;
         }
     }

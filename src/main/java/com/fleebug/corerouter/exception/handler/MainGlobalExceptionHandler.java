@@ -1,9 +1,11 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.common.ErrorField;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
@@ -17,7 +19,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Main global exception handler
@@ -28,12 +32,14 @@ import java.util.List;
  * - NoHandlerFoundException: 404 errors for non-existent endpoints
  * - Exception: Generic fallback for any uncaught exceptions
  * 
- * All exceptions are logged via SLF4J and return standardized error responses
+ * All exceptions allow standardized error responses and telemetry tracking
  */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
-@Slf4j
+@RequiredArgsConstructor
 public class MainGlobalExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
     
     /**
      * Handle validation errors from @Valid annotation
@@ -45,7 +51,10 @@ public class MainGlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex,
             HttpServletRequest request) {
-        log.warn("Validation failed for request: {}", request.getRequestURI());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Validation failed", SeverityLevel.Warning, properties);
         
         List<ErrorField> errors = new ArrayList<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
@@ -71,7 +80,10 @@ public class MainGlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(
             NoHandlerFoundException ex,
             HttpServletRequest request) {
-        log.warn("Endpoint not found: {} {}", ex.getHttpMethod(), ex.getRequestURL());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("method", request.getMethod());
+        telemetryClient.trackTrace("Endpoint not found", SeverityLevel.Warning, properties);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.NOT_FOUND,
@@ -91,7 +103,10 @@ public class MainGlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
             RateLimitExceededException ex,
             HttpServletRequest request) {
-        log.warn("Rate limit exceeded for request: {}. {}", request.getRequestURI(), ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("message", ex.getMessage());
+        telemetryClient.trackTrace("Rate limit exceeded", SeverityLevel.Warning, properties);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.TOO_MANY_REQUESTS,
@@ -105,6 +120,10 @@ public class MainGlobalExceptionHandler {
         @ExceptionHandler(HttpMessageNotReadableException.class)
         public ResponseEntity<ApiResponse<Void>> handleMissingBody(HttpMessageNotReadableException ex,
                                                                 HttpServletRequest request) {
+                Map<String, String> properties = new HashMap<>();
+                properties.put("path", request.getRequestURI());
+                properties.put("error", ex.getMessage());
+                telemetryClient.trackTrace("Request body missing or malformed", SeverityLevel.Warning, properties);
 
                 ApiResponse<Void> response =  ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
 
@@ -122,7 +141,10 @@ public class MainGlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRedisConnectionFailure(
             RedisConnectionFailureException ex,
             HttpServletRequest request) {
-        log.error("Redis connection failed for request: {}. Error: {}", request.getRequestURI(), ex.getMessage(), ex);
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackException(ex, properties, null);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.SERVICE_UNAVAILABLE,
@@ -143,7 +165,9 @@ public class MainGlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleGenericException(
             Exception ex,
             HttpServletRequest request) {
-        log.error("Uncaught exception occurred", ex);
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackException(ex, properties, null);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.INTERNAL_SERVER_ERROR,

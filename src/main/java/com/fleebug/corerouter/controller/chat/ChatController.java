@@ -1,5 +1,7 @@
-package com.fleebug.corerouter.controller.llm;
+package com.fleebug.corerouter.controller.chat;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,7 +24,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,30 +32,34 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Chat Completions", description = "LLM chat completion endpoints")
-public class LlmController {
-
-    private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String BEARER_PREFIX = "Bearer ";
+public class ChatController {
 
     private final TaskService taskService;
     private final ModelRepository modelRepository;
     private final ApiKeyRepository apiKeyRepository;
     private final ApiKeyService apiKeyService;
     private final ObjectMapper objectMapper;
+    private final TelemetryClient telemetryClient;
+
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
 
     @Operation(summary = "Chat completions", description = "Submit a chat completion request to the specified LLM model. Requires 'Authorization: Bearer <API_KEY>' header.")
-    @PostMapping("/chat/completions")
+    @PostMapping("/completions")
     public ResponseEntity<ApiResponse<TaskAsyncResponse>> chatCompletions(
             @Valid @RequestBody ChatCompletionRequest chatRequest,
             HttpServletRequest request) throws JsonProcessingException {
-        log.info("Chat completion request - model: {}", chatRequest.getModel());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("model", chatRequest.getModel());
+        telemetryClient.trackTrace("Chat completion request", SeverityLevel.Information, properties);
 
         ApiKey apiKey = requireApiKey(request);
         Model model = modelRepository.findByFullname(chatRequest.getModel())
@@ -95,7 +100,6 @@ public class LlmController {
         if (apiKey.getStatus() != ApiKeyStatus.ACTIVE) {
             throw new IllegalArgumentException("API Key is not active");
         }
-        
        
         return apiKey;
     }

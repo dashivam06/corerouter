@@ -1,6 +1,8 @@
 package com.fleebug.corerouter.controller.token;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.token.request.CreateServiceTokenRequest;
 import com.fleebug.corerouter.dto.token.response.CreateServiceTokenResponse;
@@ -27,23 +31,27 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/service-tokens")
 @RequiredArgsConstructor
-@Slf4j
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Service Tokens", description = "Admin-only management of worker/internal service tokens")
 public class ServiceTokenManagementController {
 
     private final ServiceTokenService serviceTokenService;
+    private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Create service token", description = "Create a new service token and return the raw token once")
     @PostMapping
     public ResponseEntity<ApiResponse<CreateServiceTokenResponse>> createToken(
             @Valid @RequestBody CreateServiceTokenRequest request,
             HttpServletRequest httpRequest) {
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tokenName", request.getName());
+        properties.put("role", request.getRole().name());
+        telemetryClient.trackEvent("ServiceTokenCreation", properties, null);
 
         String rawToken = serviceTokenService.createToken(request.getName(), request.getRole());
         ServiceToken token = serviceTokenService.getByName(request.getName());
@@ -66,6 +74,7 @@ public class ServiceTokenManagementController {
     @Operation(summary = "List service tokens", description = "List all service tokens (metadata only)")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ServiceTokenResponse>>> listTokens(HttpServletRequest httpRequest) {
+        telemetryClient.trackTrace("List service tokens request", SeverityLevel.Verbose, null);
         List<ServiceTokenResponse> data = serviceTokenService.listAll().stream().map(this::toResponse).toList();
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service tokens retrieved successfully", data, httpRequest));
     }
@@ -75,6 +84,10 @@ public class ServiceTokenManagementController {
     public ResponseEntity<ApiResponse<ServiceTokenResponse>> getToken(
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
             HttpServletRequest httpRequest) {
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tokenId", tokenId);
+        telemetryClient.trackTrace("Get service token request", SeverityLevel.Verbose, properties);
 
         ServiceToken token = serviceTokenService.getByTokenId(tokenId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token retrieved successfully", toResponse(token), httpRequest));
@@ -86,6 +99,10 @@ public class ServiceTokenManagementController {
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
             HttpServletRequest httpRequest) {
 
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tokenId", tokenId);
+        telemetryClient.trackEvent("ServiceTokenRevocation", properties, null);
+
         serviceTokenService.revokeTokenByTokenId(tokenId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token revoked successfully", null, httpRequest));
     }
@@ -96,6 +113,10 @@ public class ServiceTokenManagementController {
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
             HttpServletRequest httpRequest) {
 
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tokenId", tokenId);
+        telemetryClient.trackEvent("ServiceTokenActivation", properties, null);
+
         serviceTokenService.activateTokenByTokenId(tokenId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token activated successfully", null, httpRequest));
     }
@@ -105,6 +126,10 @@ public class ServiceTokenManagementController {
     public ResponseEntity<ApiResponse<Void>> deleteToken(
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
             HttpServletRequest httpRequest) {
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tokenId", tokenId);
+        telemetryClient.trackEvent("ServiceTokenDeletion", properties, null);
 
         serviceTokenService.deleteTokenByTokenId(tokenId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token deleted successfully", null, httpRequest));

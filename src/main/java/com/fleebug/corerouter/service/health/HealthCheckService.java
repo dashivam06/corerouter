@@ -1,11 +1,11 @@
 package com.fleebug.corerouter.service.health;
 
+import com.microsoft.applicationinsights.TelemetryClient;
 import com.fleebug.corerouter.entity.health.WorkerInstance;
 import com.fleebug.corerouter.repository.health.WorkerInstanceRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,12 +14,13 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class HealthCheckService {
 
+    private final TelemetryClient telemetryClient;
     private final RedisTemplate<String, Object> redisTemplate;
     private final UserRepository userRepository;
     private final WorkerInstanceRepository workerInstanceRepository;
@@ -39,7 +40,7 @@ public class HealthCheckService {
             result.put("latency", latency + "ms");
             return result;
         } catch (Exception e) {
-            log.error("event=REDIS_DOWN reason={}", e.getMessage());
+            telemetryClient.trackException(e, Map.of("event", "REDIS_DOWN", "reason", String.valueOf(e.getMessage())), null);
             return down(rootCauseMessage(e));
         }
     }
@@ -55,7 +56,7 @@ public class HealthCheckService {
             result.put("latency", latency + "ms");
             return result;
         } catch (Exception e) {
-            log.error("event=VLLM_DOWN reason={}", e.getMessage());
+            telemetryClient.trackException(e, Map.of("event", "VLLM_DOWN", "reason", String.valueOf(e.getMessage())), null);
             return down(rootCauseMessage(e));
         }
     }
@@ -71,7 +72,7 @@ public class HealthCheckService {
             result.put("latency", latency + "ms");
             return result;
         } catch (Exception e) {
-            log.error("event=DB_DOWN reason={}", e.getMessage());
+            telemetryClient.trackException(e, Map.of("event", "DB_DOWN", "reason", String.valueOf(e.getMessage())), null);
             return down(rootCauseMessage(e));
         }
     }
@@ -95,7 +96,7 @@ public class HealthCheckService {
             workerData.put("lastHeartbeat", worker.getLastHeartbeat());
             workerData.put("startedAt", worker.getStartedAt());
             return workerData;
-        }).toList();
+        }).collect(Collectors.toList());
 
         result.put("status", "UP");
         result.put("running", activeWorkers.size());

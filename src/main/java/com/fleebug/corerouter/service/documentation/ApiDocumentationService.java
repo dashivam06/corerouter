@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.documentation;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.documentation.request.CreateApiDocumentationRequest;
 import com.fleebug.corerouter.dto.documentation.request.UpdateApiDocumentationRequest;
 import com.fleebug.corerouter.dto.documentation.response.ApiDocumentationResponse;
@@ -8,20 +10,21 @@ import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.repository.documentation.ApiDocumentationRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class ApiDocumentationService {
 
+    private final TelemetryClient telemetryClient;
     private final ApiDocumentationRepository documentationRepository;
     private final ModelRepository modelRepository;
 
@@ -33,11 +36,11 @@ public class ApiDocumentationService {
      * @return Created documentation response
      */
     public ApiDocumentationResponse createDocumentation(Integer modelId, CreateApiDocumentationRequest request) {
-        log.info("Creating documentation for model ID: {}", modelId);
-
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put("modelId", String.valueOf(modelId));
+                    telemetryClient.trackTrace("Model not found for documentation creation", SeverityLevel.Warning, properties);
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -49,7 +52,11 @@ public class ApiDocumentationService {
                 .build();
 
         ApiDocumentation savedDoc = documentationRepository.save(documentation);
-        log.info("Documentation created successfully with ID: {}", savedDoc.getDocId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("docId", String.valueOf(savedDoc.getDocId()));
+        properties.put("modelId", String.valueOf(modelId));
+        telemetryClient.trackEvent("DocumentationCreated", properties, null);
 
         return mapToResponse(savedDoc);
     }
@@ -62,11 +69,11 @@ public class ApiDocumentationService {
      */
     @Transactional(readOnly = true)
     public List<ApiDocumentationResponse> getDocumentationByModelId(Integer modelId) {
-        log.info("Fetching documentation for model ID: {}", modelId);
-
         // Verify model exists
         if (!modelRepository.existsById(modelId)) {
-            log.warn("Model not found with ID: {}", modelId);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("modelId", String.valueOf(modelId));
+            telemetryClient.trackTrace("Model not found for getting documentation", SeverityLevel.Warning, properties);
             throw new IllegalArgumentException("Model not found");
         }
 
@@ -84,11 +91,11 @@ public class ApiDocumentationService {
      */
     @Transactional(readOnly = true)
     public ApiDocumentationResponse getDocumentationById(Integer docId) {
-        log.info("Fetching documentation with ID: {}", docId);
-
         ApiDocumentation documentation = documentationRepository.findById(docId)
                 .orElseThrow(() -> {
-                    log.warn("Documentation not found with ID: {}", docId);
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put("docId", String.valueOf(docId));
+                    telemetryClient.trackTrace("Documentation not found", SeverityLevel.Warning, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 
@@ -103,11 +110,11 @@ public class ApiDocumentationService {
      * @return Updated documentation response
      */
     public ApiDocumentationResponse updateDocumentation(Integer docId, UpdateApiDocumentationRequest updateRequest) {
-        log.info("Updating documentation with ID: {}", docId);
-
         ApiDocumentation documentation = documentationRepository.findById(docId)
                 .orElseThrow(() -> {
-                    log.warn("Documentation not found with ID: {}", docId);
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put("docId", String.valueOf(docId));
+                    telemetryClient.trackTrace("Documentation not found for update", SeverityLevel.Warning, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 
@@ -120,7 +127,10 @@ public class ApiDocumentationService {
 
         documentation.setUpdatedAt(LocalDateTime.now());
         ApiDocumentation updatedDoc = documentationRepository.save(documentation);
-        log.info("Documentation updated successfully with ID: {}", docId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("docId", String.valueOf(docId));
+        telemetryClient.trackEvent("DocumentationUpdated", properties, null);
 
         return mapToResponse(updatedDoc);
     }
@@ -131,16 +141,19 @@ public class ApiDocumentationService {
      * @param docId Documentation ID
      */
     public void deleteDocumentation(Integer docId) {
-        log.info("Deleting documentation with ID: {}", docId);
-
         documentationRepository.findById(docId)
                 .orElseThrow(() -> {
-                    log.warn("Documentation not found with ID: {}", docId);
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put("docId", String.valueOf(docId));
+                    telemetryClient.trackTrace("Documentation not found for delete", SeverityLevel.Warning, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 
         documentationRepository.deleteById(docId);
-        log.info("Documentation deleted successfully with ID: {}", docId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("docId", String.valueOf(docId));
+        telemetryClient.trackEvent("DocumentationDeleted", properties, null);
     }
 
     /**

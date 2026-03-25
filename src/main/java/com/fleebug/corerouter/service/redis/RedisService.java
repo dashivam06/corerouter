@@ -1,13 +1,15 @@
 package com.fleebug.corerouter.service.redis;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -20,9 +22,9 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class RedisService {
 
+    private final TelemetryClient telemetryClient;
     private final RedisTemplate<String, Object> redisTemplate;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -35,8 +37,14 @@ public class RedisService {
     public void publishToQueue(String queueName, String message) {
         try {
             stringRedisTemplate.opsForList().leftPush(queueName, message);
-            log.info("Job added to queue: {}", queueName);
+            
+            Map<String, String> properties = new HashMap<>();
+            properties.put("queue", queueName);
+            telemetryClient.trackTrace("Job added to queue", SeverityLevel.Information, properties);
         } catch (Exception e) {
+            Map<String, String> properties = new HashMap<>();
+            properties.put("queue", queueName);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Queue push failed", e);
         }
     }
@@ -53,9 +61,17 @@ public class RedisService {
     public void saveToCache(String key, String value, long ttl, TimeUnit timeUnit) {
         try {
             stringRedisTemplate.opsForValue().set(key, value, ttl, timeUnit);
-            log.debug("Cached key: {} with TTL: {} {}", key, ttl, timeUnit);
+            
+            // Removing debug log for performance, only tracking errors or significant events
+            // if needed, use Verbose level trace
+            // Map<String, String> properties = new HashMap<>();
+            // properties.put("key", key);
+            // properties.put("ttl", String.valueOf(ttl));
+            // telemetryClient.trackTrace("Cached key", SeverityLevel.Verbose, properties);
         } catch (Exception e) {
-            log.error("Error saving to cache. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to save to cache: " + key, e);
         }
     }
@@ -71,9 +87,10 @@ public class RedisService {
     public void saveObjectToCache(String key, Object value, long ttl, TimeUnit timeUnit) {
         try {
             redisTemplate.opsForValue().set(key, value, ttl, timeUnit);
-            log.debug("Cached object with key: {} with TTL: {} {}", key, ttl, timeUnit);
         } catch (Exception e) {
-            log.error("Error saving object to cache. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to save object to cache: " + key, e);
         }
     }
@@ -88,7 +105,9 @@ public class RedisService {
         try {
             return stringRedisTemplate.opsForValue().get(key);
         } catch (Exception e) {
-            log.error("Error retrieving from cache. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             return null;
         }
     }
@@ -103,7 +122,9 @@ public class RedisService {
         try {
             return redisTemplate.opsForValue().get(key);
         } catch (Exception e) {
-            log.error("Error retrieving object from cache. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             return null;
         }
     }
@@ -116,9 +137,10 @@ public class RedisService {
     public void deleteFromCache(String key) {
         try {
             stringRedisTemplate.delete(key);
-            log.debug("Deleted cache key: {}", key);
         } catch (Exception e) {
-            log.error("Error deleting from cache. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to delete from cache: " + key, e);
         }
     }
@@ -133,7 +155,9 @@ public class RedisService {
         try {
             return Boolean.TRUE.equals(stringRedisTemplate.hasKey(key));
         } catch (Exception e) {
-            log.error("Error checking cache key existence. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             return false;
         }
     }
@@ -149,7 +173,9 @@ public class RedisService {
             Long ttl = stringRedisTemplate.getExpire(key, TimeUnit.SECONDS);
             return ttl != null ? ttl : -2;
         } catch (Exception e) {
-            log.error("Error getting TTL for key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             return -2;
         }
     }
@@ -164,7 +190,9 @@ public class RedisService {
         try {
             return stringRedisTemplate.opsForValue().increment(key);
         } catch (Exception e) {
-            log.error("Error incrementing counter. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to increment counter: " + key, e);
         }
     }
@@ -179,9 +207,10 @@ public class RedisService {
     public void setCounterWithTTL(String key, long ttl, TimeUnit timeUnit) {
         try {
             stringRedisTemplate.opsForValue().set(key, "0", ttl, timeUnit);
-            log.debug("Set counter with key: {} and TTL: {} {}", key, ttl, timeUnit);
         } catch (Exception e) {
-            log.error("Error setting counter with TTL. Key: {}", key, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("key", key);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to set counter: " + key, e);
         }
     }
@@ -199,9 +228,14 @@ public class RedisService {
                     .withStreamKey(streamKey);
 
             stringRedisTemplate.opsForStream().add(record);
-            log.info("Appended record to Redis Stream '{}' with fields={}", streamKey, fields.keySet());
+            
+            // Map<String, String> properties = new HashMap<>();
+            // properties.put("streamKey", streamKey);
+            // telemetryClient.trackTrace("Appended record to Redis Stream", SeverityLevel.Verbose, properties);
         } catch (Exception e) {
-            log.error("Failed to append record to Redis Stream '{}'", streamKey, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("streamKey", streamKey);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to append record to Redis Stream", e);
         }
     }

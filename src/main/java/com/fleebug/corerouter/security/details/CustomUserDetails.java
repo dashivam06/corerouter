@@ -1,7 +1,6 @@
 package com.fleebug.corerouter.security.details;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,7 +14,6 @@ import java.util.Collections;
  * Custom UserDetails implementation for Spring Security
  */
 @RequiredArgsConstructor
-@Slf4j
 public class CustomUserDetails implements UserDetails {
 
     private final User user;

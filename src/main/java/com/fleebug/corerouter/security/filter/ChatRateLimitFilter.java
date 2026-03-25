@@ -1,6 +1,10 @@
 package com.fleebug.corerouter.security.filter;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.http.HttpMethod;
@@ -22,19 +26,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import org.slf4j.MDC;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class ChatRateLimitFilter extends OncePerRequestFilter {
 
     private final RedisBucketService redisBucketService;
-    private static final String MDC_KEY_USER_ID = "userId";
     private final ApiKeyService apiKeyService;
     private final ObjectMapper objectMapper;
+    private final TelemetryClient telemetryClient;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -44,14 +44,15 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
         String method = request.getMethod();
 
         // Only apply to POST /api/v1/chat/completions
-        if (HttpMethod.POST.matches(method) && ApiPaths.CHAT_COMPLETIONS.equals(path)) {
+        if (HttpMethod.POST.matches(method) && path.equals(ApiPaths.CHAT_COMPLETIONS)) {
             String token = extractToken(request);
             if (token != null) {
                 // Extract userId from API key format (cr_live_<userId>_<random>)
                 Integer userId = extractUserIdFromApiKey(token);
                 if (userId != null) {
-                    MDC.put(MDC_KEY_USER_ID, String.valueOf(userId));
-                    log.debug("Chat request from user ID: {}", userId);
+                    Map<String, String> context = new HashMap<>();
+                    context.put("userId", String.valueOf(userId));
+                    telemetryClient.trackTrace("Chat request from user", SeverityLevel.Verbose, context);
                 }
 
                 // We use the HASH of the API key as the bucket identifier
@@ -64,7 +65,12 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
                 if (!probe.isConsumed()) {
                     long retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()) + 1;
                     response.setHeader("Retry-After", String.valueOf(retryAfter));
-                    log.warn("Rate limit exceeded for API Key hash: {}", apiKeyHash);
+                    
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put("apiKeyHash", apiKeyHash);
+                    properties.put("retryAfter", String.valueOf(retryAfter));
+                    telemetryClient.trackTrace("Chat rate limit exceeded", SeverityLevel.Warning, properties);
+                    
                     writeTooManyRequests(response, request, "Too many requests. Please try again in " + retryAfter + " seconds.");
                     return;
                 }
@@ -84,7 +90,9 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
                 return Integer.parseInt(parts[2]);
             }
         } catch (NumberFormatException e) {
-            log.warn("Failed to extract user ID from API key: {}", apiKey);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("apiKey", apiKey);
+            telemetryClient.trackTrace("Failed to extract user ID from API key", SeverityLevel.Warning, properties);
         }
         return null;
     }

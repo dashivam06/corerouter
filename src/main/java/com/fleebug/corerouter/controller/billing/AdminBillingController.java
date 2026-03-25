@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.controller.billing;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.request.CreateBillingConfigRequest;
 import com.fleebug.corerouter.dto.billing.request.RecordUsageRequest;
 import com.fleebug.corerouter.dto.billing.request.UpdateBillingConfigRequest;
@@ -16,24 +18,25 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin/billing")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Admin Billing", description = "Billing configuration and usage management (ADMIN only)")
 public class AdminBillingController {
 
     private final BillingConfigService billingConfigService;
     private final UsageService usageService;
+    private final TelemetryClient telemetryClient;
 
     // ---- Billing Config CRUD ----
 
@@ -55,7 +58,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<BillingConfigResponse>> createBillingConfig(
             @Valid @RequestBody CreateBillingConfigRequest createRequest,
             HttpServletRequest request) {
-        log.info("Create billing config request for modelId={}", createRequest.getModelId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("modelId", String.valueOf(createRequest.getModelId()));
+        telemetryClient.trackTrace("Create billing config request", SeverityLevel.Information, properties);
 
         BillingConfigResponse response = billingConfigService.createBillingConfig(createRequest);
 
@@ -77,7 +83,8 @@ public class AdminBillingController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<BillingConfigResponse>>> getAllBillingConfigs(
             HttpServletRequest request) {
-        log.info("Get all billing configs request received");
+        
+        telemetryClient.trackTrace("Get all billing configs request", SeverityLevel.Verbose, null);
 
         List<BillingConfigResponse> configs = billingConfigService.getAllBillingConfigs();
 
@@ -101,7 +108,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<BillingConfigResponse>> getBillingConfigById(
             @Parameter(description = "Billing config ID", example = "1") @PathVariable Integer billingId,
             HttpServletRequest request) {
-        log.info("Get billing config by ID={}", billingId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("billingId", String.valueOf(billingId));
+        telemetryClient.trackTrace("Get billing config by ID", SeverityLevel.Verbose, properties);
 
         BillingConfigResponse response = billingConfigService.getBillingConfigById(billingId);
 
@@ -125,7 +135,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<BillingConfigResponse>> getBillingConfigByModelId(
             @Parameter(description = "Model ID", example = "5") @PathVariable Integer modelId,
             HttpServletRequest request) {
-        log.info("Get billing config for modelId={}", modelId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("modelId", String.valueOf(modelId));
+        telemetryClient.trackTrace("Get billing config for model", SeverityLevel.Verbose, properties);
 
         BillingConfigResponse response = billingConfigService.getBillingConfigByModelId(modelId);
 
@@ -151,7 +164,10 @@ public class AdminBillingController {
             @Parameter(description = "Billing config ID", example = "1") @PathVariable Integer billingId,
             @Valid @RequestBody UpdateBillingConfigRequest updateRequest,
             HttpServletRequest request) {
-        log.info("Update billing config ID={}", billingId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("billingId", String.valueOf(billingId));
+        telemetryClient.trackTrace("Update billing config", SeverityLevel.Information, properties);
 
         BillingConfigResponse response = billingConfigService.updateBillingConfig(billingId, updateRequest);
 
@@ -175,7 +191,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<Void>> deleteBillingConfig(
             @Parameter(description = "Billing config ID", example = "1") @PathVariable Integer billingId,
             HttpServletRequest request) {
-        log.info("Delete billing config ID={}", billingId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("billingId", String.valueOf(billingId));
+        telemetryClient.trackTrace("Delete billing config", SeverityLevel.Information, properties);
 
         billingConfigService.deleteBillingConfig(billingId);
 
@@ -202,7 +221,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<UsageRecordResponse>> recordUsage(
             @Valid @RequestBody RecordUsageRequest recordRequest,
             HttpServletRequest request) {
-        log.info("Record usage request for taskId={}", recordRequest.getTaskId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("taskId", recordRequest.getTaskId());
+        telemetryClient.trackTrace("Record usage request", SeverityLevel.Information, properties);
 
         UsageRecordResponse response = usageService.recordUsage(recordRequest);
 
@@ -228,7 +250,10 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<List<UsageRecordResponse>>> getUsageByTask(
             @Parameter(description = "Task ID", example = "f47ac10b-58cc-4372-a567-0e02b2c3d479") @PathVariable String taskId,
             HttpServletRequest request) {
-        log.info("Get usage for taskId={}", taskId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("taskId", taskId);
+        telemetryClient.trackTrace("Get usage by taskId", SeverityLevel.Verbose, properties);
 
         List<UsageRecordResponse> records = usageService.getUsageByTaskId(taskId);
 
@@ -255,7 +280,10 @@ public class AdminBillingController {
             @Parameter(description = "Period start (ISO 8601)", example = "2026-03-01T00:00:00") @RequestParam LocalDateTime from,
             @Parameter(description = "Period end (ISO 8601)", example = "2026-03-31T23:59:59") @RequestParam LocalDateTime to,
             HttpServletRequest request) {
-        log.info("Get usage summary for apiKeyId={} from={} to={}", apiKeyId, from, to);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Get usage summary for apiKey", SeverityLevel.Verbose, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKey(apiKeyId, from, to);
 
@@ -282,7 +310,10 @@ public class AdminBillingController {
             @Parameter(description = "Period start (ISO 8601)", example = "2026-03-01T00:00:00") @RequestParam LocalDateTime from,
             @Parameter(description = "Period end (ISO 8601)", example = "2026-03-31T23:59:59") @RequestParam LocalDateTime to,
             HttpServletRequest request) {
-        log.info("Get usage summary by model for apiKeyId={}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Get usage summary by model for apiKey", SeverityLevel.Verbose, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 

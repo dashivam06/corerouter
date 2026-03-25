@@ -1,7 +1,8 @@
 package com.fleebug.corerouter.service.otp;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +13,8 @@ import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
 import com.fleebug.corerouter.exception.user.InvalidOtpException;
 import com.fleebug.corerouter.exception.user.OtpExpiredException;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -20,9 +23,9 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class OtpService {
 
+    private final TelemetryClient telemetryClient;
     private final RedisService redisService;
     private final MessageEncryption messageEncryption;
 
@@ -53,20 +56,25 @@ public class OtpService {
    
     public String requestOtp(String email) {
         
-        log.debug("OTP_REQUEST | Action: CheckEmailRateLimit");
+        // log.debug("OTP_REQUEST | Action: CheckEmailRateLimit");
 
         // Check email rate limit
         String emailRateLimitKey = OTP_REQUEST_COUNT_PREFIX + email;
         String requestCountStr = redisService.getFromCache(emailRateLimitKey);
         long requestCount = requestCountStr != null ? Long.parseLong(requestCountStr) : 0;
 
-        log.debug("EMAIL_RATE_LIMIT_CHECK | CurrentCount: {} | MaxLimit: {}", 
-                 requestCount, maxRequestsPerEmailPerHour);
+        // log.debug("EMAIL_RATE_LIMIT_CHECK | CurrentCount: {} | MaxLimit: {}", 
+        //          requestCount, maxRequestsPerEmailPerHour);
 
         if (requestCount >= maxRequestsPerEmailPerHour) {
             long ttlRemaining = redisService.getTTL(emailRateLimitKey);
-            log.warn("EMAIL_RATE_LIMIT_EXCEEDED | Requests: {} | MaxLimit: {} | RetryIn: {} seconds", 
-                    requestCount, maxRequestsPerEmailPerHour, ttlRemaining);
+            
+            Map<String, String> properties = new HashMap<>();
+            properties.put("email", email);
+            properties.put("requestCount", String.valueOf(requestCount));
+            properties.put("limit", String.valueOf(maxRequestsPerEmailPerHour));
+            telemetryClient.trackTrace("OTP rate limit exceeded", SeverityLevel.Warning, properties);
+            
             throw new RateLimitExceededException("Too many OTP requests to this email. Maximum " + maxRequestsPerEmailPerHour + 
                     " requests allowed per hour. Try again in " + ttlRemaining + " seconds.");
         }
@@ -74,13 +82,13 @@ public class OtpService {
         // Initialize counter with TTL on first request
         if (requestCount == 0) {
             redisService.setCounterWithTTL(emailRateLimitKey, 1, TimeUnit.HOURS);
-            log.debug("EMAIL_RATE_LIMIT_COUNTER_CREATED | TTL: 1 hour");
+            // log.debug("EMAIL_RATE_LIMIT_COUNTER_CREATED | TTL: 1 hour");
         }
 
         // Increment counter for current request
         long newCount = redisService.incrementCounter(emailRateLimitKey);
-        log.debug("EMAIL_RATE_LIMIT_INCREMENTED | NewCount: {} | RemainingBudget: {}", 
-                 newCount, maxRequestsPerEmailPerHour - newCount);
+        // log.debug("EMAIL_RATE_LIMIT_INCREMENTED | NewCount: {} | RemainingBudget: {}", 
+        //          newCount, maxRequestsPerEmailPerHour - newCount);
 
         // Generate verificationId (UUID) and OTP
         String verificationId = UUID.randomUUID().toString();
@@ -88,42 +96,46 @@ public class OtpService {
 
         String encryptedOtp = messageEncryption.encrypt(otp);
         
-        log.debug("OTP_GENERATED | VerificationId: {}", verificationId);
+        // log.debug("OTP_GENERATED | VerificationId: {}", verificationId);
 
         // Store OTP with TTL (5 minutes)
         String otpKey = OTP_KEY_PREFIX + verificationId;
         redisService.saveToCache(otpKey, encryptedOtp, otpTtlMinutes, TimeUnit.MINUTES);
-        log.debug("Stored OTP key: {}", otpKey);
+        // log.debug("Stored OTP key: {}", otpKey);
 
         // Store email mapping with TTL (5 minutes)
         String emailKey = VERIFICATION_EMAIL_PREFIX + verificationId;
         redisService.saveToCache(emailKey, email, otpTtlMinutes, TimeUnit.MINUTES);
-        log.debug("Stored email key: {}", emailKey);
+        // log.debug("Stored email key: {}", emailKey);
 
         // Initialize attempt counter
         String attemptsKey = OTP_ATTEMPTS_PREFIX + verificationId;
         redisService.setCounterWithTTL(attemptsKey, otpTtlMinutes, TimeUnit.MINUTES);
-        log.debug("Initialized attempts counter: {}", attemptsKey);
+        // log.debug("Initialized attempts counter: {}", attemptsKey);
 
         // Publish to email queue
         publishOtpToQueue(email, otp, otpTtlMinutes);
 
-        log.info("OTP_REQUEST_SUCCESS | VerificationId: {} | RemainingRequests: {}", 
-                verificationId, maxRequestsPerEmailPerHour - newCount);
+        Map<String, String> properties = new HashMap<>();
+        properties.put("verificationId", verificationId);
+        properties.put("remainingRequests", String.valueOf(maxRequestsPerEmailPerHour - newCount));
+        telemetryClient.trackTrace("OTP requested successfully", SeverityLevel.Information, properties);
+        
         return verificationId;
     }
 
     
     public String validateOtp(String verificationId, String otp) {
-        log.debug("Validating OTP for verificationId: {}", verificationId);
-
-        // Check attempt counter
+        // Checking attempt counter
         String attemptsKey = OTP_ATTEMPTS_PREFIX + verificationId;
         String attemptsStr = redisService.getFromCache(attemptsKey);
         long attempts = attemptsStr != null ? Long.parseLong(attemptsStr) : 0;
 
         if (attempts >= maxAttempts) {
-            log.warn("Max OTP attempts exceeded for verificationId: {}", verificationId);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("verificationId", verificationId);
+            properties.put("attempts", String.valueOf(attempts));
+            telemetryClient.trackTrace("Max OTP attempts exceeded", SeverityLevel.Warning, properties);
             
             // Clean up keys
             redisService.deleteFromCache(OTP_KEY_PREFIX + verificationId);
@@ -140,38 +152,47 @@ public class OtpService {
         String decryptedOtp = messageEncryption.decrypt(cachedOtp);
 
         if (decryptedOtp == null) {
-            log.warn("OTP not found or expired for verificationId: {}", verificationId);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("verificationId", verificationId);
+            telemetryClient.trackTrace("OTP not found or expired", SeverityLevel.Warning, properties);
             throw new OtpExpiredException();
         }
 
         // Validate OTP
         if (!decryptedOtp.equals(otp)) {
-            log.warn("Invalid OTP attempt for verificationId: {}", verificationId);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("verificationId", verificationId);
+            properties.put("attempts", String.valueOf(attempts + 1));
+            telemetryClient.trackTrace("Invalid OTP validation attempt", SeverityLevel.Warning, properties);
+            
             redisService.incrementCounter(attemptsKey);
             long remainingAttempts = maxAttempts - attempts - 1;
             throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + remainingAttempts);
         }
 
-        log.info("OTP validated successfully for verificationId: {}", verificationId);
+        Map<String, String> properties = new HashMap<>();
+        properties.put("verificationId", verificationId);
+        telemetryClient.trackTrace("OTP validated successfully", SeverityLevel.Information, properties);
 
         // Get email
         String emailKey = VERIFICATION_EMAIL_PREFIX + verificationId;
         String email = redisService.getFromCache(emailKey);
 
         if (email == null) {
-            log.error("Email not found for verificationId: {}", verificationId);
+            // log.error("Email not found for verificationId: {}", verificationId);
+            telemetryClient.trackTrace("Email not found for successful OTP verification", SeverityLevel.Error, properties);
             throw new OtpExpiredException("Verification session expired.");
         }
 
         // Set verified flag (20 minutes TTL - user has 20 min to complete registration)
         String verifiedKey = VERIFIED_PREFIX + verificationId;
         redisService.saveToCache(verifiedKey, "true", verificationProfileCompletionMinutes, TimeUnit.MINUTES);
-        log.debug("Set verified flag for verificationId: {} with TTL: {} minutes", verificationId, verificationProfileCompletionMinutes);
+        // log.debug("Set verified flag for verificationId: {} with TTL: {} minutes", verificationId, verificationProfileCompletionMinutes);
 
         // Delete OTP and attempts (no longer needed)
         redisService.deleteFromCache(otpKey);
         redisService.deleteFromCache(attemptsKey);
-        log.debug("Cleaned up OTP keys for verificationId: {}", verificationId);
+        // log.debug("Cleaned up OTP keys for verificationId: {}", verificationId);
 
         return email;
     }
@@ -205,14 +226,14 @@ public class OtpService {
      * @param verificationId UUID
      */
     public void cleanupVerification(String verificationId) {
-        log.info("Cleaning up verification data for verificationId: {}", verificationId);
+        // log.info("Cleaning up verification data for verificationId: {}", verificationId);
         
         redisService.deleteFromCache(OTP_KEY_PREFIX + verificationId);
         redisService.deleteFromCache(VERIFICATION_EMAIL_PREFIX + verificationId);
         redisService.deleteFromCache(VERIFIED_PREFIX + verificationId);
         redisService.deleteFromCache(OTP_ATTEMPTS_PREFIX + verificationId);
         
-        log.debug("Cleaned up all verification keys for verificationId: {}", verificationId);
+        // log.debug("Cleaned up all verification keys for verificationId: {}", verificationId);
     }
 
     /**
@@ -243,9 +264,11 @@ public class OtpService {
             String encryptedMessage = messageEncryption.encrypt(message);
             
             redisService.publishToQueue(EMAIL_QUEUE_NAME, encryptedMessage);
-            log.info("OTP published to queue for email: {} (encrypted)", email);
+            // log.info("OTP published to queue for email: {} (encrypted)", email);
         } catch (Exception e) {
-            log.error("Failed to publish OTP to queue for email: {}", email, e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("email", email);
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Failed to queue email", e);
         }
     }

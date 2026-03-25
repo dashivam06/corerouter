@@ -1,10 +1,12 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
 import com.fleebug.corerouter.exception.user.*;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -12,16 +14,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * User domain exception handler
  * 
  * Handles all user-related exceptions and returns standardized error responses
- * with proper HTTP status codes and logging via SLF4J
+ * with proper HTTP status codes and logging via Azure Telemetry
  */
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.user")
+@RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@Slf4j
 public class UserExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
     
     /**
      * Handle UserNotFoundException
@@ -30,7 +37,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUserNotFoundException(
             UserNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("User not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("User not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -42,7 +53,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUserAlreadyExistsException(
             UserAlreadyExistsException ex,
             HttpServletRequest request) {
-        log.warn("User already exists: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("User already exists", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
     }
@@ -54,7 +69,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidCredentialsException(
             InvalidCredentialsException ex,
             HttpServletRequest request) {
-        log.warn("Invalid credentials provided: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid credentials provided", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
     }
@@ -66,7 +85,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleOtpExpiredException(
             OtpExpiredException ex,
             HttpServletRequest request) {
-        log.warn("OTP expired: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("OTP expired", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.GONE)
                 .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
     }
@@ -78,7 +101,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidOtpException(
             InvalidOtpException ex,
             HttpServletRequest request) {
-        log.warn("Invalid OTP provided: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid OTP provided", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
@@ -90,7 +117,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidTokenException(
             InvalidTokenException ex,
             HttpServletRequest request) {
-        log.warn("Invalid token: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid token", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
     }
@@ -102,7 +133,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
             RateLimitExceededException ex,
             HttpServletRequest request) {
-        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Rate limit exceeded for user operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
     }
@@ -114,7 +149,11 @@ public class UserExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
-        log.warn("Illegal argument in user operation: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Illegal argument in user operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }

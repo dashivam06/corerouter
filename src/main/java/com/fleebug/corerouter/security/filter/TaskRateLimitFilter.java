@@ -1,8 +1,18 @@
 package com.fleebug.corerouter.security.filter;
 
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import com.fleebug.corerouter.constants.ApiPaths;
+import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
+import com.fleebug.corerouter.service.redis.RedisBucketService;
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.ConsumptionProbe;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -13,19 +23,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fleebug.corerouter.constants.ApiPaths;
-import com.fleebug.corerouter.dto.common.ApiResponse;
-import com.fleebug.corerouter.security.details.CustomUserDetails;
-import com.fleebug.corerouter.service.redis.RedisBucketService;
-
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Rate limiting filter for task endpoints.
@@ -34,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
  * - POST /v1/tasks (create): 5 per minute per authenticated user (EXPENSIVE — task processing is costly)
  */
 @Component
-@Slf4j
 public class TaskRateLimitFilter extends OncePerRequestFilter {
 
     @Autowired
@@ -42,6 +42,9 @@ public class TaskRateLimitFilter extends OncePerRequestFilter {
     
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TelemetryClient telemetryClient;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -74,7 +77,12 @@ public class TaskRateLimitFilter extends OncePerRequestFilter {
         if (!probe.isConsumed()) {
             long retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()) + 1;
             response.setHeader("Retry-After", String.valueOf(retryAfter));
-            log.warn("Task creation rate limit exceeded for user key: {}", userKey);
+            
+            Map<String, String> properties = new HashMap<>();
+            properties.put("userKey", userKey);
+            properties.put("retryAfter", String.valueOf(retryAfter));
+            telemetryClient.trackTrace("Task creation rate limit exceeded", SeverityLevel.Warning, properties);
+            
             writeTooManyRequests(response, request,
                     "Task creation quota exceeded (5 per minute). Processing is expensive. Retry after " + retryAfter + "s");
             return;

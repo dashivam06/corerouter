@@ -11,10 +11,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.microsoft.applicationinsights.TelemetryClient;
 
 @Configuration
 @RequiredArgsConstructor
 public class ApplicationConfig {
+
+    @Bean
+    public TelemetryClient telemetryClient() {
+        return new TelemetryClient();
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

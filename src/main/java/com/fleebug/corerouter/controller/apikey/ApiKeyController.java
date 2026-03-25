@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.controller.apikey;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -7,7 +9,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,16 +21,18 @@ import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
 import com.fleebug.corerouter.service.apikey.ApiKeyService;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/apikeys")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "API Keys", description = "API key management — generate, view, update, enable/disable, and delete API keys")
 public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;
+    private final TelemetryClient telemetryClient;
 
     /**
      * Generate a new API key
@@ -49,7 +52,8 @@ public class ApiKeyController {
             @Valid @RequestBody CreateApiKeyRequest createRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Generate API key request received");
+        
+        telemetryClient.trackTrace("Generate API key request received", SeverityLevel.Verbose, null);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.generateApiKey(userDetails.getUser(), createRequest);
@@ -73,7 +77,8 @@ public class ApiKeyController {
     public ResponseEntity<ApiResponse<List<ApiKeyResponse>>> getAllApiKeys(
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Get all API keys request received");
+        
+        telemetryClient.trackTrace("Get all API keys request received", SeverityLevel.Verbose, null);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         List<ApiKeyResponse> apiKeys = apiKeyService.getUserApiKeys(userDetails.getUser().getUserId());
@@ -99,7 +104,10 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Get API key details request - ID: {}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Get API key details request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.getApiKeyDetails(apiKeyId, userDetails.getUser().getUserId());
@@ -127,7 +135,10 @@ public class ApiKeyController {
             @Valid @RequestBody UpdateApiKeyRequest updateRequest,
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Update API key request - ID: {}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Update API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.updateApiKey(apiKeyId, userDetails.getUser().getUserId(), updateRequest);
@@ -153,7 +164,10 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Disable API key request - ID: {}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Disable API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), true);
@@ -179,7 +193,10 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.debug("Enable API key request - ID: {}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Enable API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), false);
@@ -205,7 +222,10 @@ public class ApiKeyController {
             @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
             Authentication authentication,
             HttpServletRequest request) {
-        log.info("Delete API key request - ID: {}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("Delete API key request", SeverityLevel.Information, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         apiKeyService.deleteApiKey(apiKeyId, userDetails.getUser().getUserId());

@@ -1,9 +1,11 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.documentation.DocumentationNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -11,16 +13,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.documentation")
+@RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@Slf4j
 public class DocumentationExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
 
     @ExceptionHandler(DocumentationNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleDocumentationNotFound(
             DocumentationNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("Documentation not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Documentation not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -29,7 +40,11 @@ public class DocumentationExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
             IllegalArgumentException ex,
             HttpServletRequest request) {
-        log.warn("Invalid argument: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid argument in documentation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }

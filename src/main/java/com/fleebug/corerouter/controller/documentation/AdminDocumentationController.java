@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.controller.documentation;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.documentation.request.CreateApiDocumentationRequest;
 import com.fleebug.corerouter.dto.documentation.request.UpdateApiDocumentationRequest;
@@ -11,11 +13,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -24,11 +28,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/documentation")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Admin Documentation", description = "Manage API documentation for AI models")
 public class AdminDocumentationController {
 
     private final ApiDocumentationService documentationService;
+    private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Create documentation", description = "Create API documentation for a specific model")
     @PostMapping("/models/{modelId}")
@@ -37,8 +41,11 @@ public class AdminDocumentationController {
             @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
             @Valid @RequestBody CreateApiDocumentationRequest request,
             HttpServletRequest httpRequest) {
-        log.info("Admin creating documentation for model ID: {}", modelId);
         
+        Map<String, String> properties = new HashMap<>();
+        properties.put("modelId", String.valueOf(modelId));
+        telemetryClient.trackTrace("Create documentation request", SeverityLevel.Verbose, properties);
+
         ApiDocumentationResponse response = documentationService.createDocumentation(modelId, request);
         
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -52,8 +59,11 @@ public class AdminDocumentationController {
             @Parameter(description = "Documentation ID", example = "1") @PathVariable Integer docId,
             @Valid @RequestBody UpdateApiDocumentationRequest request,
             HttpServletRequest httpRequest) {
-        log.info("Admin updating documentation with ID: {}", docId);
         
+        Map<String, String> properties = new HashMap<>();
+        properties.put("docId", String.valueOf(docId));
+        telemetryClient.trackTrace("Update documentation request", SeverityLevel.Verbose, properties);
+
         ApiDocumentationResponse response = documentationService.updateDocumentation(docId, request);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation updated successfully", response, httpRequest));
@@ -65,8 +75,11 @@ public class AdminDocumentationController {
     public ResponseEntity<ApiResponse<Void>> deleteDocumentation(
             @Parameter(description = "Documentation ID", example = "1") @PathVariable Integer docId,
             HttpServletRequest httpRequest) {
-        log.info("Admin deleting documentation with ID: {}", docId);
         
+        Map<String, String> properties = new HashMap<>();
+        properties.put("docId", String.valueOf(docId));
+        telemetryClient.trackTrace("Delete documentation request", SeverityLevel.Verbose, properties);
+
         documentationService.deleteDocumentation(docId);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation deleted successfully", null, httpRequest));

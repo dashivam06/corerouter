@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.task;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 
 import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
@@ -20,7 +22,6 @@ import com.fleebug.corerouter.service.redis.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,8 +33,9 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TaskService {
+
+    private final TelemetryClient telemetryClient;
 
     private static final String TASK_STREAM_KEY = "stream:tasks";
 
@@ -85,7 +87,7 @@ public class TaskService {
                         "timestamp", LocalDateTime.now().toString()
                 )
         );
-        log.info("Task created and pushed to stream - taskId={}", saved.getTaskId());
+        telemetryClient.trackTrace("Task created and pushed to stream - taskId=" + saved.getTaskId(), SeverityLevel.Information, Map.of("taskId", saved.getTaskId()));
         return saved;
     }
 
@@ -117,7 +119,7 @@ public class TaskService {
         }
 
         Task saved = taskRepository.save(task);
-        log.info("Task status updated - taskId={}, status={}", saved.getTaskId(), saved.getStatus());
+        telemetryClient.trackTrace("Task status updated - taskId=" + saved.getTaskId() + ", status=" + saved.getStatus(), SeverityLevel.Information, Map.of("taskId", saved.getTaskId(), "status", saved.getStatus().toString()));
         return saved;
     }
 }

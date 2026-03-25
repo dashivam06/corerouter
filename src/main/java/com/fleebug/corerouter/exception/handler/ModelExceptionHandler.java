@@ -1,9 +1,11 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.model.*;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -11,16 +13,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Model domain exception handler
  * 
  * Handles all model-related exceptions and returns standardized error responses
- * with proper HTTP status codes and logging via SLF4J
+ * with proper HTTP status codes and logging via Azure Telemetry
  */
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.model")
+@RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@Slf4j
 public class ModelExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
     
     /**
      * Handle ModelNotFoundException
@@ -29,7 +36,11 @@ public class ModelExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleModelNotFoundException(
             ModelNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("Model not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Model not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -41,7 +52,11 @@ public class ModelExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleModelAlreadyExistsException(
             ModelAlreadyExistsException ex,
             HttpServletRequest request) {
-        log.warn("Model already exists: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Model already exists", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
     }
@@ -53,7 +68,11 @@ public class ModelExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidModelStatusException(
             InvalidModelStatusException ex,
             HttpServletRequest request) {
-        log.warn("Invalid model status: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid model status", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
@@ -65,7 +84,11 @@ public class ModelExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
-        log.warn("Illegal argument in model operation: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Illegal argument in model operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }

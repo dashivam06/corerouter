@@ -1,7 +1,8 @@
 package com.fleebug.corerouter.service.apikey;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,16 +19,17 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class ApiKeyService {
 
+    private final TelemetryClient telemetryClient;
     private final ApiKeyRepository apiKeyRepository;
 
     @Value("${security.apikey.pepper}")
@@ -41,7 +43,7 @@ public class ApiKeyService {
      * @return ApiKeyResponse with generated key (RAW key only shown ONCE)
      */
     public ApiKeyResponse generateApiKey(User user, CreateApiKeyRequest createRequest) {
-        log.debug("Generating new API key for user ID: {}", user.getUserId());
+        telemetryClient.trackTrace("Generating new API key for user ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("userId", String.valueOf(user.getUserId())));
 
         // 1. Generate the RAW key (cr_live_...)
         String rawKey = generateRawKey(user.getUserId());
@@ -65,7 +67,7 @@ public class ApiKeyService {
                 .build();
 
         ApiKey savedApiKey = apiKeyRepository.save(apiKey);
-        log.info("API key generated successfully for user ID: {}", user.getUserId());
+        telemetryClient.trackTrace("API key generated successfully for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
 
         // 4. Return the RAW key to the user (Response only)
         ApiKeyResponse response = mapToResponse(savedApiKey);
@@ -80,7 +82,7 @@ public class ApiKeyService {
      * @return List of API key responses
      */
     public List<ApiKeyResponse> getUserApiKeys(Integer userId) {
-        log.debug("Fetching all API keys for user ID: {}", userId);
+        telemetryClient.trackTrace("Fetching all API keys for user ID: " + userId, SeverityLevel.Verbose, Map.of("userId", String.valueOf(userId)));
         List<ApiKey> apiKeys = apiKeyRepository.findByUserUserId(userId);
         return apiKeys.stream()
                 .map(this::mapToResponse)
@@ -95,14 +97,14 @@ public class ApiKeyService {
      * @return ApiKeyResponse
      */
     public ApiKeyResponse getApiKeyDetails(Integer apiKeyId, Integer userId) {
-        log.debug("Fetching API key details - ID: {}, User ID: {}", apiKeyId, userId);
+        telemetryClient.trackTrace("Fetching API key details - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
 
         // Verify user owns this API key
         if (!apiKey.getUser().getUserId().equals(userId)) {
-            log.warn("Unauthorized access attempt for API key ID: {}", apiKeyId);
+            telemetryClient.trackTrace("Unauthorized access attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
             throw new IllegalArgumentException("You do not have permission to access this API key");
         }
 
@@ -118,14 +120,14 @@ public class ApiKeyService {
      * @return Updated ApiKeyResponse
      */
     public ApiKeyResponse updateApiKey(Integer apiKeyId, Integer userId, UpdateApiKeyRequest updateRequest) {
-        log.debug("Updating API key - ID: {}, User ID: {}", apiKeyId, userId);
+        telemetryClient.trackTrace("Updating API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
 
         // Verify user owns this API key
         if (!apiKey.getUser().getUserId().equals(userId)) {
-            log.warn("Unauthorized update attempt for API key ID: {}", apiKeyId);
+            telemetryClient.trackTrace("Unauthorized update attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
             throw new IllegalArgumentException("You do not have permission to modify this API key");
         }
 
@@ -141,7 +143,7 @@ public class ApiKeyService {
         }
 
         ApiKey updatedApiKey = apiKeyRepository.save(apiKey);
-        log.info("API key updated successfully - ID: {}", apiKeyId);
+        telemetryClient.trackTrace("API key updated successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         return mapToResponse(updatedApiKey);
     }
@@ -155,14 +157,14 @@ public class ApiKeyService {
      * @return Updated ApiKeyResponse
      */
     public ApiKeyResponse toggleApiKeyStatus(Integer apiKeyId, Integer userId, boolean disable) {
-        log.info("Toggling API key status - ID: {}, User ID: {}, Disable: {}", apiKeyId, userId, disable);
+        telemetryClient.trackTrace("Toggling API key status - ID: " + apiKeyId + ", User ID: " + userId + ", Disable: " + disable, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
 
         // Verify user owns this API key
         if (!apiKey.getUser().getUserId().equals(userId)) {
-            log.warn("Unauthorized status toggle attempt for API key ID: {}", apiKeyId);
+            telemetryClient.trackTrace("Unauthorized status toggle attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
             throw new IllegalArgumentException("You do not have permission to modify this API key");
         }
 
@@ -170,7 +172,7 @@ public class ApiKeyService {
         apiKey.setStatus(newStatus);
 
         ApiKey updatedApiKey = apiKeyRepository.save(apiKey);
-        log.info("API key status updated successfully - ID: {}, New Status: {}", apiKeyId, newStatus);
+        telemetryClient.trackTrace("API key status updated successfully - ID: " + apiKeyId + ", New Status: " + newStatus, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         return mapToResponse(updatedApiKey);
     }
@@ -182,19 +184,19 @@ public class ApiKeyService {
      * @param userId User ID (to verify ownership)
      */
     public void deleteApiKey(Integer apiKeyId, Integer userId) {
-        log.info("Deleting API key - ID: {}, User ID: {}", apiKeyId, userId);
+        telemetryClient.trackTrace("Deleting API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
 
         // Verify user owns this API key
         if (!apiKey.getUser().getUserId().equals(userId)) {
-            log.warn("Unauthorized delete attempt for API key ID: {}", apiKeyId);
+            telemetryClient.trackTrace("Unauthorized delete attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
             throw new IllegalArgumentException("You do not have permission to delete this API key");
         }
 
         apiKeyRepository.deleteById(apiKeyId);
-        log.info("API key deleted successfully - ID: {}", apiKeyId);
+        telemetryClient.trackTrace("API key deleted successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
     }
 
     private String generateRawKey(Integer userId) {

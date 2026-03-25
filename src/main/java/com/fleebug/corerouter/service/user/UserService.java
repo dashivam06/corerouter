@@ -1,10 +1,13 @@
 package com.fleebug.corerouter.service.user;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
@@ -23,10 +26,10 @@ import com.fleebug.corerouter.service.token.TokenService;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class UserService {
 
+    private final TelemetryClient telemetryClient;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
@@ -47,18 +50,18 @@ public class UserService {
      * @throws IllegalArgumentException if email already exists or validation fails
      */
     public RequestOtpResponse requestOtp(String email) {
-        log.debug("OTP request for registration");
+        telemetryClient.trackTrace("OTP request for registration", SeverityLevel.Verbose, null);
 
         // Validate email is not already registered
         if (userRepository.existsByEmail(email)) {
-            log.warn("OTP request failed - email already exists");
+            telemetryClient.trackTrace("OTP request failed - email already exists", SeverityLevel.Warning, null);
             throw new UserAlreadyExistsException(email);
         }
 
-        log.debug("Email validation passed. Proceeding with OTP generation");
+        telemetryClient.trackTrace("Email validation passed. Proceeding with OTP generation", SeverityLevel.Verbose, null);
 
         String verificationId = otpService.requestOtp(email);
-        log.info("OTP sent successfully. VerificationId: {}", verificationId);
+        telemetryClient.trackTrace("OTP sent successfully. VerificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
         
         return RequestOtpResponse.builder()
                 .verificationId(verificationId)
@@ -80,10 +83,10 @@ public class UserService {
      * @throws IllegalArgumentException if OTP is invalid or expired
      */
     public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
-        log.debug("Verifying OTP with verificationId: {}", verificationId);
+        telemetryClient.trackTrace("Verifying OTP with verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         otpService.validateOtp(verificationId, otp);
-        log.info("OTP verified successfully for verificationId: {}", verificationId);
+        telemetryClient.trackTrace("OTP verified successfully for verificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
 
         return VerifyOtpResponse.builder()
                 .verificationId(verificationId)
@@ -105,17 +108,17 @@ public class UserService {
      * @throws IllegalArgumentException if verificationId not verified or user creation fails
      */
     public AuthResponse finalRegister(String verificationId, FinalRegistrationRequest finalRequest) {
-        log.debug("Final registration initiated for verificationId: {}", verificationId);
+        telemetryClient.trackTrace("Final registration initiated for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         // Step 1: Verify that the verificationId is verified
         if (!otpService.isVerified(verificationId)) {
-            log.warn("Final registration failed - verificationId not verified: {}", verificationId);
+            telemetryClient.trackTrace("Final registration failed - verificationId not verified: " + verificationId, SeverityLevel.Warning, Map.of("verificationId", verificationId));
             throw new InvalidOtpException("Verification not completed. Please verify OTP first.");
         }
 
         // Step 2: Get email from verificationId
         String email = otpService.getEmail(verificationId);
-        log.debug("Retrieved email for verificationId: {}", verificationId);
+        telemetryClient.trackTrace("Retrieved email for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         // Step 3: Hash password using BCrypt
         String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
@@ -131,11 +134,11 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User registered successfully via verification flow. User ID: {}", savedUser.getUserId());
+        telemetryClient.trackTrace("User registered successfully via verification flow. User ID: " + savedUser.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(savedUser.getUserId())));
 
         // Step 5: Cleanup verification data from Redis
         otpService.cleanupVerification(verificationId);
-        log.info("Verification cleanup completed for verificationId: {}", verificationId);
+        telemetryClient.trackTrace("Verification cleanup completed for verificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
 
         return tokenService.buildAuthResponse(savedUser);
     }
@@ -149,29 +152,28 @@ public class UserService {
      * @throws InvalidCredentialsException if password is incorrect
      */
     public AuthResponse login(LoginRequest loginRequest) {
-        log.debug("Login attempt for user");
+        telemetryClient.trackTrace("Login attempt for user", SeverityLevel.Verbose, null);
 
         // Find user by email
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> {
-                    log.warn("Login failed - user not found");
+                    telemetryClient.trackTrace("Login failed - user not found", SeverityLevel.Warning, null);
                     return new UserNotFoundException("email", loginRequest.getEmail());
                 });
 
         // Check if user is active
         if (user.getStatus() != UserStatus.ACTIVE) {
-            log.warn("Login failed - user account is not active. UserId: {}, Status: {}", 
-                    user.getUserId(), user.getStatus());
+            telemetryClient.trackTrace("Login failed - user account is not active. UserId: " + user.getUserId() + ", Status: " + user.getStatus(), SeverityLevel.Warning, Map.of("userId", String.valueOf(user.getUserId()), "status", user.getStatus().toString()));
             throw new InvalidCredentialsException("User account is not active");
         }
 
         // Verify password using BCrypt
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            log.warn("Login failed - invalid password for user: {}", user.getUserId());
+            telemetryClient.trackTrace("Login failed - invalid password for user: " + user.getUserId(), SeverityLevel.Warning, Map.of("userId", String.valueOf(user.getUserId())));
             throw new InvalidCredentialsException();
         }
 
-        log.info("User logged in successfully. User ID: {}", user.getUserId());
+        telemetryClient.trackTrace("User logged in successfully. User ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
 
         return tokenService.buildAuthResponse(user);
     }
@@ -184,10 +186,10 @@ public class UserService {
      * @throws IllegalArgumentException if user not found
      */
     public User getUserByEmail(String email) {
-        log.info("Fetching user with email: {}", email);
+        telemetryClient.trackTrace("Fetching user with email: " + email, SeverityLevel.Information, Map.of("email", email));
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> {
-                    log.warn("User not found with email: {}", email);
+                    telemetryClient.trackTrace("User not found with email: " + email, SeverityLevel.Warning, Map.of("email", email));
                     return new UserNotFoundException(email);
                 });
     }
@@ -200,10 +202,10 @@ public class UserService {
      * @throws IllegalArgumentException if user not found
      */
     public User getUserById(Integer userId) {
-        log.info("Fetching user with ID: {}", userId);
+        telemetryClient.trackTrace("Fetching user with ID: " + userId, SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
         return userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    log.warn("User not found with ID: {}", userId);
+                    telemetryClient.trackTrace("User not found with ID: " + userId, SeverityLevel.Warning, Map.of("userId", String.valueOf(userId)));
                     return new UserNotFoundException(userId);
                 });
     }
@@ -218,20 +220,20 @@ public class UserService {
      * @throws IllegalArgumentException if user not found or old password is incorrect
      */
     public AuthResponse changePassword(Integer userId, String oldPassword, String newPassword) {
-        log.info("Attempting to change password for user ID: {}", userId);
+        telemetryClient.trackTrace("Attempting to change password", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         User user = getUserById(userId);
 
         // Verify old password
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            log.warn("Change password failed - invalid old password for user ID: {}", userId);
+            telemetryClient.trackTrace("Change password failed - invalid old password", SeverityLevel.Warning, Map.of("userId", String.valueOf(userId)));
             throw new InvalidCredentialsException("Invalid old password");
         }
 
         // Hash and update new password
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        log.info("Password changed successfully for user ID: {}", userId);
+        telemetryClient.trackTrace("Password changed successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         return tokenService.buildAuthResponse(user);
     }

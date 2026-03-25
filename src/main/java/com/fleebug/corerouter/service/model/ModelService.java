@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.model;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.documentation.response.ApiDocumentationResponse;
 import com.fleebug.corerouter.dto.model.request.CreateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelRequest;
@@ -15,20 +17,20 @@ import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.model.ModelStatusAuditRepository;
 import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class ModelService {
 
+    private final TelemetryClient telemetryClient;
     private final ModelRepository modelRepository;
     private final ModelStatusAuditRepository modelStatusAuditRepository;
     private final ApiDocumentationRepository documentationRepository;
@@ -44,10 +46,10 @@ public class ModelService {
      * @return created model response
      */
     public ModelResponse createModel(CreateModelRequest createRequest, User admin) {
-        log.info("Creating new model: {} by admin: {}", createRequest.getFullname(), admin.getUserId());
+        telemetryClient.trackTrace("Creating new model: " + createRequest.getFullname() + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelName", createRequest.getFullname(), "adminId", String.valueOf(admin.getUserId())));
 
         if (modelRepository.existsByFullname(createRequest.getFullname())) {
-            log.warn("Model with name already exists: {}", createRequest.getFullname());
+            telemetryClient.trackTrace("Model with name already exists: " + createRequest.getFullname(), SeverityLevel.Warning, Map.of("modelName", createRequest.getFullname()));
             throw new IllegalArgumentException("Model with this name already exists");
         }
 
@@ -63,7 +65,7 @@ public class ModelService {
                 .build();
 
         Model savedModel = modelRepository.save(model);
-        log.info("Model created successfully with ID: {}", savedModel.getModelId());
+        telemetryClient.trackTrace("Model created successfully with ID: " + savedModel.getModelId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(savedModel.getModelId())));
 
         // Record status audit for new model creation
         createAuditLog(savedModel, ModelStatus.NOTHING, ModelStatus.ACTIVE, admin, "Model created");
@@ -78,7 +80,7 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getAllModels() {
-        log.info("Fetching all models");
+        telemetryClient.trackTrace("Fetching all models", SeverityLevel.Verbose, null);
         return modelRepository.findAll()
                 .stream()
                 .map(this::mapToResponse)
@@ -93,7 +95,7 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getModelsByStatus(ModelStatus status) {
-        log.info("Fetching models with status: {}", status);
+        telemetryClient.trackTrace("Fetching models with status: " + status, SeverityLevel.Verbose, Map.of("status", status.toString()));
         return modelRepository.findByStatus(status)
                 .stream()
                 .map(this::mapToResponse)
@@ -108,10 +110,10 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public ModelResponse getModelById(Integer modelId) {
-        log.info("Fetching model with ID: {}", modelId);
+        telemetryClient.trackTrace("Fetching model with ID: " + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -126,11 +128,11 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public ModelDetailsResponse getModelDetailsWithDocumentation(Integer modelId) {
-        log.info("Fetching model details with documentation for ID: {}", modelId);
+        telemetryClient.trackTrace("Fetching model details with documentation for ID: " + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
         
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -152,11 +154,11 @@ public class ModelService {
      * @return updated model response
      */
     public ModelResponse updateModel(Integer modelId, UpdateModelRequest updateRequest, User admin) {
-        log.info("Updating model with ID: {} by admin: {}", modelId, admin.getUserId());
+        telemetryClient.trackTrace("Updating model with ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -183,7 +185,7 @@ public class ModelService {
 
         model.setUpdatedAt(LocalDateTime.now());
         Model updatedModel = modelRepository.save(model);
-        log.info("Model updated successfully with ID: {}", modelId);
+        telemetryClient.trackTrace("Model updated successfully with ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
@@ -207,25 +209,25 @@ public class ModelService {
      * @return updated model response
      */
     public ModelResponse changeModelStatus(Integer modelId, ModelStatus newStatus, User admin) {
-        log.info("Changing model status: ID {} to {} by admin: {}", modelId, newStatus, admin.getUserId());
+        telemetryClient.trackTrace("Changing model status: ID " + modelId + " to " + newStatus + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "newStatus", newStatus.toString(), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
         ModelStatus oldStatus = model.getStatus();
 
         if (oldStatus.equals(newStatus)) {
-            log.warn("Model already has status: {}", newStatus);
+            telemetryClient.trackTrace("Model already has status: " + newStatus, SeverityLevel.Warning, Map.of("status", newStatus.toString()));
             throw new IllegalArgumentException("Model already has this status");
         }
 
         model.setStatus(newStatus);
         model.setUpdatedAt(LocalDateTime.now());
         Model updatedModel = modelRepository.save(model);
-        log.info("Model status changed successfully from {} to {} for ID: {}", oldStatus, newStatus, modelId);
+        telemetryClient.trackTrace("Model status changed successfully from " + oldStatus + " to " + newStatus + " for ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "oldStatus", oldStatus.toString(), "newStatus", newStatus.toString()));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
@@ -243,11 +245,11 @@ public class ModelService {
      * @param admin   admin user performing the action
      */
     public void archiveModel(Integer modelId, User admin) {
-        log.info("Archiving model ID: {} by admin: {}", modelId, admin.getUserId());
+        telemetryClient.trackTrace("Archiving model ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found", SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -255,7 +257,7 @@ public class ModelService {
         model.setStatus(ModelStatus.ARCHIVED);
         model.setUpdatedAt(LocalDateTime.now());
         modelRepository.save(model);
-        log.info("Model archived successfully with ID: {}", modelId);
+        telemetryClient.trackTrace("Model archived successfully", SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
@@ -272,16 +274,16 @@ public class ModelService {
      * @return updated model response
      */
     public ModelResponse inactivateModel(Integer modelId, User admin) {
-        log.info("Inactivating model ID: {} by admin: {}", modelId, admin.getUserId());
+        telemetryClient.trackTrace("Inactivating model ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
         if (model.getStatus() == ModelStatus.INACTIVE) {
-            log.warn("Model already inactive: {}", modelId);
+            telemetryClient.trackTrace("Model already inactive: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
             throw new IllegalArgumentException("Model is already inactive");
         }
 
@@ -289,7 +291,7 @@ public class ModelService {
         model.setStatus(ModelStatus.INACTIVE);
         model.setUpdatedAt(LocalDateTime.now());
         Model updatedModel = modelRepository.save(model);
-        log.info("Model inactivated successfully with ID: {}", modelId);
+        telemetryClient.trackTrace("Model inactivated successfully with ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
@@ -307,11 +309,11 @@ public class ModelService {
      * @param admin   admin user performing the action
      */
     public void deleteModel(Integer modelId, User admin) {
-        log.info("Hard deleting model ID: {} by admin: {}", modelId, admin.getUserId());
+        telemetryClient.trackTrace("Hard deleting model ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
-                    log.warn("Model not found with ID: {}", modelId);
+                    telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -320,7 +322,7 @@ public class ModelService {
 
         // Hard delete
         modelRepository.deleteById(modelId);
-        log.info("Model permanently deleted with ID: {}", modelId);
+        telemetryClient.trackTrace("Model permanently deleted with ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
@@ -333,7 +335,7 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public List<ModelResponse> getActiveModels() {
-        log.info("Fetching active models for users");
+        telemetryClient.trackTrace("Fetching active models for users", SeverityLevel.Verbose, null);
         return modelRepository.findByStatus(ModelStatus.ACTIVE)
                 .stream()
                 .map(this::mapToResponse)
@@ -351,7 +353,7 @@ public class ModelService {
                 .build();
 
         modelStatusAuditRepository.save(audit);
-        log.info("Audit log created for model ID: {} - Status: {} -> {}", model.getModelId(), previousStatus, newStatus);
+        telemetryClient.trackTrace("Audit log created for model ID: " + model.getModelId() + " - Status: " + previousStatus + " -> " + newStatus, SeverityLevel.Information, Map.of("modelId", String.valueOf(model.getModelId()), "previousStatus", String.valueOf(previousStatus), "newStatus", String.valueOf(newStatus)));
     }
 
     /**
@@ -362,11 +364,11 @@ public class ModelService {
      */
     @Transactional(readOnly = true)
     public List<ModelStatusAudit> getModelAuditHistory(Integer modelId) {
-        log.info("Fetching audit history for model ID: {}", modelId);
+        telemetryClient.trackTrace("Fetching audit history for model ID: " + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
         
         // Verify model exists
         if (!modelRepository.existsById(modelId)) {
-            log.warn("Model not found with ID: {}", modelId);
+            telemetryClient.trackTrace("Model not found with ID: " + modelId, SeverityLevel.Warning, Map.of("modelId", String.valueOf(modelId)));
             throw new IllegalArgumentException("Model not found");
         }
         

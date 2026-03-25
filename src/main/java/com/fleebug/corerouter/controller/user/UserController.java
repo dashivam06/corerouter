@@ -1,12 +1,16 @@
 package com.fleebug.corerouter.controller.user;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
@@ -25,19 +29,22 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Authentication", description = "User registration, login, OTP verification, token refresh, and logout")
 public class UserController {
 
     private final UserService userService;
     private final TokenService tokenService;
+    private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Request OTP", description = "Step 1 — Send a one-time password to the given email address")
     @PostMapping("/request-otp")
     public ResponseEntity<ApiResponse<RequestOtpResponse>> requestOtp(
             @Valid @RequestBody RequestOtpRequest requestOtpRequest,
             HttpServletRequest servletRequest) {
-        log.info("STEP 1: OTP request received for email: {}", requestOtpRequest.getEmail());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("email", requestOtpRequest.getEmail());
+        telemetryClient.trackEvent("OTP_REQUEST", properties, null);
         
         RequestOtpResponse otpResponse = userService.requestOtp(requestOtpRequest.getEmail());
         
@@ -51,7 +58,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest verifyOtpRequest,
             HttpServletRequest servletRequest) {
-        log.info("STEP 2: OTP verification request received for verificationId: {}", verifyOtpRequest.getVerificationId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("verificationId", verifyOtpRequest.getVerificationId());
+        telemetryClient.trackTrace("OTP verification request", SeverityLevel.Verbose, properties);
         
         var otpResponse = userService.verifyOtp(
                 verifyOtpRequest.getVerificationId(),
@@ -75,10 +85,13 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody FinalRegistrationRequest finalRegistrationRequest,
             HttpServletRequest servletRequest) {
-        log.info("STEP 3: Final registration request received for verificationId: {}", finalRegistrationRequest.getVerificationId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("verificationId", finalRegistrationRequest.getVerificationId());
+        telemetryClient.trackTrace("User registration request", SeverityLevel.Verbose, properties);
         
         if (!finalRegistrationRequest.getPassword().equals(finalRegistrationRequest.getConfirmPassword())) {
-            log.warn("STEP 3 error: Passwords do not match");
+            telemetryClient.trackTrace("Registration failed: Passwords do not match", SeverityLevel.Warning, properties);
             throw new IllegalArgumentException("Passwords do not match");
         }
         
@@ -98,7 +111,11 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest loginRequest,
             HttpServletRequest request) {
-        log.info("Login endpoint called for email: {}", loginRequest.getEmail());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("email", loginRequest.getEmail());
+        telemetryClient.trackTrace("Login endpoint called", SeverityLevel.Verbose, properties);
+        
         AuthResponse authResponse = userService.login(loginRequest);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Login successful", authResponse, request));
@@ -109,10 +126,11 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
             HttpServletRequest request) {
-        log.info("Refresh token endpoint called");
+        
+        telemetryClient.trackTrace("Refresh token request", SeverityLevel.Verbose, null);
         
         if (!tokenService.validateRefreshToken(refreshTokenRequest.getRefreshToken())) {
-            log.warn("Invalid refresh token");
+            telemetryClient.trackTrace("Refresh token failed: invalid or expired", SeverityLevel.Verbose, null);
             throw new IllegalArgumentException("Invalid or expired refresh token");
         }
         
@@ -134,7 +152,9 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> logout(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
             HttpServletRequest request) {
-        log.info("Logout endpoint called");
+        
+        telemetryClient.trackTrace("Logout endpoint called", SeverityLevel.Verbose, null);
+        
         tokenService.revokeRefreshToken(refreshTokenRequest.getRefreshToken());
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Logged out successfully", null, request));

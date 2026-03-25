@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.payment;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +15,6 @@ import com.fleebug.corerouter.repository.payment.TransactionRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,9 +33,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TransactionService {
 
+    private final TelemetryClient telemetryClient;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final HttpClientUtil httpClientUtil;
@@ -110,7 +111,7 @@ public class TransactionService {
             String status = jsonNode.get("status").asText();
 
             if (!"COMPLETE".equals(status)) {
-                log.warn("Transaction status not COMPLETE: {}", status);
+                telemetryClient.trackTrace("Transaction status not COMPLETE: " + status, SeverityLevel.Warning, Map.of("status", status));
                 throw new TransactionVerificationException("Transaction status is " + status);
             }
 
@@ -119,7 +120,7 @@ public class TransactionService {
                     .orElseThrow(() -> new TransactionNotFoundException("Transaction not found: " + transactionUuid));
 
             if (transaction.getStatus() == TransactionStatus.COMPLETED) {
-                log.info("Transaction already completed: {}", transactionUuid);
+                telemetryClient.trackTrace("Transaction already completed: " + transactionUuid, SeverityLevel.Information, Map.of("transactionUuid", transactionUuid));
                 return transaction;
             }
 
@@ -127,7 +128,7 @@ public class TransactionService {
             String verificationUrl = String.format("%s?product_code=%s&total_amount=%s&transaction_uuid=%s",
                     verifyUrl, merchantId, totalAmount, transactionUuid);
 
-            log.info("Verifying transaction with URL: {}", verificationUrl);
+            telemetryClient.trackTrace("Verifying transaction with URL: " + verificationUrl, SeverityLevel.Information, Map.of("verificationUrl", verificationUrl));
             
             try {
                 // eSewa status check returns JSON
@@ -145,16 +146,16 @@ public class TransactionService {
                     user.setBalance(user.getBalance().add(transaction.getAmount()));
                     userRepository.save(user);
                     
-                    log.info("Wallet credited for user: {}", user.getUserId());
+                    telemetryClient.trackTrace("Wallet credited for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
                     return transaction;
                 } else {
-                    log.error("eSewa verification failed. Status: {}", verifiedStatus);
+                    telemetryClient.trackTrace("eSewa verification failed. Status: " + verifiedStatus, SeverityLevel.Error, Map.of("verifiedStatus", verifiedStatus != null ? verifiedStatus : "null"));
                     transaction.setStatus(TransactionStatus.FAILED);
                     transactionRepository.save(transaction);
                     throw new TransactionVerificationException("eSewa verification failed with status: " + verifiedStatus);
                 }
             } catch (Exception e) {
-                log.error("Error calling eSewa verification API", e);
+                telemetryClient.trackException(e, Map.of("error", "Error calling eSewa verification API"), null);
                 // IF we already threw an exception, rethrow it. Otherwise wrap it.
                 if (e instanceof TransactionVerificationException) {
                     throw e;
@@ -163,42 +164,42 @@ public class TransactionService {
             }
 
         } catch (JsonProcessingException e) {
-            log.error("Error parsing eSewa callback data", e);
+            telemetryClient.trackException(e, Map.of("error", "Error parsing eSewa callback data"), null);
             throw new TransactionVerificationException("Invalid callback data", e);
         } catch (RuntimeException e) {
              throw e; // Rethrow runtime exceptions (like TransactionNotFoundException)
         } catch (Exception e) {
-             log.error("Error processing transaction success", e);
+             telemetryClient.trackException(e, Map.of("error", "Error processing transaction success"), null);
              throw new TransactionVerificationException("Error processing transaction success", e);
         }
     }
 
     @Transactional
     public void markTransactionFailed(String encodedData, String fallbackUuid) {
-        log.info("Processing failure callback. fallbackUuid: {}", fallbackUuid);
+        telemetryClient.trackTrace("Processing failure callback. fallbackUuid: " + fallbackUuid, SeverityLevel.Information, Map.of("fallbackUuid", fallbackUuid != null ? fallbackUuid : "null"));
         String transactionUuid = null;
         try {
             if (encodedData != null && !encodedData.isEmpty()) {
                 // Attempt standard Base64
                 byte[] decodedBytes = Base64.getDecoder().decode(encodedData);
                 String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
-                log.debug("Decoded failure data successfully");
+                telemetryClient.trackTrace("Decoded failure data successfully", SeverityLevel.Verbose, null);
                 
                 JsonNode jsonNode = objectMapper.readTree(decodedString);
                 transactionUuid = jsonNode.path("transaction_uuid").asText();
             }
         } catch (IllegalArgumentException e) {
-            log.warn("Standard Base64 decoding failed, trying URL decoder");
+            telemetryClient.trackTrace("Standard Base64 decoding failed, trying URL decoder", SeverityLevel.Warning, null);
             try {
                 byte[] decodedBytes = Base64.getUrlDecoder().decode(encodedData);
                 String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
                 JsonNode jsonNode = objectMapper.readTree(decodedString);
                 transactionUuid = jsonNode.path("transaction_uuid").asText();
             } catch (Exception ex) {
-                log.error("Failed to decode failure data with URL decoder", ex);
+                telemetryClient.trackException(ex, Map.of("error", "Failed to decode failure data with URL decoder"), null);
             }
         } catch (Exception e) {
-            log.error("Error parsing failure callback JSON", e);
+            telemetryClient.trackException(e, Map.of("error", "Error parsing failure callback JSON"), null);
         }
 
         if (transactionUuid == null || transactionUuid.isEmpty()) {
@@ -211,10 +212,10 @@ public class TransactionService {
                     .ifPresentOrElse(transaction -> {
                         transaction.setStatus(TransactionStatus.FAILED);
                         transactionRepository.save(transaction);
-                        log.info("Marked transaction {} as FAILED", finalUuid);
-                    }, () -> log.warn("Transaction not found for failure callback: {}", finalUuid));
+                        telemetryClient.trackTrace("Marked transaction " + finalUuid + " as FAILED", SeverityLevel.Information, Map.of("transactionUuid", finalUuid));
+                    }, () -> telemetryClient.trackTrace("Transaction not found for failure callback: " + finalUuid, SeverityLevel.Warning, Map.of("transactionUuid", finalUuid)));
         } else {
-            log.warn("Could not extract transaction UUID from failure callback");
+            telemetryClient.trackTrace("Could not extract transaction UUID from failure callback", SeverityLevel.Warning, null);
         }
     }
 
@@ -242,7 +243,7 @@ public class TransactionService {
         List<Transaction> pendingTransactions = transactionRepository.findByStatusAndCreatedAtBefore(TransactionStatus.PENDING, cutoff);
         
         if (!pendingTransactions.isEmpty()) {
-            log.info("Found {} pending transactions older than 30 minutes. Marking as FAILED.", pendingTransactions.size());
+            telemetryClient.trackTrace("Found " + pendingTransactions.size() + " pending transactions older than 30 minutes. Marking as FAILED.", SeverityLevel.Information, Map.of("count", String.valueOf(pendingTransactions.size())));
             for (Transaction t : pendingTransactions) {
                 t.setStatus(TransactionStatus.FAILED);
                 transactionRepository.save(t);

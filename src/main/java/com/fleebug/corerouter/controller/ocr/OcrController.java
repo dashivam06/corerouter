@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.controller.ocr;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,7 +19,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,12 +26,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/ocr")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "OCR", description = "Optical character recognition endpoints")
 public class OcrController {
 
@@ -38,15 +39,18 @@ public class OcrController {
 
     private final TaskService taskService;
     private final ModelRepository modelRepository;
-
-    private final ObjectMapper objectMapper ;
+    private final ObjectMapper objectMapper;
+    private final TelemetryClient telemetryClient;
 
     @Operation(summary = "OCR recognition", description = "Submit an OCR recognition request to the specified model")
     @PostMapping("/recognitions")
     public ResponseEntity<ApiResponse<TaskAsyncResponse>> ocrRecognition(
             @Valid @RequestBody OcrRecognitionRequest ocrRequest,
             HttpServletRequest request) throws JsonProcessingException {
-        log.info("OCR recognition request - model: {}", ocrRequest.getModel());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("model", ocrRequest.getModel());
+        telemetryClient.trackTrace("OCR recognition request", SeverityLevel.Information, properties);
 
         Integer apiKeyId = requireApiKeyId(request);
         Model model = modelRepository.findByFullname(ocrRequest.getModel())

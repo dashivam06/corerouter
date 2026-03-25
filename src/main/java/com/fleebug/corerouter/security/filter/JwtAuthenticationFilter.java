@@ -1,35 +1,34 @@
 package com.fleebug.corerouter.security.filter;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import com.fleebug.corerouter.enums.token.TokenValidationStatus;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
+import com.fleebug.corerouter.security.jwt.JwtUtil;
+import com.fleebug.corerouter.security.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.fleebug.corerouter.enums.token.TokenValidationStatus;
-import com.fleebug.corerouter.security.details.CustomUserDetails;
-import com.fleebug.corerouter.security.jwt.JwtUtil;
-import com.fleebug.corerouter.security.service.CustomUserDetailsService;
-
 import java.io.IOException;
-
-import org.slf4j.MDC;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTH_ERROR_REASON_ATTR = "auth_error_reason";
-    private static final String MDC_KEY_USER_ID = "userId";
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
+    private final TelemetryClient telemetryClient;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
@@ -56,7 +55,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (token != null && validationStatus == TokenValidationStatus.VALID) {
                 String email = jwtUtil.extractEmailFromClaims(token);
 
-                log.debug("JWT validated for user: {}", email);
+                Map<String, String> properties = new HashMap<>();
+                properties.put("email", email);
+                telemetryClient.trackTrace("JWT validated", SeverityLevel.Verbose, properties);
 
                 // Load user details from database using UserDetailsService
                 CustomUserDetails userDetails = userDetailsService.loadUserByUsername(email);
@@ -68,15 +69,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 
-                // Add userId to MDC for logging context
-                if (email != null) {
-                    MDC.put(MDC_KEY_USER_ID, userDetails.getUserId().toString());
-                }
-                
-                log.debug("Authentication set for user: {}", email);
+                telemetryClient.trackTrace("Authentication set for user", SeverityLevel.Verbose, properties);
             }
         } catch (Exception e) {
-            log.error("Cannot set user authentication: {}", e.getMessage());
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackTrace("Cannot set user authentication", SeverityLevel.Warning, properties);
         }
 
         filterChain.doFilter(request, response);

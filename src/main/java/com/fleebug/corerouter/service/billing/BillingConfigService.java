@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.billing;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.request.CreateBillingConfigRequest;
 import com.fleebug.corerouter.dto.billing.request.UpdateBillingConfigRequest;
 import com.fleebug.corerouter.dto.billing.response.BillingConfigResponse;
@@ -11,19 +13,20 @@ import com.fleebug.corerouter.repository.billing.BillingConfigRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class BillingConfigService {
+
+    private final TelemetryClient telemetryClient;
 
     private final BillingConfigRepository billingConfigRepository;
     private final ModelRepository modelRepository;
@@ -38,7 +41,7 @@ public class BillingConfigService {
      * @return created billing config response
      */
     public BillingConfigResponse createBillingConfig(CreateBillingConfigRequest request) {
-        log.info("Creating billing config for modelId={}", request.getModelId());
+        telemetryClient.trackTrace("Creating billing config for modelId=" + request.getModelId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(request.getModelId())));
 
         Model model = modelRepository.findById(request.getModelId())
                 .orElseThrow(() -> new ModelNotFoundException(request.getModelId()));
@@ -55,7 +58,7 @@ public class BillingConfigService {
                 .build();
 
         BillingConfig saved = billingConfigRepository.save(config);
-        log.info("Billing config created with ID={} for modelId={}", saved.getBillingId(), request.getModelId());
+        telemetryClient.trackTrace("Billing config created with ID=" + saved.getBillingId() + " for modelId=" + request.getModelId(), SeverityLevel.Information, Map.of("billingId", String.valueOf(saved.getBillingId()), "modelId", String.valueOf(request.getModelId())));
 
         // Invalidate billing config cache
         redisService.deleteFromCache(BILLING_CACHE_PREFIX + request.getModelId());
@@ -71,7 +74,7 @@ public class BillingConfigService {
      * @return updated billing config response
      */
     public BillingConfigResponse updateBillingConfig(Integer billingId, UpdateBillingConfigRequest request) {
-        log.info("Updating billing config ID={}", billingId);
+        telemetryClient.trackTrace("Updating billing config ID=" + billingId, SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
 
         BillingConfig config = billingConfigRepository.findById(billingId)
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
@@ -85,7 +88,7 @@ public class BillingConfigService {
         config.setUpdatedAt(LocalDateTime.now());
 
         BillingConfig saved = billingConfigRepository.save(config);
-        log.info("Billing config ID={} updated", saved.getBillingId());
+        telemetryClient.trackTrace("Billing config ID=" + saved.getBillingId() + " updated", SeverityLevel.Information, Map.of("billingId", String.valueOf(saved.getBillingId())));
 
         // Invalidate billing config cache
         redisService.deleteFromCache(BILLING_CACHE_PREFIX + saved.getModel().getModelId());
@@ -101,7 +104,7 @@ public class BillingConfigService {
      */
     @Transactional(readOnly = true)
     public BillingConfigResponse getBillingConfigByModelId(Integer modelId) {
-        log.info("Fetching billing config for modelId={}", modelId);
+        telemetryClient.trackTrace("Fetching billing config for modelId=" + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
         BillingConfig config = billingConfigRepository.findByModelModelId(modelId)
                 .orElseThrow(() -> new BillingConfigNotFoundException(modelId));
         return mapToResponse(config);
@@ -139,11 +142,11 @@ public class BillingConfigService {
      * @param billingId ID of the billing config to delete
      */
     public void deleteBillingConfig(Integer billingId) {
-        log.info("Deleting billing config ID={}", billingId);
+        telemetryClient.trackTrace("Deleting billing config ID=" + billingId, SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
         BillingConfig config = billingConfigRepository.findById(billingId)
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
         billingConfigRepository.delete(config);
-        log.info("Billing config ID={} deleted", billingId);
+        telemetryClient.trackTrace("Billing config ID=" + billingId + " deleted", SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
 
         // Invalidate billing config cache
         redisService.deleteFromCache(BILLING_CACHE_PREFIX + config.getModel().getModelId());

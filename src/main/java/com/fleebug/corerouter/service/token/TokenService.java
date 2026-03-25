@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.token;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
@@ -7,20 +9,20 @@ import com.fleebug.corerouter.enums.token.TokenType;
 import com.fleebug.corerouter.repository.token.UserTokenRepository;
 import com.fleebug.corerouter.security.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class TokenService {
 
+    private final TelemetryClient telemetryClient;
     private final UserTokenRepository userTokenRepository;
     private final JwtUtil jwtUtil;
 
@@ -32,7 +34,7 @@ public class TokenService {
      * @return AuthResponse with tokens and expiration
      */
     public AuthResponse buildAuthResponse(User user) {
-        log.info("Building auth response for user ID: {}", user.getUserId());
+        telemetryClient.trackTrace("Building auth response for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
         
         // Generate access token
         String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
@@ -48,7 +50,7 @@ public class TokenService {
         // Save refresh token to UserToken table
         saveUserToken(user, refreshToken, TokenType.REFRESH, new Date(System.currentTimeMillis() + refreshTokenExpiresIn));
         
-        log.info("Auth response built successfully for user ID: {}", user.getUserId());
+        telemetryClient.trackTrace("Auth response built successfully for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
         
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -77,7 +79,7 @@ public class TokenService {
                 .build();
         
         userTokenRepository.save(userToken);
-        log.debug("Token saved to UserToken table. Type: {}, User ID: {}", tokenType, user.getUserId());
+        telemetryClient.trackTrace("Token saved to UserToken table. Type: " + tokenType + ", User ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("tokenType", String.valueOf(tokenType), "userId", String.valueOf(user.getUserId())));
     }
 
     /**
@@ -101,7 +103,7 @@ public class TokenService {
             
             return jwtUtil.validateToken(refreshToken);
         } catch (Exception e) {
-            log.error("Refresh token validation failed: {}", e.getMessage());
+            telemetryClient.trackException(e, Map.of("error", "Refresh token validation failed"), null);
             return false;
         }
     }
@@ -113,7 +115,7 @@ public class TokenService {
      * @return User object
      */
     public User getUserFromRefreshToken(String refreshToken) {
-        log.info("Extracting user from refresh token");
+        telemetryClient.trackTrace("Extracting user from refresh token", SeverityLevel.Verbose, null);
         
         UserToken userToken = userTokenRepository.findByTokenValue(refreshToken)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
@@ -126,7 +128,7 @@ public class TokenService {
             throw new IllegalArgumentException("Refresh token is expired or revoked");
         }
         
-        log.info("User extracted from refresh token. User ID: {}", userToken.getUser().getUserId());
+        telemetryClient.trackTrace("User extracted from refresh token. User ID: " + userToken.getUser().getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(userToken.getUser().getUserId())));
         return userToken.getUser();
     }
 
@@ -137,7 +139,7 @@ public class TokenService {
      * @return new access token
      */
     public String generateAccessToken(User user) {
-        log.info("Generating access token for user ID: {}", user.getUserId());
+        telemetryClient.trackTrace("Generating access token for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
         return jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
     }
 
@@ -157,7 +159,7 @@ public class TokenService {
      * @param refreshToken Refresh token string
      */
     public void revokeRefreshToken(String refreshToken) {
-        log.info("Revoking refresh token");
+        telemetryClient.trackTrace("Revoking refresh token", SeverityLevel.Information, null);
         
         UserToken userToken = userTokenRepository.findByTokenValue(refreshToken)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
@@ -165,6 +167,6 @@ public class TokenService {
         userToken.setRevoked(true);
         userTokenRepository.save(userToken);
         
-        log.info("Refresh token revoked successfully for user ID: {}", userToken.getUser().getUserId());
+        telemetryClient.trackTrace("Refresh token revoked successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userToken.getUser().getUserId())));
     }
 }

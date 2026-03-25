@@ -1,9 +1,11 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.apikey.*;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -11,16 +13,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * API Key domain exception handler
  * 
  * Handles all API key-related exceptions and returns standardized error responses
- * with proper HTTP status codes and logging via SLF4J
+ * with proper HTTP status codes and logging via Azure Telemetry
  */
 @RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.apikey")
+@RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@Slf4j
 public class ApiKeyExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
     
     /**
      * Handle ApiKeyNotFoundException
@@ -29,7 +36,11 @@ public class ApiKeyExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleApiKeyNotFoundException(
             ApiKeyNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("API key not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("API key not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -41,7 +52,11 @@ public class ApiKeyExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleApiKeyExpiredException(
             ApiKeyExpiredException ex,
             HttpServletRequest request) {
-        log.warn("API key expired: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("API key expired", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.GONE)
                 .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
     }
@@ -53,7 +68,11 @@ public class ApiKeyExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleApiKeyRevokedException(
             ApiKeyRevokedException ex,
             HttpServletRequest request) {
-        log.warn("API key revoked: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("API key revoked", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
     }
@@ -65,7 +84,11 @@ public class ApiKeyExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
             RateLimitExceededException ex,
             HttpServletRequest request) {
-        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Rate limit exceeded for API key", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
     }
@@ -77,7 +100,11 @@ public class ApiKeyExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
-        log.warn("Illegal argument in API key operation: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Illegal argument in API key operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }

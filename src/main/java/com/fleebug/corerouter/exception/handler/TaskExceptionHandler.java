@@ -1,5 +1,8 @@
 package com.fleebug.corerouter.exception.handler;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import lombok.RequiredArgsConstructor;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.exception.apikey.ApiKeyNotFoundException;
 import com.fleebug.corerouter.exception.apikey.ApiKeyRevokedException;
@@ -12,7 +15,6 @@ import com.fleebug.corerouter.exception.task.TaskRetryExceededException;
 import com.fleebug.corerouter.exception.task.TaskTimeoutException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -20,20 +22,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Task domain exception handler
  * 
  * Handles all task-related exceptions and returns standardized error responses
- * with proper HTTP status codes and logging via SLF4J
+ * with proper HTTP status codes and logging via Azure Telemetry
  */
 @RestControllerAdvice(basePackages = {
         "com.fleebug.corerouter.controller.task",
         "com.fleebug.corerouter.controller.llm",
         "com.fleebug.corerouter.controller.ocr"
 })
+@RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@Slf4j
 public class TaskExceptionHandler {
+
+    private final TelemetryClient telemetryClient;
 
     /**
      * Handle TaskNotFoundException
@@ -42,7 +49,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskNotFoundException(
             TaskNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("Task not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Task not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -54,7 +65,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleApiKeyNotFoundException(
             ApiKeyNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("API key not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("API key not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -66,7 +81,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleApiKeyRevokedException(
             ApiKeyRevokedException ex,
             HttpServletRequest request) {
-        log.warn("API key not usable: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("API key not usable", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
     }
@@ -78,7 +97,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleModelNotFoundException(
             ModelNotFoundException ex,
             HttpServletRequest request) {
-        log.warn("Model not found: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Model not found", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
@@ -90,7 +113,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskInvalidStatusException(
             TaskInvalidStatusException ex,
             HttpServletRequest request) {
-        log.warn("Invalid task status operation: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid task status operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
@@ -102,7 +129,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskTimeoutException(
             TaskTimeoutException ex,
             HttpServletRequest request) {
-        log.warn("Task timeout: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Task timeout", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT)
                 .body(ApiResponse.error(HttpStatus.REQUEST_TIMEOUT, ex.getMessage(), request));
     }
@@ -114,7 +145,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskRetryExceededException(
             TaskRetryExceededException ex,
             HttpServletRequest request) {
-        log.warn("Task retry limit exceeded: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Task retry limit exceeded", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
                 .body(ApiResponse.error(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request));
     }
@@ -126,7 +161,10 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskProcessingException(
             TaskProcessingException ex,
             HttpServletRequest request) {
-        log.error("Task processing failed: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackException(ex, properties, null);
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request));
     }
@@ -138,7 +176,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleTaskPayloadInvalidException(
             TaskPayloadInvalidException ex,
             HttpServletRequest request) {
-        log.warn("Invalid task payload: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid task payload", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
@@ -150,7 +192,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleJsonProcessingException(
             JsonProcessingException ex,
             HttpServletRequest request) {
-        log.warn("JSON processing error: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("JSON processing error", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Invalid JSON format: " + ex.getMessage(), request));
     }
@@ -162,7 +208,11 @@ public class TaskExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
             IllegalArgumentException ex,
             HttpServletRequest request) {
-        log.warn("Invalid argument in task operation: {}", ex.getMessage());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid argument in task operation", SeverityLevel.Warning, properties);
+        
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }

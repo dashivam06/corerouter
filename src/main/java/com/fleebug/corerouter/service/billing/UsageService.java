@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.billing;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +20,6 @@ import com.fleebug.corerouter.repository.billing.UsageRecordRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,13 +30,15 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class UsageService {
+
+    private final TelemetryClient telemetryClient;
 
     private final UsageRecordRepository usageRecordRepository;
     private final TaskRepository taskRepository;
@@ -50,8 +53,7 @@ public class UsageService {
      * @return recorded usage response
      */
     public UsageRecordResponse recordUsage(RecordUsageRequest request) {
-        log.info("Recording usage for taskId={}, unitType={}, quantity={}",
-                request.getTaskId(), request.getUsageUnitType(), request.getQuantity());
+        telemetryClient.trackTrace("Recording usage for taskId=" + request.getTaskId() + ", unitType=" + request.getUsageUnitType() + ", quantity=" + request.getQuantity(), SeverityLevel.Information, Map.of("taskId", request.getTaskId(), "unitType", String.valueOf(request.getUsageUnitType()), "quantity", String.valueOf(request.getQuantity())));
 
         Task task = taskRepository.findByTaskId(request.getTaskId())
                 .orElseThrow(() -> new TaskNotFoundException(request.getTaskId()));
@@ -75,7 +77,7 @@ public class UsageService {
                 .build();
 
         UsageRecord saved = usageRecordRepository.save(record);
-        log.info("Usage recorded: usageId={}, taskId={}, cost={}", saved.getUsageId(), request.getTaskId(), cost);
+        telemetryClient.trackTrace("Usage recorded: usageId=" + saved.getUsageId() + ", taskId=" + request.getTaskId() + ", cost=" + cost, SeverityLevel.Information, Map.of("usageId", String.valueOf(saved.getUsageId()), "taskId", request.getTaskId(), "cost", cost.toPlainString()));
 
         // Update task totalCost
         updateTaskCost(task);

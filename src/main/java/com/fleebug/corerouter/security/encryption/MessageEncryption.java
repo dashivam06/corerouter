@@ -1,7 +1,8 @@
 package com.fleebug.corerouter.security.encryption;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -10,11 +11,14 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class MessageEncryption {
+
+    private final TelemetryClient telemetryClient;
 
     @Value("${encryption.key}")
     private String encryptionKeyStr;
@@ -37,10 +41,12 @@ public class MessageEncryption {
             byte[] encryptedBytes = cipher.doFinal(message.getBytes());
             String encryptedMessage = Base64.getEncoder().encodeToString(encryptedBytes);
             
-            log.debug("Message encrypted successfully");
+            telemetryClient.trackTrace("Message encrypted successfully", SeverityLevel.Verbose, null);
             return encryptedMessage;
         } catch (Exception e) {
-            log.error("Failed to encrypt message", e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Encryption failed", e);
         }
     }
@@ -61,10 +67,12 @@ public class MessageEncryption {
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             
             String decryptedMessage = new String(decryptedBytes);
-            log.debug("Message decrypted successfully");
+            telemetryClient.trackTrace("Message decrypted successfully", SeverityLevel.Verbose, null);
             return decryptedMessage;
         } catch (Exception e) {
-            log.error("Failed to decrypt message", e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Decryption failed", e);
         }
     }
@@ -78,7 +86,9 @@ public class MessageEncryption {
             byte[] decodedKey = Base64.getDecoder().decode(encryptionKeyStr);
             return new SecretKeySpec(decodedKey, 0, decodedKey.length, ALGORITHM);
         } catch (IllegalArgumentException e) {
-            log.error("Invalid encryption key format. Key must be base64 encoded.", e);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("error", e.getMessage());
+            telemetryClient.trackException(e, properties, null);
             throw new RuntimeException("Invalid encryption key configuration", e);
         }
     }

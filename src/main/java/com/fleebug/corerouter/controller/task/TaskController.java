@@ -2,6 +2,8 @@
 
 package com.fleebug.corerouter.controller.task;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
@@ -20,7 +22,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,10 +33,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/tasks")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Tasks", description = "Async task management — create, poll status, and update results")
 public class TaskController {
 
@@ -46,7 +49,8 @@ public class TaskController {
     private final ApiKeyRepository apiKeyRepository;
     private final ApiKeyService apiKeyService;
     
-    private final ObjectMapper objectMapper ;
+    private final ObjectMapper objectMapper;
+    private final TelemetryClient telemetryClient;
 
     /**
      * @deprecated This method is generic and works, but it is **encouraged** 
@@ -60,8 +64,10 @@ public class TaskController {
             @Valid @RequestBody TaskCreateRequest request,
             HttpServletRequest httpRequest) {
 
-        log.debug("Received task creation request for modelId={}, apiKeyId={}",
-                request.getModelId(), request.getApiKeyId());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("modelId", String.valueOf(request.getModelId()));
+        properties.put("apiKeyId", String.valueOf(request.getApiKeyId()));
+        telemetryClient.trackTrace("Task creation request", SeverityLevel.Verbose, properties);
 
         Task task = taskService.createTask(request);
 
@@ -80,7 +86,9 @@ public class TaskController {
             @Parameter(description = "Task ID", example = "abc-123") @PathVariable String taskId,
             HttpServletRequest httpRequest) {
 
-        log.debug("Received task status request - taskId={}", taskId);
+        Map<String, String> properties = new HashMap<>();
+        properties.put("taskId", taskId);
+        telemetryClient.trackTrace("Task status request", SeverityLevel.Verbose, properties);
 
         ApiKey apiKey = requireApiKey(httpRequest);
 
@@ -95,7 +103,7 @@ public class TaskController {
             try {
                 resultObject = objectMapper.readValue(task.getResultPayload(), Object.class);
             } catch (Exception e) {
-                log.warn("Failed to deserialize task result. Returning raw string. taskId={}", taskId, e);
+                telemetryClient.trackException(e, properties, null);
                 resultObject = task.getResultPayload();
             }
         }
@@ -115,7 +123,10 @@ public class TaskController {
             @Valid @RequestBody TaskStatusUpdateRequest request,
             HttpServletRequest httpRequest) {
 
-        log.info("Received task status update - taskId={}, status={}", request.getTaskId(), request.getStatus());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("taskId", request.getTaskId());
+        properties.put("status", String.valueOf(request.getStatus()));
+        telemetryClient.trackEvent("TaskStatusUpdate", properties, null);
 
         Task task = taskService.updateTaskStatus(request);
 
@@ -124,7 +135,7 @@ public class TaskController {
             try {
                 resultObject = objectMapper.readValue(task.getResultPayload(), Object.class);
             } catch (Exception e) {
-                log.warn("Failed to deserialize task result after update. Returning raw string. taskId={}", request.getTaskId(), e);
+                telemetryClient.trackException(e, properties, null);
                 resultObject = task.getResultPayload();
             }
         }

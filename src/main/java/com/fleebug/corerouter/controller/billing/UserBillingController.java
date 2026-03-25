@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.controller.billing;
 
+import com.microsoft.applicationinsights.TelemetryClient;
+import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
@@ -12,7 +14,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -23,16 +24,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/billing")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "User Billing", description = "Usage and cost queries for authenticated users")
 public class UserBillingController {
 
     private final UsageService usageService;
+    private final TelemetryClient telemetryClient;
 
     /**
      * Get usage records for a specific task.
@@ -49,7 +52,10 @@ public class UserBillingController {
     public ResponseEntity<ApiResponse<List<UsageRecordResponse>>> getUsageByTask(
             @Parameter(description = "Task ID", example = "f47ac10b-58cc-4372-a567-0e02b2c3d479") @PathVariable String taskId,
             HttpServletRequest request) {
-        log.info("User: get usage for taskId={}", taskId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("taskId", taskId);
+        telemetryClient.trackTrace("User: get usage for task", SeverityLevel.Information, properties);
 
         List<UsageRecordResponse> records = usageService.getUsageByTaskId(taskId);
 
@@ -75,7 +81,10 @@ public class UserBillingController {
             @Parameter(description = "Period start (ISO 8601)", example = "2026-03-01T00:00:00") @RequestParam LocalDateTime from,
             @Parameter(description = "Period end (ISO 8601)", example = "2026-03-31T23:59:59") @RequestParam LocalDateTime to,
             HttpServletRequest request) {
-        log.info("User: get usage summary for apiKeyId={}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("User: get usage summary for apiKey", SeverityLevel.Information, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKey(apiKeyId, from, to);
 
@@ -101,7 +110,10 @@ public class UserBillingController {
             @Parameter(description = "Period start (ISO 8601)", example = "2026-03-01T00:00:00") @RequestParam LocalDateTime from,
             @Parameter(description = "Period end (ISO 8601)", example = "2026-03-31T23:59:59") @RequestParam LocalDateTime to,
             HttpServletRequest request) {
-        log.info("User: get usage summary by model for apiKeyId={}", apiKeyId);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        telemetryClient.trackTrace("User: get usage summary by model for apiKey", SeverityLevel.Information, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 
@@ -131,7 +143,12 @@ public class UserBillingController {
             @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size", example = "20") @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
-        log.info("User: get usage history for apiKeyId={}, page={}, size={}", apiKeyId, page, size);
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("apiKeyId", String.valueOf(apiKeyId));
+        properties.put("page", String.valueOf(page));
+        properties.put("size", String.valueOf(size));
+        telemetryClient.trackTrace("User: get usage history", SeverityLevel.Information, properties);
 
         Page<UsageRecordResponse> records = usageService.getUsageHistory(
                 apiKeyId, from, to, PageRequest.of(page, size, Sort.by("recordedAt").descending()));
@@ -159,7 +176,10 @@ public class UserBillingController {
             Authentication authentication,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
-        log.info("User: get total cost for userId={}", user.getUserId());
+        
+        Map<String, String> properties = new HashMap<>();
+        properties.put("userId", String.valueOf(user.getUserId()));
+        telemetryClient.trackTrace("User: get total cost", SeverityLevel.Information, properties);
 
         BigDecimal totalCost = usageService.getTotalCostByUser(user.getUserId(), from, to);
 
