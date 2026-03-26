@@ -28,7 +28,7 @@ public final class ApiPaths {
     public static final String ADMIN_BILLING_CONFIG_MODEL = "/api/v1/admin/billing/configs/model/*";
     public static final String ADMIN_BILLING_USAGE      = "/api/v1/admin/billing/usage";
     public static final String ADMIN_SERVICE_TOKENS     = "/api/v1/service-tokens/**";
-    public static final String ADMIN_TECHNICAL_ALL      = "/admin/technical/**";
+    public static final String ADMIN_TECHNICAL_ALL      = "/api/v1/admin/technical/**";
 
     // ── Tasks ──────────────────────────────────────────────────────────
     public static final String TASKS            = "/api/v1/tasks";
@@ -36,8 +36,8 @@ public final class ApiPaths {
     public static final String TASKS_STATUS     = "/api/v1/tasks/status";
 
     // ── Internal ───────────────────────────────────────────────────────
-    public static final String INTERNAL_WORKER_HEARTBEAT = "/internal/worker/heartbeat";
-    public static final String INTERNAL_ALL              = "/internal/**";
+    public static final String INTERNAL_WORKER_HEARTBEAT = "/api/v1/internal/worker/heartbeat";
+    public static final String INTERNAL_ALL              = "/api/v1/internal/**";
 
     // ── Docs ───────────────────────────────────────────────────────────
     public static final String SCALAR_ALL       = "/scalar/**";

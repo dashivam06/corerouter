@@ -119,14 +119,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.WALLET_TOPUP_SUCCESS,
                         ApiPaths.WALLET_TOPUP_FAILURE).permitAll()
-                .requestMatchers(HttpMethod.POST,
-                        ApiPaths.INTERNAL_WORKER_HEARTBEAT).permitAll()
                 // ── Admin + Worker ──────────────────────────────────────────────
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.ADMIN_MODELS,
                         ApiPaths.ADMIN_BILLING_CONFIG,
                         ApiPaths.ADMIN_BILLING_CONFIG_MODEL).hasAnyRole("ADMIN", "WORKER")
                 .requestMatchers(HttpMethod.POST,
+                        ApiPaths.INTERNAL_WORKER_HEARTBEAT,
                         ApiPaths.ADMIN_BILLING_USAGE).hasAnyRole("ADMIN", "WORKER")
                 // ── Admin only ──────────────────────────────────────────────────
                 .requestMatchers(ApiPaths.ADMIN_SERVICE_TOKENS,

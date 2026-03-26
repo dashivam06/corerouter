@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,29 +79,36 @@ public class HealthCheckService {
     }
 
     public Map<String, Object> checkWorkers() {
-        LocalDateTime threshold = LocalDateTime.now().minusSeconds(60);
-        List<WorkerInstance> activeWorkers = workerInstanceRepository
-                .findByStatusAndLastHeartbeatAfter("UP", threshold);
+        // Use UTC to align with DB timestamps
+        LocalDateTime threshold = LocalDateTime.now(ZoneOffset.UTC).minusSeconds(60);
+        // Consider any worker with a heartbeat in the last 60s (any status)
+        List<WorkerInstance> activeWorkers = workerInstanceRepository.findAllByOrderByStartedAtDesc()
+                .stream()
+                .filter(w -> w.getLastHeartbeat() != null && w.getLastHeartbeat().isAfter(threshold))
+                .toList();
 
         Map<String, Object> result = new HashMap<>();
         if (activeWorkers.isEmpty()) {
             result.put("status", "DOWN");
             result.put("running", 0);
-            result.put("reason", "No heartbeat received");
+            result.put("reason", "No heartbeat received in the last 60s");
             return result;
         }
 
-        List<Map<String, Object>> instances = activeWorkers.stream().map(worker -> {
-            Map<String, Object> workerData = new HashMap<>();
-            workerData.put("instanceId", worker.getInstanceId());
-            workerData.put("lastHeartbeat", worker.getLastHeartbeat());
-            workerData.put("startedAt", worker.getStartedAt());
-            return workerData;
-        }).collect(Collectors.toList());
-
+        // Group workers by service name (e.g., "otp-worker", "ocr-worker")
+        Map<String, List<Map<String, Object>>> workersByGroup = activeWorkers.stream()
+                .collect(Collectors.groupingBy(WorkerInstance::getServiceName,
+                        Collectors.mapping(worker -> {
+                            Map<String, Object> workerData = new HashMap<>();
+                            workerData.put("instanceId", worker.getInstanceId());
+                            workerData.put("startedAt", worker.getStartedAt());
+                            workerData.put("lastHeartbeat", worker.getLastHeartbeat());
+                            workerData.put("status", worker.getStatus());
+                            return workerData;
+                        }, Collectors.toList())));
         result.put("status", "UP");
-        result.put("running", activeWorkers.size());
-        result.put("instances", instances);
+        result.put("totalRunning", activeWorkers.size());
+        result.put("groups", workersByGroup);
         return result;
     }
 

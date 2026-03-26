@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @RestController
 @RequestMapping("/api/v1/admin/technical")
@@ -32,21 +33,10 @@ public class AdminTechnicalController {
 
     @GetMapping("/health")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getHealth(HttpServletRequest request) {
-        CompletableFuture<Map<String, Object>> redisFuture = CompletableFuture
-                .supplyAsync(healthCheckService::checkRedis)
-                .completeOnTimeout(timeoutResult(), 7, TimeUnit.SECONDS);
-
-        CompletableFuture<Map<String, Object>> vllmFuture = CompletableFuture
-                .supplyAsync(healthCheckService::checkVllm)
-                .completeOnTimeout(timeoutResult(), 5, TimeUnit.SECONDS);
-
-        CompletableFuture<Map<String, Object>> dbFuture = CompletableFuture
-                .supplyAsync(healthCheckService::checkDatabase)
-                .completeOnTimeout(timeoutResult(), 5, TimeUnit.SECONDS);
-
-        CompletableFuture<Map<String, Object>> workerFuture = CompletableFuture
-                .supplyAsync(healthCheckService::checkWorkers)
-                .completeOnTimeout(timeoutResult(), 5, TimeUnit.SECONDS);
+        CompletableFuture<Map<String, Object>> redisFuture = safeAsync("redis", healthCheckService::checkRedis, 5);
+        CompletableFuture<Map<String, Object>> vllmFuture = safeAsync("vllm", healthCheckService::checkVllm, 5);
+        CompletableFuture<Map<String, Object>> dbFuture = safeAsync("database", healthCheckService::checkDatabase, 5);
+        CompletableFuture<Map<String, Object>> workerFuture = safeAsync("worker", healthCheckService::checkWorkers, 5);
 
         CompletableFuture.allOf(redisFuture, vllmFuture, dbFuture, workerFuture).join();
 
@@ -58,6 +48,17 @@ public class AdminTechnicalController {
         );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Health check completed", payload, request));
+    }
+
+    private CompletableFuture<Map<String, Object>> safeAsync(String name, Supplier<Map<String, Object>> supplier, long timeoutSeconds) {
+        return CompletableFuture
+                .supplyAsync(supplier)
+                .completeOnTimeout(timeoutResult(), timeoutSeconds, TimeUnit.SECONDS)
+                .exceptionally(ex -> Map.of(
+                        "status", "DOWN",
+                        "reason", ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage(),
+                        "component", name
+                ));
     }
 
     @GetMapping("/overview")
