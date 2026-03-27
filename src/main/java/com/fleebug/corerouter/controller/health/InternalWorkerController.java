@@ -36,15 +36,24 @@ public class InternalWorkerController {
                         .build());
 
         worker.setServiceName(request.getServiceName());
-        worker.setStatus("UP");
         worker.setLastHeartbeat(now);
-        worker.setReason(null);
-        worker.setDownAt(null);
+
+        String status = request.getStatus() == null ? "UP" : request.getStatus().trim().toUpperCase();
+        if ("DOWN".equals(status)) {
+            worker.setStatus("DOWN");
+            worker.setReason("Scaled down or shutting down (worker reported DOWN)");
+            worker.setDownAt(now);
+        } else {
+            worker.setStatus("UP");
+            worker.setReason(null);
+            worker.setDownAt(null);
+        }
 
         workerInstanceRepository.save(worker);
         
         Map<String, String> properties = new HashMap<>();
         properties.put("instanceId", request.getInstanceId());
+        properties.put("status", worker.getStatus());
         telemetryClient.trackEvent("WORKER_HEARTBEAT", properties, null);
 
         return ResponseEntity.ok().build();

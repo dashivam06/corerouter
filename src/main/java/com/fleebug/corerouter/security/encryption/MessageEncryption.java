@@ -41,7 +41,7 @@ public class MessageEncryption {
             byte[] encryptedBytes = cipher.doFinal(message.getBytes());
             String encryptedMessage = Base64.getEncoder().encodeToString(encryptedBytes);
             
-            telemetryClient.trackTrace("Message encrypted successfully", SeverityLevel.Verbose, null);
+            // telemetryClient.trackTrace("Message encrypted successfully", SeverityLevel.Verbose, null);
             return encryptedMessage;
         } catch (Exception e) {
             Map<String, String> properties = new HashMap<>();
@@ -67,7 +67,7 @@ public class MessageEncryption {
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             
             String decryptedMessage = new String(decryptedBytes);
-            telemetryClient.trackTrace("Message decrypted successfully", SeverityLevel.Verbose, null);
+            // telemetryClient.trackTrace("Message decrypted successfully", SeverityLevel.Verbose, null);
             return decryptedMessage;
         } catch (Exception e) {
             Map<String, String> properties = new HashMap<>();

@@ -52,7 +52,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Task not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Task not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -68,7 +68,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("API key not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("API key not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -84,7 +84,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("API key not usable", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("API key not usable", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
@@ -100,7 +100,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Model not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Model not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -116,7 +116,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid task status operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid task status operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -132,7 +132,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Task timeout", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Task timeout", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT)
                 .body(ApiResponse.error(HttpStatus.REQUEST_TIMEOUT, ex.getMessage(), request));
@@ -148,7 +148,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Task retry limit exceeded", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Task retry limit exceeded", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
                 .body(ApiResponse.error(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request));
@@ -179,7 +179,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid task payload", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid task payload", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -195,7 +195,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("JSON processing error", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("JSON processing error", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Invalid JSON format: " + ex.getMessage(), request));
@@ -211,7 +211,7 @@ public class TaskExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid argument in task operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid argument in task operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

@@ -73,7 +73,7 @@ public class OtpService {
             properties.put("email", email);
             properties.put("requestCount", String.valueOf(requestCount));
             properties.put("limit", String.valueOf(maxRequestsPerEmailPerHour));
-            telemetryClient.trackTrace("OTP rate limit exceeded", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("OTP rate limit exceeded", SeverityLevel.Information, properties);
             
             throw new RateLimitExceededException("Too many OTP requests to this email. Maximum " + maxRequestsPerEmailPerHour + 
                     " requests allowed per hour. Try again in " + ttlRemaining + " seconds.");
@@ -135,7 +135,7 @@ public class OtpService {
             Map<String, String> properties = new HashMap<>();
             properties.put("verificationId", verificationId);
             properties.put("attempts", String.valueOf(attempts));
-            telemetryClient.trackTrace("Max OTP attempts exceeded", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Max OTP attempts exceeded", SeverityLevel.Information, properties);
             
             // Clean up keys
             redisService.deleteFromCache(OTP_KEY_PREFIX + verificationId);
@@ -154,7 +154,7 @@ public class OtpService {
         if (decryptedOtp == null) {
             Map<String, String> properties = new HashMap<>();
             properties.put("verificationId", verificationId);
-            telemetryClient.trackTrace("OTP not found or expired", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("OTP not found or expired", SeverityLevel.Information, properties);
             throw new OtpExpiredException();
         }
 
@@ -163,7 +163,7 @@ public class OtpService {
             Map<String, String> properties = new HashMap<>();
             properties.put("verificationId", verificationId);
             properties.put("attempts", String.valueOf(attempts + 1));
-            telemetryClient.trackTrace("Invalid OTP validation attempt", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Invalid OTP validation attempt", SeverityLevel.Information, properties);
             
             redisService.incrementCounter(attemptsKey);
             long remainingAttempts = maxAttempts - attempts - 1;
@@ -180,7 +180,7 @@ public class OtpService {
 
         if (email == null) {
             // log.error("Email not found for verificationId: {}", verificationId);
-            telemetryClient.trackTrace("Email not found for successful OTP verification", SeverityLevel.Error, properties);
+            telemetryClient.trackTrace("Email not found for successful OTP verification", SeverityLevel.Information, properties);
             throw new OtpExpiredException("Verification session expired.");
         }
 

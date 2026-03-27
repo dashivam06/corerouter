@@ -27,11 +27,15 @@ public class WorkerHealthChecker {
 
         for (WorkerInstance worker : staleWorkers) {
             worker.setStatus("DOWN");
-            worker.setReason("Heartbeat timeout");
+            worker.setReason("No heartbeat for 60s (likely scaled down, terminated, or disconnected)");
             worker.setDownAt(LocalDateTime.now());
             workerInstanceRepository.save(worker);
 
-            telemetryClient.trackTrace("WORKER_DOWN reason=heartbeat_timeout", SeverityLevel.Error, Map.of("event", "WORKER_DOWN", "instanceId", worker.getInstanceId(), "reason", "heartbeat_timeout"));
+            telemetryClient.trackTrace("WORKER_DOWN reason=heartbeat_timeout", SeverityLevel.Warning, Map.of(
+                    "event", "WORKER_DOWN",
+                    "instanceId", worker.getInstanceId(),
+                    "reason", "No heartbeat for 60s (likely scaled down, terminated, or disconnected)"
+            ));
         }
     }
 }

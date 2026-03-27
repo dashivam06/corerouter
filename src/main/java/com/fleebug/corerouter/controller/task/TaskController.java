@@ -67,7 +67,7 @@ public class TaskController {
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(request.getModelId()));
         properties.put("apiKeyId", String.valueOf(request.getApiKeyId()));
-        telemetryClient.trackTrace("Task creation request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Task creation request", SeverityLevel.Verbose, properties);
 
         Task task = taskService.createTask(request);
 
@@ -88,7 +88,7 @@ public class TaskController {
 
         Map<String, String> properties = new HashMap<>();
         properties.put("taskId", taskId);
-        telemetryClient.trackTrace("Task status request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Task status request", SeverityLevel.Verbose, properties);
 
         ApiKey apiKey = requireApiKey(httpRequest);
 

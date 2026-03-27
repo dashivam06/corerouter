@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     public CustomUserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         Map<String, String> properties = new HashMap<>();
         properties.put("email", email);
-        telemetryClient.trackTrace("Loading user details for email", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Loading user details for email", SeverityLevel.Verbose, properties);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
@@ -37,7 +37,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException("User not found with email: " + email);
                 });
 
-        telemetryClient.trackTrace("User details loaded successfully", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("User details loaded successfully", SeverityLevel.Verbose, properties);
         return new CustomUserDetails(user);
     }
 }

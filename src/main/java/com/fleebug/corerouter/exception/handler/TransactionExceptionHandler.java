@@ -31,7 +31,7 @@ public class TransactionExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Transaction not found", SeverityLevel.Error, properties);
+        telemetryClient.trackTrace("Transaction not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -43,7 +43,7 @@ public class TransactionExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid transaction amount", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid transaction amount", SeverityLevel.Information, properties);
         
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -55,7 +55,7 @@ public class TransactionExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Transaction verification failed", SeverityLevel.Error, properties);
+        telemetryClient.trackTrace("Transaction verification failed", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

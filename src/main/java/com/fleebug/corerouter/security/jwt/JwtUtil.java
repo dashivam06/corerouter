@@ -129,7 +129,7 @@ public class JwtUtil {
         } catch (ExpiredJwtException e) {
             Map<String, String> properties = new HashMap<>();
             properties.put("error", e.getMessage());
-            telemetryClient.trackTrace("JWT token expired", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("JWT token expired", SeverityLevel.Information, properties);
             return TokenValidationStatus.EXPIRED;
         } catch (JwtException | IllegalArgumentException e) {
             Map<String, String> properties = new HashMap<>();

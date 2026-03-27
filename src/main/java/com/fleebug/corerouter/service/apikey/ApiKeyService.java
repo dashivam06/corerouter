@@ -43,7 +43,7 @@ public class ApiKeyService {
      * @return ApiKeyResponse with generated key (RAW key only shown ONCE)
      */
     public ApiKeyResponse generateApiKey(User user, CreateApiKeyRequest createRequest) {
-        telemetryClient.trackTrace("Generating new API key for user ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("userId", String.valueOf(user.getUserId())));
+        // telemetryClient.trackTrace("Generating new API key for user ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("userId", String.valueOf(user.getUserId())));
 
         // 1. Generate the RAW key (cr_live_...)
         String rawKey = generateRawKey(user.getUserId());
@@ -82,7 +82,7 @@ public class ApiKeyService {
      * @return List of API key responses
      */
     public List<ApiKeyResponse> getUserApiKeys(Integer userId) {
-        telemetryClient.trackTrace("Fetching all API keys for user ID: " + userId, SeverityLevel.Verbose, Map.of("userId", String.valueOf(userId)));
+        // telemetryClient.trackTrace("Fetching all API keys for user ID: " + userId, SeverityLevel.Verbose, Map.of("userId", String.valueOf(userId)));
         List<ApiKey> apiKeys = apiKeyRepository.findByUserUserId(userId);
         return apiKeys.stream()
                 .map(this::mapToResponse)
@@ -97,7 +97,7 @@ public class ApiKeyService {
      * @return ApiKeyResponse
      */
     public ApiKeyResponse getApiKeyDetails(Integer apiKeyId, Integer userId) {
-        telemetryClient.trackTrace("Fetching API key details - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
+        // telemetryClient.trackTrace("Fetching API key details - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
@@ -120,7 +120,7 @@ public class ApiKeyService {
      * @return Updated ApiKeyResponse
      */
     public ApiKeyResponse updateApiKey(Integer apiKeyId, Integer userId, UpdateApiKeyRequest updateRequest) {
-        telemetryClient.trackTrace("Updating API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
+        // telemetryClient.trackTrace("Updating API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));

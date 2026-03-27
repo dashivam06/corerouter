@@ -54,7 +54,7 @@ public class MainGlobalExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Validation failed", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Validation failed", SeverityLevel.Information, properties);
         
         List<ErrorField> errors = new ArrayList<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
@@ -83,7 +83,7 @@ public class MainGlobalExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("method", request.getMethod());
-        telemetryClient.trackTrace("Endpoint not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Endpoint not found", SeverityLevel.Information, properties);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.NOT_FOUND,
@@ -106,7 +106,7 @@ public class MainGlobalExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("message", ex.getMessage());
-        telemetryClient.trackTrace("Rate limit exceeded", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Rate limit exceeded", SeverityLevel.Information, properties);
         
         ApiResponse<Void> errorResponse = ApiResponse.error(
                 HttpStatus.TOO_MANY_REQUESTS,
@@ -123,7 +123,7 @@ public class MainGlobalExceptionHandler {
                 Map<String, String> properties = new HashMap<>();
                 properties.put("path", request.getRequestURI());
                 properties.put("error", ex.getMessage());
-                telemetryClient.trackTrace("Request body missing or malformed", SeverityLevel.Warning, properties);
+                telemetryClient.trackTrace("Request body missing or malformed", SeverityLevel.Information, properties);
 
                 ApiResponse<Void> response =  ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
 

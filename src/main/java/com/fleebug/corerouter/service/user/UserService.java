@@ -50,15 +50,15 @@ public class UserService {
      * @throws IllegalArgumentException if email already exists or validation fails
      */
     public RequestOtpResponse requestOtp(String email) {
-        telemetryClient.trackTrace("OTP request for registration", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("OTP request for registration", SeverityLevel.Verbose, null);
 
         // Validate email is not already registered
         if (userRepository.existsByEmail(email)) {
-            telemetryClient.trackTrace("OTP request failed - email already exists", SeverityLevel.Warning, null);
+            telemetryClient.trackTrace("OTP request failed - email already exists", SeverityLevel.Information, null);
             throw new UserAlreadyExistsException(email);
         }
 
-        telemetryClient.trackTrace("Email validation passed. Proceeding with OTP generation", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Email validation passed. Proceeding with OTP generation", SeverityLevel.Verbose, null);
 
         String verificationId = otpService.requestOtp(email);
         telemetryClient.trackTrace("OTP sent successfully. VerificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
@@ -83,7 +83,7 @@ public class UserService {
      * @throws IllegalArgumentException if OTP is invalid or expired
      */
     public VerifyOtpResponse verifyOtp(String verificationId, String otp) {
-        telemetryClient.trackTrace("Verifying OTP with verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
+        // telemetryClient.trackTrace("Verifying OTP with verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         otpService.validateOtp(verificationId, otp);
         telemetryClient.trackTrace("OTP verified successfully for verificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
@@ -108,17 +108,17 @@ public class UserService {
      * @throws IllegalArgumentException if verificationId not verified or user creation fails
      */
     public AuthResponse finalRegister(String verificationId, FinalRegistrationRequest finalRequest) {
-        telemetryClient.trackTrace("Final registration initiated for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
+        // telemetryClient.trackTrace("Final registration initiated for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         // Step 1: Verify that the verificationId is verified
         if (!otpService.isVerified(verificationId)) {
-            telemetryClient.trackTrace("Final registration failed - verificationId not verified: " + verificationId, SeverityLevel.Warning, Map.of("verificationId", verificationId));
+            telemetryClient.trackTrace("Final registration failed - verificationId not verified: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
             throw new InvalidOtpException("Verification not completed. Please verify OTP first.");
         }
 
         // Step 2: Get email from verificationId
         String email = otpService.getEmail(verificationId);
-        telemetryClient.trackTrace("Retrieved email for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
+        // telemetryClient.trackTrace("Retrieved email for verificationId: " + verificationId, SeverityLevel.Verbose, Map.of("verificationId", verificationId));
 
         // Step 3: Hash password using BCrypt
         String hashedPassword = passwordEncoder.encode(finalRequest.getPassword());
@@ -152,24 +152,24 @@ public class UserService {
      * @throws InvalidCredentialsException if password is incorrect
      */
     public AuthResponse login(LoginRequest loginRequest) {
-        telemetryClient.trackTrace("Login attempt for user", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Login attempt for user", SeverityLevel.Verbose, null);
 
         // Find user by email
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> {
-                    telemetryClient.trackTrace("Login failed - user not found", SeverityLevel.Warning, null);
+                    telemetryClient.trackTrace("Login failed - user not found", SeverityLevel.Information, null);
                     return new UserNotFoundException("email", loginRequest.getEmail());
                 });
 
         // Check if user is active
         if (user.getStatus() != UserStatus.ACTIVE) {
-            telemetryClient.trackTrace("Login failed - user account is not active. UserId: " + user.getUserId() + ", Status: " + user.getStatus(), SeverityLevel.Warning, Map.of("userId", String.valueOf(user.getUserId()), "status", user.getStatus().toString()));
+            telemetryClient.trackTrace("Login failed - user account is not active. UserId: " + user.getUserId() + ", Status: " + user.getStatus(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId()), "status", user.getStatus().toString()));
             throw new InvalidCredentialsException("User account is not active");
         }
 
         // Verify password using BCrypt
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            telemetryClient.trackTrace("Login failed - invalid password for user: " + user.getUserId(), SeverityLevel.Warning, Map.of("userId", String.valueOf(user.getUserId())));
+            telemetryClient.trackTrace("Login failed - invalid password for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
             throw new InvalidCredentialsException();
         }
 
@@ -189,7 +189,7 @@ public class UserService {
         telemetryClient.trackTrace("Fetching user with email: " + email, SeverityLevel.Information, Map.of("email", email));
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> {
-                    telemetryClient.trackTrace("User not found with email: " + email, SeverityLevel.Warning, Map.of("email", email));
+                    telemetryClient.trackTrace("User not found with email: " + email, SeverityLevel.Information, Map.of("email", email));
                     return new UserNotFoundException(email);
                 });
     }
@@ -205,7 +205,7 @@ public class UserService {
         telemetryClient.trackTrace("Fetching user with ID: " + userId, SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
         return userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    telemetryClient.trackTrace("User not found with ID: " + userId, SeverityLevel.Warning, Map.of("userId", String.valueOf(userId)));
+                    telemetryClient.trackTrace("User not found with ID: " + userId, SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
                     return new UserNotFoundException(userId);
                 });
     }
@@ -226,7 +226,7 @@ public class UserService {
 
         // Verify old password
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            telemetryClient.trackTrace("Change password failed - invalid old password", SeverityLevel.Warning, Map.of("userId", String.valueOf(userId)));
+            telemetryClient.trackTrace("Change password failed - invalid old password", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
             throw new InvalidCredentialsException("Invalid old password");
         }
 

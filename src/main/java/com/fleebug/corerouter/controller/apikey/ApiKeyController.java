@@ -53,7 +53,7 @@ public class ApiKeyController {
             Authentication authentication,
             HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Generate API key request received", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Generate API key request received", SeverityLevel.Verbose, null);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.generateApiKey(userDetails.getUser(), createRequest);
@@ -78,7 +78,7 @@ public class ApiKeyController {
             Authentication authentication,
             HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Get all API keys request received", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Get all API keys request received", SeverityLevel.Verbose, null);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         List<ApiKeyResponse> apiKeys = apiKeyService.getUserApiKeys(userDetails.getUser().getUserId());
@@ -107,7 +107,7 @@ public class ApiKeyController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Get API key details request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get API key details request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.getApiKeyDetails(apiKeyId, userDetails.getUser().getUserId());
@@ -138,7 +138,7 @@ public class ApiKeyController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Update API key request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Update API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.updateApiKey(apiKeyId, userDetails.getUser().getUserId(), updateRequest);
@@ -167,7 +167,7 @@ public class ApiKeyController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Disable API key request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Disable API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), true);
@@ -196,7 +196,7 @@ public class ApiKeyController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Enable API key request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Enable API key request", SeverityLevel.Verbose, properties);
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), false);

@@ -80,18 +80,47 @@ public class HealthCheckService {
 
     public Map<String, Object> checkWorkers() {
         // Use UTC to align with DB timestamps
-        LocalDateTime threshold = LocalDateTime.now(ZoneOffset.UTC).minusSeconds(60);
-        // Consider any worker with a heartbeat in the last 60s (any status)
-        List<WorkerInstance> activeWorkers = workerInstanceRepository.findAllByOrderByStartedAtDesc()
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime threshold = now.minusSeconds(60);
+        LocalDateTime recentDownThreshold = now.minusMinutes(10);
+
+        List<WorkerInstance> allWorkers = workerInstanceRepository.findAllByOrderByStartedAtDesc();
+
+        // Active workers must be UP and have a fresh heartbeat
+        List<WorkerInstance> activeWorkers = allWorkers
                 .stream()
+                .filter(w -> "UP".equalsIgnoreCase(w.getStatus()))
                 .filter(w -> w.getLastHeartbeat() != null && w.getLastHeartbeat().isAfter(threshold))
+                .toList();
+
+        List<WorkerInstance> recentDownWorkers = allWorkers
+                .stream()
+                .filter(w -> "DOWN".equalsIgnoreCase(w.getStatus()))
+                .filter(w -> w.getDownAt() != null && w.getDownAt().isAfter(recentDownThreshold))
                 .toList();
 
         Map<String, Object> result = new HashMap<>();
         if (activeWorkers.isEmpty()) {
             result.put("status", "DOWN");
             result.put("running", 0);
-            result.put("reason", "No heartbeat received in the last 60s");
+
+            if (!recentDownWorkers.isEmpty()) {
+                result.put("reason", "Workers appear scaled down or terminated recently; no active heartbeat in last 60s");
+                result.put("recentDownCount", recentDownWorkers.size());
+                result.put("recentDownInstances", recentDownWorkers.stream()
+                        .map(worker -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("instanceId", worker.getInstanceId());
+                            data.put("serviceName", worker.getServiceName());
+                            data.put("downAt", worker.getDownAt());
+                            data.put("reason", worker.getReason());
+                            return data;
+                        })
+                        .toList());
+            } else {
+                result.put("reason", "No active workers reported heartbeat in the last 60s");
+            }
+
             return result;
         }
 
@@ -108,6 +137,10 @@ public class HealthCheckService {
                         }, Collectors.toList())));
         result.put("status", "UP");
         result.put("totalRunning", activeWorkers.size());
+        if (!recentDownWorkers.isEmpty()) {
+            result.put("notice", "Some workers were recently scaled down or restarted");
+            result.put("recentDownCount", recentDownWorkers.size());
+        }
         result.put("groups", workersByGroup);
         return result;
     }

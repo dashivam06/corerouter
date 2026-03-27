@@ -79,7 +79,7 @@ public class TokenService {
                 .build();
         
         userTokenRepository.save(userToken);
-        telemetryClient.trackTrace("Token saved to UserToken table. Type: " + tokenType + ", User ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("tokenType", String.valueOf(tokenType), "userId", String.valueOf(user.getUserId())));
+        // telemetryClient.trackTrace("Token saved to UserToken table. Type: " + tokenType + ", User ID: " + user.getUserId(), SeverityLevel.Verbose, Map.of("tokenType", String.valueOf(tokenType), "userId", String.valueOf(user.getUserId())));
     }
 
     /**
@@ -115,7 +115,7 @@ public class TokenService {
      * @return User object
      */
     public User getUserFromRefreshToken(String refreshToken) {
-        telemetryClient.trackTrace("Extracting user from refresh token", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Extracting user from refresh token", SeverityLevel.Verbose, null);
         
         UserToken userToken = userTokenRepository.findByTokenValue(refreshToken)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));

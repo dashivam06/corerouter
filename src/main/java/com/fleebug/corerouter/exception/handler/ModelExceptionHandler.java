@@ -39,7 +39,7 @@ public class ModelExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Model not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Model not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -55,7 +55,7 @@ public class ModelExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Model already exists", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Model already exists", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
@@ -71,7 +71,7 @@ public class ModelExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid model status", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid model status", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -87,7 +87,7 @@ public class ModelExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Illegal argument in model operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Illegal argument in model operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

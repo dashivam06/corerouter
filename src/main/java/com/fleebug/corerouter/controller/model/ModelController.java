@@ -53,7 +53,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelName", createRequest.getFullname());
-        telemetryClient.trackTrace("Create model request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Create model request", SeverityLevel.Verbose, properties);
 
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
@@ -67,7 +67,7 @@ public class ModelController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getAllModels(HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Get all models request", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Get all models request", SeverityLevel.Verbose, null);
 
         List<ModelResponse> models = modelService.getAllModels();
         
@@ -82,7 +82,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("status", status.name());
-        telemetryClient.trackTrace("Get models by status request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get models by status request", SeverityLevel.Verbose, properties);
 
         List<ModelResponse> models = modelService.getModelsByStatus(status);
         
@@ -97,7 +97,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Get model by ID request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get model by ID request", SeverityLevel.Verbose, properties);
 
         ModelResponse model = modelService.getModelById(modelId);
         
@@ -115,7 +115,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Update model request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Update model request", SeverityLevel.Verbose, properties);
 
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
@@ -174,7 +174,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Archive model request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Archive model request", SeverityLevel.Verbose, properties);
 
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
@@ -193,7 +193,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Inactivate model request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Inactivate model request", SeverityLevel.Verbose, properties);
 
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
@@ -211,7 +211,7 @@ public class ModelController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Get audit history request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get audit history request", SeverityLevel.Verbose, properties);
 
         List<ModelStatusAudit> auditRecords = modelService.getModelAuditHistory(modelId);
         

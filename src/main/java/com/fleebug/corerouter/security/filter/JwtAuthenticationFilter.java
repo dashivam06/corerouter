@@ -57,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 Map<String, String> properties = new HashMap<>();
                 properties.put("email", email);
-                telemetryClient.trackTrace("JWT validated", SeverityLevel.Verbose, properties);
+                // telemetryClient.trackTrace("JWT validated", SeverityLevel.Verbose, properties);
 
                 // Load user details from database using UserDetailsService
                 CustomUserDetails userDetails = userDetailsService.loadUserByUsername(email);
@@ -69,7 +69,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 
-                telemetryClient.trackTrace("Authentication set for user", SeverityLevel.Verbose, properties);
+                // telemetryClient.trackTrace("Authentication set for user", SeverityLevel.Verbose, properties);
             }
         } catch (Exception e) {
             Map<String, String> properties = new HashMap<>();

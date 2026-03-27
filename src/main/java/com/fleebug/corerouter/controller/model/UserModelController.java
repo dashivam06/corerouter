@@ -35,7 +35,7 @@ public class UserModelController {
     @Operation(summary = "List active models", description = "Retrieve all models that are currently active")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ModelResponse>>> getActiveModels(HttpServletRequest request) {
-        telemetryClient.trackTrace("User requesting active models list", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("User requesting active models list", SeverityLevel.Verbose, null);
         List<ModelResponse> models = modelService.getActiveModels();
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Active models retrieved successfully", models, request));
@@ -48,13 +48,13 @@ public class UserModelController {
             HttpServletRequest request) {
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("User requesting model details", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("User requesting model details", SeverityLevel.Verbose, properties);
 
         ModelDetailsResponse model = modelService.getModelDetailsWithDocumentation(modelId);
         
         // Check if model is ACTIVE
         if (!"ACTIVE".equals(model.getStatus().toString())) {
-            telemetryClient.trackTrace("User attempted to access inactive model", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("User attempted to access inactive model", SeverityLevel.Information, properties);
             throw new IllegalArgumentException("Model not found or is not available");
         }
         

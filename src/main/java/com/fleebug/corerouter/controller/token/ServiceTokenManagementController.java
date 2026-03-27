@@ -74,7 +74,7 @@ public class ServiceTokenManagementController {
     @Operation(summary = "List service tokens", description = "List all service tokens (metadata only)")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ServiceTokenResponse>>> listTokens(HttpServletRequest httpRequest) {
-        telemetryClient.trackTrace("List service tokens request", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("List service tokens request", SeverityLevel.Verbose, null);
         List<ServiceTokenResponse> data = serviceTokenService.listAll().stream().map(this::toResponse).toList();
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service tokens retrieved successfully", data, httpRequest));
     }
@@ -87,7 +87,7 @@ public class ServiceTokenManagementController {
 
         Map<String, String> properties = new HashMap<>();
         properties.put("tokenId", tokenId);
-        telemetryClient.trackTrace("Get service token request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get service token request", SeverityLevel.Verbose, properties);
 
         ServiceToken token = serviceTokenService.getByTokenId(tokenId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token retrieved successfully", toResponse(token), httpRequest));

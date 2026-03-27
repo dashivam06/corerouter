@@ -40,7 +40,7 @@ public class ApiDocumentationService {
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("modelId", String.valueOf(modelId));
-                    telemetryClient.trackTrace("Model not found for documentation creation", SeverityLevel.Warning, properties);
+                    telemetryClient.trackTrace("Model not found for documentation creation", SeverityLevel.Information, properties);
                     return new IllegalArgumentException("Model not found");
                 });
 
@@ -73,7 +73,7 @@ public class ApiDocumentationService {
         if (!modelRepository.existsById(modelId)) {
             Map<String, String> properties = new HashMap<>();
             properties.put("modelId", String.valueOf(modelId));
-            telemetryClient.trackTrace("Model not found for getting documentation", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Model not found for getting documentation", SeverityLevel.Information, properties);
             throw new IllegalArgumentException("Model not found");
         }
 
@@ -95,7 +95,7 @@ public class ApiDocumentationService {
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
-                    telemetryClient.trackTrace("Documentation not found", SeverityLevel.Warning, properties);
+                    telemetryClient.trackTrace("Documentation not found", SeverityLevel.Information, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 
@@ -114,7 +114,7 @@ public class ApiDocumentationService {
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
-                    telemetryClient.trackTrace("Documentation not found for update", SeverityLevel.Warning, properties);
+                    telemetryClient.trackTrace("Documentation not found for update", SeverityLevel.Information, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 
@@ -145,7 +145,7 @@ public class ApiDocumentationService {
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
-                    telemetryClient.trackTrace("Documentation not found for delete", SeverityLevel.Warning, properties);
+                    telemetryClient.trackTrace("Documentation not found for delete", SeverityLevel.Information, properties);
                     return new IllegalArgumentException("Documentation not found");
                 });
 

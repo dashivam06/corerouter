@@ -52,7 +52,7 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
                 if (userId != null) {
                     Map<String, String> context = new HashMap<>();
                     context.put("userId", String.valueOf(userId));
-                    telemetryClient.trackTrace("Chat request from user", SeverityLevel.Verbose, context);
+                    // telemetryClient.trackTrace("Chat request from user", SeverityLevel.Verbose, context);
                 }
 
                 // We use the HASH of the API key as the bucket identifier
@@ -69,7 +69,7 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("apiKeyHash", apiKeyHash);
                     properties.put("retryAfter", String.valueOf(retryAfter));
-                    telemetryClient.trackTrace("Chat rate limit exceeded", SeverityLevel.Warning, properties);
+                    telemetryClient.trackTrace("Chat rate limit exceeded", SeverityLevel.Information, properties);
                     
                     writeTooManyRequests(response, request, "Too many requests. Please try again in " + retryAfter + " seconds.");
                     return;
@@ -92,7 +92,7 @@ public class ChatRateLimitFilter extends OncePerRequestFilter {
         } catch (NumberFormatException e) {
             Map<String, String> properties = new HashMap<>();
             properties.put("apiKey", apiKey);
-            telemetryClient.trackTrace("Failed to extract user ID from API key", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Failed to extract user ID from API key", SeverityLevel.Information, properties);
         }
         return null;
     }

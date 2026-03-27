@@ -84,7 +84,7 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<List<BillingConfigResponse>>> getAllBillingConfigs(
             HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Get all billing configs request", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Get all billing configs request", SeverityLevel.Verbose, null);
 
         List<BillingConfigResponse> configs = billingConfigService.getAllBillingConfigs();
 
@@ -111,7 +111,7 @@ public class AdminBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("billingId", String.valueOf(billingId));
-        telemetryClient.trackTrace("Get billing config by ID", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get billing config by ID", SeverityLevel.Verbose, properties);
 
         BillingConfigResponse response = billingConfigService.getBillingConfigById(billingId);
 
@@ -138,7 +138,7 @@ public class AdminBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Get billing config for model", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get billing config for model", SeverityLevel.Verbose, properties);
 
         BillingConfigResponse response = billingConfigService.getBillingConfigByModelId(modelId);
 
@@ -253,7 +253,7 @@ public class AdminBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("taskId", taskId);
-        telemetryClient.trackTrace("Get usage by taskId", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get usage by taskId", SeverityLevel.Verbose, properties);
 
         List<UsageRecordResponse> records = usageService.getUsageByTaskId(taskId);
 
@@ -283,7 +283,7 @@ public class AdminBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Get usage summary for apiKey", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get usage summary for apiKey", SeverityLevel.Verbose, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKey(apiKeyId, from, to);
 
@@ -313,7 +313,7 @@ public class AdminBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("apiKeyId", String.valueOf(apiKeyId));
-        telemetryClient.trackTrace("Get usage summary by model for apiKey", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Get usage summary by model for apiKey", SeverityLevel.Verbose, properties);
 
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 

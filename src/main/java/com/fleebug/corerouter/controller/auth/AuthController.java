@@ -61,7 +61,7 @@ public class AuthController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("verificationId", verifyOtpRequest.getVerificationId());
-        telemetryClient.trackTrace("OTP verification request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("OTP verification request", SeverityLevel.Verbose, properties);
         
         var otpResponse = userService.verifyOtp(
                 verifyOtpRequest.getVerificationId(),
@@ -88,10 +88,10 @@ public class AuthController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("verificationId", finalRegistrationRequest.getVerificationId());
-        telemetryClient.trackTrace("User registration request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("User registration request", SeverityLevel.Verbose, properties);
         
         if (!finalRegistrationRequest.getPassword().equals(finalRegistrationRequest.getConfirmPassword())) {
-            telemetryClient.trackTrace("Registration failed: Passwords do not match", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Registration failed: Passwords do not match", SeverityLevel.Information, properties);
             throw new IllegalArgumentException("Passwords do not match");
         }
         
@@ -114,7 +114,7 @@ public class AuthController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("email", loginRequest.getEmail());
-        telemetryClient.trackTrace("Login endpoint called", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Login endpoint called", SeverityLevel.Verbose, properties);
         
         AuthResponse authResponse = userService.login(loginRequest);
         
@@ -127,10 +127,10 @@ public class AuthController {
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
             HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Refresh token request", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Refresh token request", SeverityLevel.Verbose, null);
         
         if (!tokenService.validateRefreshToken(refreshTokenRequest.getRefreshToken())) {
-            telemetryClient.trackTrace("Refresh token failed: invalid or expired", SeverityLevel.Verbose, null);
+            // telemetryClient.trackTrace("Refresh token failed: invalid or expired", SeverityLevel.Verbose, null);
             throw new IllegalArgumentException("Invalid or expired refresh token");
         }
         
@@ -153,7 +153,7 @@ public class AuthController {
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
             HttpServletRequest request) {
         
-        telemetryClient.trackTrace("Logout endpoint called", SeverityLevel.Verbose, null);
+        // telemetryClient.trackTrace("Logout endpoint called", SeverityLevel.Verbose, null);
         
         tokenService.revokeRefreshToken(refreshTokenRequest.getRefreshToken());
         

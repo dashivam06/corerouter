@@ -40,7 +40,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("User not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("User not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -56,7 +56,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("User already exists", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("User already exists", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
@@ -72,7 +72,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid credentials provided", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid credentials provided", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
@@ -88,7 +88,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("OTP expired", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("OTP expired", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.GONE)
                 .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
@@ -104,7 +104,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid OTP provided", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid OTP provided", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -120,7 +120,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid token", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid token", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
@@ -136,7 +136,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Rate limit exceeded for user operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Rate limit exceeded for user operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
@@ -152,7 +152,7 @@ public class UserExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Illegal argument in user operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Illegal argument in user operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

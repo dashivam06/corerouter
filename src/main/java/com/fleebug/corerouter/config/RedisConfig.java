@@ -51,7 +51,7 @@ public class RedisConfig {
             template.setHashValueSerializer(jsonRedisSerializer);
 
             template.afterPropertiesSet();
-            telemetryClient.trackTrace("RedisTemplate bean initialized successfully", SeverityLevel.Verbose, null);
+            // telemetryClient.trackTrace("RedisTemplate bean initialized successfully", SeverityLevel.Verbose, null);
             return template;
         } catch (IllegalStateException e) {
             Map<String, String> properties = new HashMap<>();
@@ -79,7 +79,7 @@ public class RedisConfig {
             }
 
             StringRedisTemplate template = new StringRedisTemplate(connectionFactory);
-            telemetryClient.trackTrace("StringRedisTemplate bean initialized successfully", SeverityLevel.Verbose, null);
+            // telemetryClient.trackTrace("StringRedisTemplate bean initialized successfully", SeverityLevel.Verbose, null);
             return template;
         } catch (IllegalStateException e) {
             Map<String, String> properties = new HashMap<>();

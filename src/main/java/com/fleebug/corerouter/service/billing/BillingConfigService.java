@@ -104,7 +104,7 @@ public class BillingConfigService {
      */
     @Transactional(readOnly = true)
     public BillingConfigResponse getBillingConfigByModelId(Integer modelId) {
-        telemetryClient.trackTrace("Fetching billing config for modelId=" + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
+        // telemetryClient.trackTrace("Fetching billing config for modelId=" + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
         BillingConfig config = billingConfigRepository.findByModelModelId(modelId)
                 .orElseThrow(() -> new BillingConfigNotFoundException(modelId));
         return mapToResponse(config);

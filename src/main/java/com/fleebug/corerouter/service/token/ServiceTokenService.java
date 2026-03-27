@@ -114,7 +114,7 @@ public class ServiceTokenService {
         Map<String, String> properties = new HashMap<>();
         properties.put("name", token.getName());
         properties.put("role", token.getRole().name());
-        telemetryClient.trackTrace("Service token authenticated", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Service token authenticated", SeverityLevel.Verbose, properties);
         
         return token;
     }

@@ -46,7 +46,7 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
         properties.put("remoteAddr", request.getRemoteAddr());
         properties.put("userAgent", request.getHeader("User-Agent"));
 
-        telemetryClient.trackTrace("Request started", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Request started", SeverityLevel.Verbose, properties);
 
         try {
             filterChain.doFilter(request, response);
@@ -55,7 +55,7 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
             properties.put("status", String.valueOf(response.getStatus()));
             properties.put("durationMs", String.valueOf(duration));
             
-            telemetryClient.trackTrace("Request finished", SeverityLevel.Verbose, properties);
+            // telemetryClient.trackTrace("Request finished", SeverityLevel.Verbose, properties);
         }
     }
 }

@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -47,8 +49,41 @@ public class AdminTechnicalController {
                 "worker", workerFuture.join()
         );
 
+                List<String> downCriticalComponents = new ArrayList<>();
+                if (isDown(payload.get("redis"))) {
+                        downCriticalComponents.add("redis");
+                }
+                if (isDown(payload.get("vllm"))) {
+                        downCriticalComponents.add("vllm");
+                }
+                if (isDown(payload.get("database"))) {
+                        downCriticalComponents.add("database");
+                }
+
+                if (!downCriticalComponents.isEmpty()) {
+                        ApiResponse<Map<String, Object>> errorResponse = ApiResponse.<Map<String, Object>>builder()
+                                        .timestamp(LocalDateTime.now())
+                                        .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                                        .success(false)
+                                        .message("Critical components down: " + String.join(", ", downCriticalComponents))
+                                        .path(request.getRequestURI())
+                                        .method(request.getMethod())
+                                        .data(payload)
+                                        .build();
+                        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+                }
+
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Health check completed", payload, request));
     }
+
+        @SuppressWarnings("unchecked")
+        private boolean isDown(Object componentResult) {
+                if (!(componentResult instanceof Map<?, ?> rawMap)) {
+                        return true;
+                }
+                Object status = ((Map<String, Object>) rawMap).get("status");
+                return status == null || "DOWN".equalsIgnoreCase(String.valueOf(status));
+        }
 
     private CompletableFuture<Map<String, Object>> safeAsync(String name, Supplier<Map<String, Object>> supplier, long timeoutSeconds) {
         return CompletableFuture

@@ -34,7 +34,7 @@ public class BillingExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Billing config not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Billing config not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -59,7 +59,7 @@ public class BillingExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid usage record", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid usage record", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
@@ -72,7 +72,7 @@ public class BillingExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Task not found for billing", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Task not found for billing", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -85,7 +85,7 @@ public class BillingExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Model not found for billing", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Model not found for billing", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -98,7 +98,7 @@ public class BillingExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Bad request in billing", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Bad request in billing", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

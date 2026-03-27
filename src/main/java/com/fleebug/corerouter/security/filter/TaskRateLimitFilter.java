@@ -81,7 +81,7 @@ public class TaskRateLimitFilter extends OncePerRequestFilter {
             Map<String, String> properties = new HashMap<>();
             properties.put("userKey", userKey);
             properties.put("retryAfter", String.valueOf(retryAfter));
-            telemetryClient.trackTrace("Task creation rate limit exceeded", SeverityLevel.Warning, properties);
+            telemetryClient.trackTrace("Task creation rate limit exceeded", SeverityLevel.Information, properties);
             
             writeTooManyRequests(response, request,
                     "Task creation quota exceeded (5 per minute). Processing is expensive. Retry after " + retryAfter + "s");

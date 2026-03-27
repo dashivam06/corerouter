@@ -39,7 +39,7 @@ public class ServiceTokenExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Invalid service token", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Invalid service token", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
@@ -52,7 +52,7 @@ public class ServiceTokenExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Service token not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Service token not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -65,7 +65,7 @@ public class ServiceTokenExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Service token conflict", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Service token conflict", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(HttpStatus.CONFLICT, ex.getMessage(), request));
@@ -78,7 +78,7 @@ public class ServiceTokenExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Service token revoked", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Service token revoked", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));

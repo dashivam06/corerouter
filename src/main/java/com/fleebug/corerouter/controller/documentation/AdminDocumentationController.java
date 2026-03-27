@@ -44,7 +44,7 @@ public class AdminDocumentationController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("modelId", String.valueOf(modelId));
-        telemetryClient.trackTrace("Create documentation request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Create documentation request", SeverityLevel.Verbose, properties);
 
         ApiDocumentationResponse response = documentationService.createDocumentation(modelId, request);
         
@@ -62,7 +62,7 @@ public class AdminDocumentationController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("docId", String.valueOf(docId));
-        telemetryClient.trackTrace("Update documentation request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Update documentation request", SeverityLevel.Verbose, properties);
 
         ApiDocumentationResponse response = documentationService.updateDocumentation(docId, request);
         
@@ -78,7 +78,7 @@ public class AdminDocumentationController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("docId", String.valueOf(docId));
-        telemetryClient.trackTrace("Delete documentation request", SeverityLevel.Verbose, properties);
+        // telemetryClient.trackTrace("Delete documentation request", SeverityLevel.Verbose, properties);
 
         documentationService.deleteDocumentation(docId);
         

@@ -39,7 +39,7 @@ public class ApiKeyExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("API key not found", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("API key not found", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), request));
@@ -55,7 +55,7 @@ public class ApiKeyExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("API key expired", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("API key expired", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.GONE)
                 .body(ApiResponse.error(HttpStatus.GONE, ex.getMessage(), request));
@@ -71,7 +71,7 @@ public class ApiKeyExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("API key revoked", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("API key revoked", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), request));
@@ -87,7 +87,7 @@ public class ApiKeyExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Rate limit exceeded for API key", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Rate limit exceeded for API key", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request));
@@ -103,7 +103,7 @@ public class ApiKeyExceptionHandler {
         Map<String, String> properties = new HashMap<>();
         properties.put("path", request.getRequestURI());
         properties.put("error", ex.getMessage());
-        telemetryClient.trackTrace("Illegal argument in API key operation", SeverityLevel.Warning, properties);
+        telemetryClient.trackTrace("Illegal argument in API key operation", SeverityLevel.Information, properties);
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), request));

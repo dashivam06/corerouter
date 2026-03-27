@@ -111,7 +111,7 @@ public class TransactionService {
             String status = jsonNode.get("status").asText();
 
             if (!"COMPLETE".equals(status)) {
-                telemetryClient.trackTrace("Transaction status not COMPLETE: " + status, SeverityLevel.Warning, Map.of("status", status));
+                telemetryClient.trackTrace("Transaction status not COMPLETE: " + status, SeverityLevel.Information, Map.of("status", status));
                 throw new TransactionVerificationException("Transaction status is " + status);
             }
 
@@ -149,7 +149,7 @@ public class TransactionService {
                     telemetryClient.trackTrace("Wallet credited for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
                     return transaction;
                 } else {
-                    telemetryClient.trackTrace("eSewa verification failed. Status: " + verifiedStatus, SeverityLevel.Error, Map.of("verifiedStatus", verifiedStatus != null ? verifiedStatus : "null"));
+                    telemetryClient.trackTrace("eSewa verification failed. Status: " + verifiedStatus, SeverityLevel.Warning, Map.of("verifiedStatus", verifiedStatus != null ? verifiedStatus : "null"));
                     transaction.setStatus(TransactionStatus.FAILED);
                     transactionRepository.save(transaction);
                     throw new TransactionVerificationException("eSewa verification failed with status: " + verifiedStatus);
@@ -183,13 +183,13 @@ public class TransactionService {
                 // Attempt standard Base64
                 byte[] decodedBytes = Base64.getDecoder().decode(encodedData);
                 String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
-                telemetryClient.trackTrace("Decoded failure data successfully", SeverityLevel.Verbose, null);
+                // telemetryClient.trackTrace("Decoded failure data successfully", SeverityLevel.Verbose, null);
                 
                 JsonNode jsonNode = objectMapper.readTree(decodedString);
                 transactionUuid = jsonNode.path("transaction_uuid").asText();
             }
         } catch (IllegalArgumentException e) {
-            telemetryClient.trackTrace("Standard Base64 decoding failed, trying URL decoder", SeverityLevel.Warning, null);
+            telemetryClient.trackTrace("Standard Base64 decoding failed, trying URL decoder", SeverityLevel.Information, null);
             try {
                 byte[] decodedBytes = Base64.getUrlDecoder().decode(encodedData);
                 String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
@@ -213,9 +213,9 @@ public class TransactionService {
                         transaction.setStatus(TransactionStatus.FAILED);
                         transactionRepository.save(transaction);
                         telemetryClient.trackTrace("Marked transaction " + finalUuid + " as FAILED", SeverityLevel.Information, Map.of("transactionUuid", finalUuid));
-                    }, () -> telemetryClient.trackTrace("Transaction not found for failure callback: " + finalUuid, SeverityLevel.Warning, Map.of("transactionUuid", finalUuid)));
+                    }, () -> telemetryClient.trackTrace("Transaction not found for failure callback: " + finalUuid, SeverityLevel.Information, Map.of("transactionUuid", finalUuid)));
         } else {
-            telemetryClient.trackTrace("Could not extract transaction UUID from failure callback", SeverityLevel.Warning, null);
+            telemetryClient.trackTrace("Could not extract transaction UUID from failure callback", SeverityLevel.Information, null);
         }
     }
 
