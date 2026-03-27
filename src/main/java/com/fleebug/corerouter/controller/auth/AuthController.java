@@ -1,4 +1,4 @@
-package com.fleebug.corerouter.controller.user;
+package com.fleebug.corerouter.controller.auth;
 
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
@@ -30,7 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "User registration, login, OTP verification, token refresh, and logout")
-public class UserController {
+public class AuthController {
 
     private final UserService userService;
     private final TokenService tokenService;
