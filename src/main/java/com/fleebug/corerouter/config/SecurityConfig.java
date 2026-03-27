@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -32,6 +33,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
@@ -48,6 +50,9 @@ public class SecurityConfig {
     private final ChatRateLimitFilter chatRateLimitFilter;
     private final MdcLoggingFilter mdcLoggingFilter;
     private final ObjectMapper objectMapper;
+
+        @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:8080,https://corerouter.me,https://www.corerouter.me,https://api.corerouter.me}")
+        private String allowedOrigins;
 
 
     @Bean
@@ -102,6 +107,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // ── Public ─────────────────────────────────────────────────────
                 .requestMatchers(HttpMethod.POST,
                         ApiPaths.AUTH_REGISTER,
@@ -150,7 +156,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:8080"));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .collect(Collectors.toList());
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "X-Service-Token"));
         configuration.setExposedHeaders(List.of("Authorization"));
