@@ -83,7 +83,7 @@ public class ApiKeyService {
      */
     public List<ApiKeyResponse> getUserApiKeys(Integer userId) {
         // telemetryClient.trackTrace("Fetching all API keys for user ID: " + userId, SeverityLevel.Verbose, Map.of("userId", String.valueOf(userId)));
-        List<ApiKey> apiKeys = apiKeyRepository.findByUserUserId(userId);
+        List<ApiKey> apiKeys = apiKeyRepository.findByUserUserIdAndStatusNot(userId, ApiKeyStatus.REVOKED);
         return apiKeys.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -99,14 +99,7 @@ public class ApiKeyService {
     public ApiKeyResponse getApiKeyDetails(Integer apiKeyId, Integer userId) {
         // telemetryClient.trackTrace("Fetching API key details - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
-        ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
-                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
-
-        // Verify user owns this API key
-        if (!apiKey.getUser().getUserId().equals(userId)) {
-            telemetryClient.trackTrace("Unauthorized access attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
-            throw new IllegalArgumentException("You do not have permission to access this API key");
-        }
+        ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "access");
 
         return mapToResponse(apiKey);
     }
@@ -122,14 +115,7 @@ public class ApiKeyService {
     public ApiKeyResponse updateApiKey(Integer apiKeyId, Integer userId, UpdateApiKeyRequest updateRequest) {
         // telemetryClient.trackTrace("Updating API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Verbose, Map.of("apiKeyId", String.valueOf(apiKeyId), "userId", String.valueOf(userId)));
 
-        ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
-                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
-
-        // Verify user owns this API key
-        if (!apiKey.getUser().getUserId().equals(userId)) {
-            telemetryClient.trackTrace("Unauthorized update attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
-            throw new IllegalArgumentException("You do not have permission to modify this API key");
-        }
+        ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "modify");
 
         // Update fields
         if (updateRequest.getDescription() != null) {
@@ -159,14 +145,7 @@ public class ApiKeyService {
     public ApiKeyResponse toggleApiKeyStatus(Integer apiKeyId, Integer userId, boolean disable) {
         telemetryClient.trackTrace("Toggling API key status - ID: " + apiKeyId + ", User ID: " + userId + ", Disable: " + disable, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
-        ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
-                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
-
-        // Verify user owns this API key
-        if (!apiKey.getUser().getUserId().equals(userId)) {
-            telemetryClient.trackTrace("Unauthorized status toggle attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
-            throw new IllegalArgumentException("You do not have permission to modify this API key");
-        }
+        ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "modify");
 
         ApiKeyStatus newStatus = disable ? ApiKeyStatus.INACTIVE : ApiKeyStatus.ACTIVE;
         apiKey.setStatus(newStatus);
@@ -184,19 +163,29 @@ public class ApiKeyService {
      * @param userId User ID (to verify ownership)
      */
     public void deleteApiKey(Integer apiKeyId, Integer userId) {
-        telemetryClient.trackTrace("Deleting API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
+        telemetryClient.trackTrace("Soft deleting API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
+        ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "delete");
+        apiKey.setStatus(ApiKeyStatus.REVOKED);
+        apiKeyRepository.save(apiKey);
+
+        telemetryClient.trackTrace("API key soft deleted successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
+    }
+
+    private ApiKey getOwnedNonRevokedApiKey(Integer apiKeyId, Integer userId, String operation) {
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
                 .orElseThrow(() -> new IllegalArgumentException("API key not found"));
 
-        // Verify user owns this API key
         if (!apiKey.getUser().getUserId().equals(userId)) {
-            telemetryClient.trackTrace("Unauthorized delete attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
-            throw new IllegalArgumentException("You do not have permission to delete this API key");
+            telemetryClient.trackTrace("Unauthorized " + operation + " attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
+            throw new IllegalArgumentException("You do not have permission to " + operation + " this API key");
         }
 
-        apiKeyRepository.deleteById(apiKeyId);
-        telemetryClient.trackTrace("API key deleted successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
+        if (apiKey.getStatus() == ApiKeyStatus.REVOKED) {
+            throw new IllegalArgumentException("API key not found");
+        }
+
+        return apiKey;
     }
 
     private String generateRawKey(Integer userId) {

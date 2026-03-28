@@ -43,6 +43,10 @@ public class ApiDocumentation {
     private Model model;
 
     @Column(nullable = false)
+    @Builder.Default
+    private Boolean active = true;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column

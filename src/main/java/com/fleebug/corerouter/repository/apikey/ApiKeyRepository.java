@@ -17,6 +17,8 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Integer> {
 
     List<ApiKey> findByUserUserId(Integer userId);
 
+    List<ApiKey> findByUserUserIdAndStatusNot(Integer userId, ApiKeyStatus status);
+
     List<ApiKey> findByStatus(ApiKeyStatus status);
 
     List<ApiKey> findByUserUserIdAndStatus(Integer userId, ApiKeyStatus status);

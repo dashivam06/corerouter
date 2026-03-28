@@ -45,6 +45,10 @@ public class BillingConfig {
     @Column(columnDefinition = "jsonb")
     private String pricingMetadata;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean active = true;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

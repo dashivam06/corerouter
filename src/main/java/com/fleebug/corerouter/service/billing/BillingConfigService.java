@@ -46,14 +46,30 @@ public class BillingConfigService {
         Model model = modelRepository.findById(request.getModelId())
                 .orElseThrow(() -> new ModelNotFoundException(request.getModelId()));
 
-        if (billingConfigRepository.existsByModelModelId(request.getModelId())) {
+        if (billingConfigRepository.existsByModelModelIdAndActiveTrue(request.getModelId())) {
             throw new IllegalArgumentException("Billing config already exists for model ID " + request.getModelId());
+        }
+
+        // Reactivate existing soft-deleted config for the same model instead of inserting a duplicate row.
+        var existingConfig = billingConfigRepository.findByModelModelId(request.getModelId());
+        if (existingConfig.isPresent()) {
+            BillingConfig config = existingConfig.get();
+            config.setPricingType(request.getPricingType());
+            config.setPricingMetadata(request.getPricingMetadata());
+            config.setActive(true);
+            config.setUpdatedAt(LocalDateTime.now());
+
+            BillingConfig reactivated = billingConfigRepository.save(config);
+            redisService.deleteFromCache(BILLING_CACHE_PREFIX + request.getModelId());
+            telemetryClient.trackTrace("Reactivated soft-deleted billing config ID=" + reactivated.getBillingId() + " for modelId=" + request.getModelId(), SeverityLevel.Information, Map.of("billingId", String.valueOf(reactivated.getBillingId()), "modelId", String.valueOf(request.getModelId())));
+            return mapToResponse(reactivated);
         }
 
         BillingConfig config = BillingConfig.builder()
                 .model(model)
                 .pricingType(request.getPricingType())
                 .pricingMetadata(request.getPricingMetadata())
+            .active(true)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -77,6 +93,7 @@ public class BillingConfigService {
         telemetryClient.trackTrace("Updating billing config ID=" + billingId, SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
 
         BillingConfig config = billingConfigRepository.findById(billingId)
+                .filter(existing -> Boolean.TRUE.equals(existing.getActive()))
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
 
         if (request.getPricingType() != null) {
@@ -105,7 +122,7 @@ public class BillingConfigService {
     @Transactional(readOnly = true)
     public BillingConfigResponse getBillingConfigByModelId(Integer modelId) {
         // telemetryClient.trackTrace("Fetching billing config for modelId=" + modelId, SeverityLevel.Verbose, Map.of("modelId", String.valueOf(modelId)));
-        BillingConfig config = billingConfigRepository.findByModelModelId(modelId)
+        BillingConfig config = billingConfigRepository.findByModelModelIdAndActiveTrue(modelId)
                 .orElseThrow(() -> new BillingConfigNotFoundException(modelId));
         return mapToResponse(config);
     }
@@ -119,6 +136,7 @@ public class BillingConfigService {
     @Transactional(readOnly = true)
     public BillingConfigResponse getBillingConfigById(Integer billingId) {
         BillingConfig config = billingConfigRepository.findById(billingId)
+                .filter(existing -> Boolean.TRUE.equals(existing.getActive()))
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
         return mapToResponse(config);
     }
@@ -130,7 +148,7 @@ public class BillingConfigService {
      */
     @Transactional(readOnly = true)
     public List<BillingConfigResponse> getAllBillingConfigs() {
-        return billingConfigRepository.findAll()
+        return billingConfigRepository.findAllByActiveTrue()
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -142,11 +160,14 @@ public class BillingConfigService {
      * @param billingId ID of the billing config to delete
      */
     public void deleteBillingConfig(Integer billingId) {
-        telemetryClient.trackTrace("Deleting billing config ID=" + billingId, SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
+        telemetryClient.trackTrace("Soft deleting billing config ID=" + billingId, SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
         BillingConfig config = billingConfigRepository.findById(billingId)
+                .filter(existing -> Boolean.TRUE.equals(existing.getActive()))
                 .orElseThrow(() -> new BillingConfigNotFoundException("Billing config with ID '" + billingId + "' not found"));
-        billingConfigRepository.delete(config);
-        telemetryClient.trackTrace("Billing config ID=" + billingId + " deleted", SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
+        config.setActive(false);
+        config.setUpdatedAt(LocalDateTime.now());
+        billingConfigRepository.save(config);
+        telemetryClient.trackTrace("Billing config ID=" + billingId + " soft deleted", SeverityLevel.Information, Map.of("billingId", String.valueOf(billingId)));
 
         // Invalidate billing config cache
         redisService.deleteFromCache(BILLING_CACHE_PREFIX + config.getModel().getModelId());
@@ -160,7 +181,7 @@ public class BillingConfigService {
      */
     @Transactional(readOnly = true)
     public BillingConfig getBillingConfigEntityByModelId(Integer modelId) {
-        return billingConfigRepository.findByModelModelId(modelId)
+        return billingConfigRepository.findByModelModelIdAndActiveTrue(modelId)
                 .orElseThrow(() -> new BillingConfigNotFoundException(modelId));
     }
 

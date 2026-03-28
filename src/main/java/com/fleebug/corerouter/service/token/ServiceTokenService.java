@@ -202,25 +202,27 @@ public class ServiceTokenService {
     }
 
     /**
-     * Delete a service token permanently.
+     * Soft delete a service token by deactivating it.
      */
     @Transactional
     public void deleteToken(String name) {
         ServiceToken token = serviceTokenRepository.findByName(name)
                 .orElseThrow(() -> new ServiceTokenNotFoundException(name));
 
-        serviceTokenRepository.delete(token);
-        telemetryClient.trackTrace("Service token deleted", SeverityLevel.Information, Collections.singletonMap("name", name));
+        token.setActive(false);
+        serviceTokenRepository.save(token);
+        telemetryClient.trackTrace("Service token soft deleted", SeverityLevel.Information, Collections.singletonMap("name", name));
     }
 
     /**
-     * Delete a service token permanently by tokenId.
+     * Soft delete a service token by tokenId.
      */
     @Transactional
     public void deleteTokenByTokenId(String tokenId) {
         ServiceToken token = getByTokenId(tokenId);
-        serviceTokenRepository.delete(token);
-        telemetryClient.trackTrace("Service token deleted", SeverityLevel.Information, Collections.singletonMap("tokenId", tokenId));
+        token.setActive(false);
+        serviceTokenRepository.save(token);
+        telemetryClient.trackTrace("Service token soft deleted", SeverityLevel.Information, Collections.singletonMap("tokenId", tokenId));
     }
 
     // ── internal ────────────────────────────────────────────────────────

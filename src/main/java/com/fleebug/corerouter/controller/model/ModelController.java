@@ -1,7 +1,6 @@
 package com.fleebug.corerouter.controller.model;
 
 import com.microsoft.applicationinsights.TelemetryClient;
-import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.model.request.CreateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelRequest;
@@ -145,7 +144,7 @@ public class ModelController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model status updated successfully", response, request));
     }
 
-    @Operation(summary = "Delete model", description = "Permanently delete a model")
+    @Operation(summary = "Delete model", description = "Soft delete a model by archiving it while preserving history")
     @DeleteMapping("/{modelId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteModel(
@@ -161,7 +160,7 @@ public class ModelController {
         
         modelService.deleteModel(modelId, admin);
         
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model deleted permanently", null, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model soft deleted successfully", null, request));
     }
 
     @Operation(summary = "Archive model", description = "Soft-archive a model so it is no longer active")

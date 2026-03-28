@@ -212,7 +212,7 @@ public class ApiKeyController {
      * @param request HttpServletRequest for response metadata
      * @return ResponseEntity with ApiResponse indicating deletion
      */
-    @Operation(summary = "Delete API key", description = "Permanently delete an API key")
+    @Operation(summary = "Delete API key", description = "Soft delete an API key by revoking it while preserving history")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key deleted successfully"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
@@ -230,7 +230,7 @@ public class ApiKeyController {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         apiKeyService.deleteApiKey(apiKeyId, userDetails.getUser().getUserId());
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key deleted successfully", null, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key soft deleted successfully", null, request));
     }
 }
 

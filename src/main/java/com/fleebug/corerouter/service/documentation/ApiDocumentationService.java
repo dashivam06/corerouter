@@ -48,6 +48,7 @@ public class ApiDocumentationService {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .model(model)
+                .active(true)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -77,7 +78,7 @@ public class ApiDocumentationService {
             throw new IllegalArgumentException("Model not found");
         }
 
-        return documentationRepository.findByModel_ModelId(modelId)
+        return documentationRepository.findByModel_ModelIdAndActiveTrue(modelId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -91,7 +92,7 @@ public class ApiDocumentationService {
      */
     @Transactional(readOnly = true)
     public ApiDocumentationResponse getDocumentationById(Integer docId) {
-        ApiDocumentation documentation = documentationRepository.findById(docId)
+        ApiDocumentation documentation = documentationRepository.findByDocIdAndActiveTrue(docId)
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
@@ -110,7 +111,7 @@ public class ApiDocumentationService {
      * @return Updated documentation response
      */
     public ApiDocumentationResponse updateDocumentation(Integer docId, UpdateApiDocumentationRequest updateRequest) {
-        ApiDocumentation documentation = documentationRepository.findById(docId)
+        ApiDocumentation documentation = documentationRepository.findByDocIdAndActiveTrue(docId)
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
@@ -141,7 +142,7 @@ public class ApiDocumentationService {
      * @param docId Documentation ID
      */
     public void deleteDocumentation(Integer docId) {
-        documentationRepository.findById(docId)
+        ApiDocumentation documentation = documentationRepository.findByDocIdAndActiveTrue(docId)
                 .orElseThrow(() -> {
                     Map<String, String> properties = new HashMap<>();
                     properties.put("docId", String.valueOf(docId));
@@ -149,11 +150,13 @@ public class ApiDocumentationService {
                     return new IllegalArgumentException("Documentation not found");
                 });
 
-        documentationRepository.deleteById(docId);
+        documentation.setActive(false);
+        documentation.setUpdatedAt(LocalDateTime.now());
+        documentationRepository.save(documentation);
         
         Map<String, String> properties = new HashMap<>();
         properties.put("docId", String.valueOf(docId));
-        telemetryClient.trackEvent("DocumentationDeleted", properties, null);
+        telemetryClient.trackEvent("DocumentationSoftDeleted", properties, null);
     }
 
     /**

@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.microsoft.applicationinsights.TelemetryClient;
-import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.token.request.CreateServiceTokenRequest;
 import com.fleebug.corerouter.dto.token.response.CreateServiceTokenResponse;
@@ -121,7 +120,7 @@ public class ServiceTokenManagementController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token activated successfully", null, httpRequest));
     }
 
-    @Operation(summary = "Delete service token", description = "Permanently delete a service token by tokenId")
+    @Operation(summary = "Delete service token", description = "Soft delete a service token by deactivating it")
     @DeleteMapping("/{tokenId}")
     public ResponseEntity<ApiResponse<Void>> deleteToken(
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
@@ -132,7 +131,7 @@ public class ServiceTokenManagementController {
         telemetryClient.trackEvent("ServiceTokenDeletion", properties, null);
 
         serviceTokenService.deleteTokenByTokenId(tokenId);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token deleted successfully", null, httpRequest));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token soft deleted successfully", null, httpRequest));
     }
 
     private ServiceTokenResponse toResponse(ServiceToken token) {

@@ -181,7 +181,7 @@ public class AdminBillingController {
      * @param request   HTTP servlet request
      * @return empty response
      */
-    @Operation(summary = "Delete billing config", description = "Permanently delete a billing configuration")
+    @Operation(summary = "Delete billing config", description = "Soft delete a billing configuration while preserving historical usage integrity")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Billing config deleted successfully"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Billing config not found")
@@ -198,7 +198,7 @@ public class AdminBillingController {
 
         billingConfigService.deleteBillingConfig(billingId);
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config deleted successfully", null, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing config soft deleted successfully", null, request));
     }
 
     // ---- Usage Recording (called internally or by admin) ----

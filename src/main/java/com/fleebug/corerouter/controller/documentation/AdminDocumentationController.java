@@ -1,7 +1,5 @@
 package com.fleebug.corerouter.controller.documentation;
 
-import com.microsoft.applicationinsights.TelemetryClient;
-import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.documentation.request.CreateApiDocumentationRequest;
 import com.fleebug.corerouter.dto.documentation.request.UpdateApiDocumentationRequest;
@@ -32,7 +30,6 @@ import java.util.Map;
 public class AdminDocumentationController {
 
     private final ApiDocumentationService documentationService;
-    private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Create documentation", description = "Create API documentation for a specific model")
     @PostMapping("/models/{modelId}")
@@ -69,7 +66,7 @@ public class AdminDocumentationController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation updated successfully", response, httpRequest));
     }
 
-    @Operation(summary = "Delete documentation", description = "Delete API documentation by its ID")
+    @Operation(summary = "Delete documentation", description = "Soft delete API documentation by its ID while keeping history")
     @DeleteMapping("/{docId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteDocumentation(
@@ -82,6 +79,6 @@ public class AdminDocumentationController {
 
         documentationService.deleteDocumentation(docId);
         
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation deleted successfully", null, httpRequest));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation soft deleted successfully", null, httpRequest));
     }
 }

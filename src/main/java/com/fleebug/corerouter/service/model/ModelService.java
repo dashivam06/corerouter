@@ -137,7 +137,7 @@ public class ModelService {
                 });
 
         // Fetch documentation for this model
-        List<ApiDocumentation> docs = documentationRepository.findByModel_ModelId(modelId);
+        List<ApiDocumentation> docs = documentationRepository.findByModel_ModelIdAndActiveTrue(modelId);
         List<ApiDocumentationResponse> docResponses = docs.stream()
                 .map(this::mapDocToResponse)
                 .collect(Collectors.toList());
@@ -303,13 +303,13 @@ public class ModelService {
     }
 
     /**
-     * Permanently delete a model.
+     * Soft delete a model by archiving it.
      *
      * @param modelId model ID
      * @param admin   admin user performing the action
      */
     public void deleteModel(Integer modelId, User admin) {
-        telemetryClient.trackTrace("Hard deleting model ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
+        telemetryClient.trackTrace("Soft deleting model ID: " + modelId + " by admin: " + admin.getUserId(), SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId), "adminId", String.valueOf(admin.getUserId())));
 
         Model model = modelRepository.findById(modelId)
                 .orElseThrow(() -> {
@@ -317,12 +317,15 @@ public class ModelService {
                     return new IllegalArgumentException("Model not found");
                 });
 
-        // Create audit log before deleting
-        createAuditLog(model, model.getStatus(), null, admin, "Model permanently deleted");
+        ModelStatus oldStatus = model.getStatus();
+        if (oldStatus != ModelStatus.ARCHIVED) {
+            model.setStatus(ModelStatus.ARCHIVED);
+            model.setUpdatedAt(LocalDateTime.now());
+            modelRepository.save(model);
+            createAuditLog(model, oldStatus, ModelStatus.ARCHIVED, admin, "Model soft deleted");
+        }
 
-        // Hard delete
-        modelRepository.deleteById(modelId);
-        telemetryClient.trackTrace("Model permanently deleted with ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
+        telemetryClient.trackTrace("Model soft deleted with ID: " + modelId, SeverityLevel.Information, Map.of("modelId", String.valueOf(modelId)));
 
         // Invalidate model cache
         redisService.deleteFromCache(MODEL_CACHE_PREFIX + modelId);
