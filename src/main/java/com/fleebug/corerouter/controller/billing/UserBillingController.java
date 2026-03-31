@@ -2,6 +2,7 @@ package com.fleebug.corerouter.controller.billing;
 
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
+import com.fleebug.corerouter.dto.billing.response.UserBillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
@@ -24,6 +25,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -187,6 +190,35 @@ public class UserBillingController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total cost retrieved successfully", totalCost, request));
     }
 
+    @Operation(summary = "Get billing insights", description = "Get current balance, credits used this month, and change from last month for the authenticated user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Billing insights retrieved successfully")
+    })
+    @GetMapping("/insights")
+    public ResponseEntity<ApiResponse<UserBillingInsightsResponse>> getBillingInsights(
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
+        LocalDateTime comparableLastMonthEnd = lastMonthStart.plusSeconds(Duration.between(thisMonthStart, now).getSeconds());
+
+        BigDecimal creditsUsedThisMonth = usageService.getTotalCostByUser(user.getUserId(), thisMonthStart, now);
+        BigDecimal creditsUsedComparableLastMonth = usageService.getTotalCostByUser(user.getUserId(), lastMonthStart, comparableLastMonthEnd);
+
+        UserBillingInsightsResponse insights = UserBillingInsightsResponse.builder()
+                .currentBalance(user.getBalance().setScale(2, RoundingMode.HALF_UP))
+                .creditsUsedThisMonth(creditsUsedThisMonth.setScale(2, RoundingMode.HALF_UP))
+                .creditsUsedChangeFromLastMonthPercent(
+                        calculatePercentChange(creditsUsedThisMonth, creditsUsedComparableLastMonth)
+                )
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
+    }
+
     @Operation(summary = "Get usage insights", description = "Get dashboard insights for authenticated user usage page")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Usage insights retrieved successfully")
@@ -200,6 +232,16 @@ public class UserBillingController {
         UserUsageInsightsResponse insights = usageService.getUserUsageInsights(user.getUserId());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage insights retrieved successfully", insights, request));
+    }
+
+    private BigDecimal calculatePercentChange(BigDecimal current, BigDecimal previous) {
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+        }
+
+        return current.subtract(previous)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(previous, 1, RoundingMode.HALF_UP);
     }
 
 }
