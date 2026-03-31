@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,6 +23,9 @@ import com.fleebug.corerouter.dto.token.request.CreateServiceTokenRequest;
 import com.fleebug.corerouter.dto.token.response.CreateServiceTokenResponse;
 import com.fleebug.corerouter.dto.token.response.ServiceTokenResponse;
 import com.fleebug.corerouter.entity.token.ServiceToken;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.token.ServiceTokenService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,12 +43,14 @@ import lombok.RequiredArgsConstructor;
 public class ServiceTokenManagementController {
 
     private final ServiceTokenService serviceTokenService;
+    private final ActivityLogService activityLogService;
     private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Create service token", description = "Create a new service token and return the raw token once")
     @PostMapping
     public ResponseEntity<ApiResponse<CreateServiceTokenResponse>> createToken(
             @Valid @RequestBody CreateServiceTokenRequest request,
+            Authentication authentication,
             HttpServletRequest httpRequest) {
 
         Map<String, String> properties = new HashMap<>();
@@ -65,6 +71,13 @@ public class ServiceTokenManagementController {
                 .lastUsedAt(token.getLastUsedAt())
                 .rawToken(rawToken)
                 .build();
+
+            activityLogService.log(
+                ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+                ActivityAction.ADMIN_SERVICE_TOKEN_CREATED,
+                "A service token was created: " + token.getName() + ".",
+                httpRequest.getRemoteAddr()
+            );
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Service token created successfully", data, httpRequest));
@@ -96,13 +109,21 @@ public class ServiceTokenManagementController {
     @PatchMapping("/{tokenId}/revoke")
     public ResponseEntity<ApiResponse<Void>> revokeToken(
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
+            Authentication authentication,
             HttpServletRequest httpRequest) {
 
         Map<String, String> properties = new HashMap<>();
         properties.put("tokenId", tokenId);
         telemetryClient.trackEvent("ServiceTokenRevocation", properties, null);
 
+        ServiceToken token = serviceTokenService.getByTokenId(tokenId);
         serviceTokenService.revokeTokenByTokenId(tokenId);
+        activityLogService.log(
+            ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+            ActivityAction.ADMIN_SERVICE_TOKEN_REVOKED,
+            "A service token was revoked: " + token.getName() + ".",
+            httpRequest.getRemoteAddr()
+        );
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token revoked successfully", null, httpRequest));
     }
 
@@ -124,13 +145,21 @@ public class ServiceTokenManagementController {
     @DeleteMapping("/{tokenId}")
     public ResponseEntity<ApiResponse<Void>> deleteToken(
             @Parameter(description = "Token ID", example = "a1b2c3d4e5f6") @PathVariable String tokenId,
+            Authentication authentication,
             HttpServletRequest httpRequest) {
 
         Map<String, String> properties = new HashMap<>();
         properties.put("tokenId", tokenId);
         telemetryClient.trackEvent("ServiceTokenDeletion", properties, null);
 
+        ServiceToken token = serviceTokenService.getByTokenId(tokenId);
         serviceTokenService.deleteTokenByTokenId(tokenId);
+        activityLogService.log(
+            ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+            ActivityAction.ADMIN_SERVICE_TOKEN_DELETED,
+            "A service token was deleted: " + token.getName() + ".",
+            httpRequest.getRemoteAddr()
+        );
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Service token soft deleted successfully", null, httpRequest));
     }
 

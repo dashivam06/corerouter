@@ -2,8 +2,10 @@ package com.fleebug.corerouter.controller.billing;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.entity.user.User;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.exception.user.UserNotFoundException;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.payment.TransactionService;
 import com.fleebug.corerouter.entity.payment.Transaction;
 
@@ -30,6 +32,7 @@ import java.util.Map;
 
     private final TransactionService transactionService;
     private final UserRepository userRepository;
+    private final ActivityLogService activityLogService;
 
     @PostMapping("/initiate")
     public ResponseEntity<ApiResponse<Map<String, String>>> initiateTopUp(
@@ -50,6 +53,12 @@ import java.util.Map;
     @GetMapping("/success")
     public ResponseEntity<ApiResponse<Map<String, Object>>> handleSuccess(@RequestParam("data") String data, HttpServletRequest request) {
         Transaction transaction = transactionService.verifyAndCompleteTransaction(data);
+        activityLogService.log(
+            transaction.getUser(),
+            ActivityAction.WALLET_TOPUP_SUCCESS,
+            "Wallet top-up successful. NPR " + transaction.getAmount() + " was added to your balance.",
+            request.getRemoteAddr()
+        );
         
         Map<String, Object> responseData = new java.util.HashMap<>();
         responseData.put("amount", transaction.getAmount());

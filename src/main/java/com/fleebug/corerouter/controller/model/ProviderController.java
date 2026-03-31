@@ -4,7 +4,10 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.model.request.CreateProviderRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateProviderRequest;
 import com.fleebug.corerouter.dto.model.response.ProviderResponse;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
 import com.fleebug.corerouter.enums.model.ProviderStatus;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.model.ProviderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +31,7 @@ import java.util.List;
 public class ProviderController {
 
     private final ProviderService providerService;
+    private final ActivityLogService activityLogService;
 
     /**
      * Create a new provider
@@ -40,9 +45,16 @@ public class ProviderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProviderResponse>> createProvider(
             @Valid @RequestBody CreateProviderRequest request,
+            Authentication authentication,
             HttpServletRequest servletRequest) {
 
         ProviderResponse provider = providerService.createProvider(request);
+        activityLogService.log(
+            ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+            ActivityAction.ADMIN_PROVIDER_CREATED,
+            "A provider was created: " + provider.getProviderName() + ".",
+            servletRequest.getRemoteAddr()
+        );
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Provider created successfully", provider, servletRequest));
@@ -127,9 +139,16 @@ public class ProviderController {
     public ResponseEntity<ApiResponse<ProviderResponse>> updateProvider(
             @Parameter(description = "Provider ID", example = "1") @PathVariable Integer providerId,
             @Valid @RequestBody UpdateProviderRequest request,
+            Authentication authentication,
             HttpServletRequest servletRequest) {
 
         ProviderResponse provider = providerService.updateProvider(providerId, request);
+        activityLogService.log(
+                ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+                ActivityAction.ADMIN_PROVIDER_UPDATED,
+            "A provider was updated.",
+                servletRequest.getRemoteAddr()
+        );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Provider updated successfully", provider, servletRequest));
     }
@@ -147,9 +166,16 @@ public class ProviderController {
     public ResponseEntity<ApiResponse<ProviderResponse>> changeProviderStatus(
             @Parameter(description = "Provider ID", example = "1") @PathVariable Integer providerId,
             @Parameter(description = "New status", example = "ACTIVE") @RequestParam ProviderStatus status,
+            Authentication authentication,
             HttpServletRequest request) {
 
         ProviderResponse provider = providerService.changeProviderStatus(providerId, status);
+        activityLogService.log(
+                ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+                ActivityAction.ADMIN_PROVIDER_STATUS_CHANGED,
+            "Provider status was changed to " + status + ".",
+                request.getRemoteAddr()
+        );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Provider status changed successfully", provider, request));
     }
@@ -166,9 +192,16 @@ public class ProviderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteProvider(
             @Parameter(description = "Provider ID", example = "1") @PathVariable Integer providerId,
+            Authentication authentication,
             HttpServletRequest request) {
 
         providerService.deleteProvider(providerId);
+        activityLogService.log(
+                ((CustomUserDetails) authentication.getPrincipal()).getUser(),
+                ActivityAction.ADMIN_PROVIDER_DELETED,
+            "A provider was deleted.",
+                request.getRemoteAddr()
+        );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Provider deleted successfully", null, request));
     }

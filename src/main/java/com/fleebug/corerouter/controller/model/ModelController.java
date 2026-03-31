@@ -8,8 +8,10 @@ import com.fleebug.corerouter.dto.model.request.UpdateModelStatusRequest;
 import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.entity.model.ModelStatusAudit;
 import com.fleebug.corerouter.entity.user.User;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
 import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.model.ModelService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +37,7 @@ import java.util.Map;
 public class ModelController {
 
     private final ModelService modelService;
+    private final ActivityLogService activityLogService;
     private final TelemetryClient telemetryClient;
 
     @Operation(summary = "Create model", description = "Register a new AI model in the system")
@@ -57,6 +60,8 @@ public class ModelController {
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.createModel(createRequest, admin);
+        activityLogService.log(admin, ActivityAction.ADMIN_MODEL_CREATED,
+            "A model was created: " + response.getFullname() + ".", request.getRemoteAddr());
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Model created successfully", response, request));
@@ -119,6 +124,8 @@ public class ModelController {
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.updateModel(modelId, updateRequest, admin);
+        activityLogService.log(admin, ActivityAction.ADMIN_MODEL_UPDATED,
+            "A model was updated.", request.getRemoteAddr());
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model updated successfully", response, request));
     }
@@ -140,6 +147,8 @@ public class ModelController {
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         ModelResponse response = modelService.changeModelStatus(modelId, statusRequest.getStatus(), admin);
+        activityLogService.log(admin, ActivityAction.ADMIN_MODEL_STATUS_CHANGED,
+            "Model status was changed to " + statusRequest.getStatus() + ".", request.getRemoteAddr());
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model status updated successfully", response, request));
     }
@@ -159,6 +168,8 @@ public class ModelController {
         User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
         
         modelService.deleteModel(modelId, admin);
+        activityLogService.log(admin, ActivityAction.ADMIN_MODEL_DELETED,
+            "A model was deleted.", request.getRemoteAddr());
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model soft deleted successfully", null, request));
     }

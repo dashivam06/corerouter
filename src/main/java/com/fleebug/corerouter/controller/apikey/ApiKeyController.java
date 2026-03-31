@@ -18,7 +18,9 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.apikey.request.CreateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.request.UpdateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
 import com.fleebug.corerouter.service.apikey.ApiKeyService;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 
 import java.util.HashMap;
@@ -32,6 +34,7 @@ import java.util.Map;
 public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;
+    private final ActivityLogService activityLogService;
     private final TelemetryClient telemetryClient;
 
     /**
@@ -57,6 +60,8 @@ public class ApiKeyController {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.generateApiKey(userDetails.getUser(), createRequest);
+        activityLogService.log(userDetails.getUser(), ActivityAction.CREATE_API_KEY,
+            "A new API key was created successfully.", request.getRemoteAddr());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "API key generated successfully", apiKeyResponse, request));
@@ -171,6 +176,8 @@ public class ApiKeyController {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         ApiKeyResponse apiKeyResponse = apiKeyService.toggleApiKeyStatus(apiKeyId, userDetails.getUser().getUserId(), true);
+        activityLogService.log(userDetails.getUser(), ActivityAction.DEACTIVATE_API_KEY,
+            "An API key was deactivated.", request.getRemoteAddr());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key disabled successfully", apiKeyResponse, request));
     }
@@ -229,6 +236,8 @@ public class ApiKeyController {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         apiKeyService.deleteApiKey(apiKeyId, userDetails.getUser().getUserId());
+        activityLogService.log(userDetails.getUser(), ActivityAction.DELETE_API_KEY,
+            "An API key was deleted.", request.getRemoteAddr());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key soft deleted successfully", null, request));
     }

@@ -19,6 +19,7 @@ import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.dto.user.response.UserProfileResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
+import com.fleebug.corerouter.enums.activity.ActivityAction;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
 import com.fleebug.corerouter.exception.user.InvalidOtpException;
@@ -26,6 +27,7 @@ import com.fleebug.corerouter.exception.user.UserAlreadyExistsException;
 import com.fleebug.corerouter.exception.user.UserNotFoundException;
 import com.fleebug.corerouter.repository.token.UserTokenRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
+import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
 
@@ -40,6 +42,7 @@ public class UserService {
     private final TokenService tokenService;
     private final OtpService otpService;
     private final UserTokenRepository userTokenRepository;
+    private final ActivityLogService activityLogService;
 
     /**
      * Step 1: Request OTP for user registration
@@ -226,6 +229,10 @@ public class UserService {
      * @throws IllegalArgumentException if user not found or old password is incorrect
      */
     public AuthResponse changePassword(Integer userId, String oldPassword, String newPassword) {
+        return changePassword(userId, oldPassword, newPassword, "UNKNOWN");
+    }
+
+    public AuthResponse changePassword(Integer userId, String oldPassword, String newPassword, String ipAddress) {
         telemetryClient.trackTrace("Attempting to change password", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         User user = getUserById(userId);
@@ -240,6 +247,8 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         telemetryClient.trackTrace("Password changed successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+
+        activityLogService.log(user, ActivityAction.CHANGE_PASSWORD, "Your password was changed successfully.", ipAddress);
 
         return tokenService.buildAuthResponse(user);
     }
@@ -256,7 +265,7 @@ public class UserService {
     /**
      * Update profile for authenticated user.
      */
-    public UserProfileResponse updateProfile(Integer userId, UpdateProfileRequest request) {
+    public UserProfileResponse updateProfile(Integer userId, UpdateProfileRequest request, String ipAddress) {
         telemetryClient.trackTrace("Updating user profile", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         User user = getUserById(userId);
@@ -276,24 +285,26 @@ public class UserService {
         User updated = userRepository.save(user);
         telemetryClient.trackTrace("User profile updated successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
+        activityLogService.log(updated, ActivityAction.UPDATE_PROFILE, "Your profile was updated successfully.", ipAddress);
+
         return mapToProfileResponse(updated);
     }
 
     /**
      * Change password for authenticated user using request payload.
      */
-    public void changePassword(Integer userId, ChangePasswordRequest request) {
+    public void changePassword(Integer userId, ChangePasswordRequest request, String ipAddress) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("New password and confirm password do not match");
         }
 
-        changePassword(userId, request.getCurrentPassword(), request.getNewPassword());
+        changePassword(userId, request.getCurrentPassword(), request.getNewPassword(), ipAddress);
     }
 
     /**
      * Soft delete account while preserving historical records.
      */
-    public void softDeleteAccount(Integer userId, String currentPassword) {
+    public void softDeleteAccount(Integer userId, String currentPassword, String ipAddress) {
         telemetryClient.trackTrace("Soft delete account initiated", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         User user = getUserById(userId);
@@ -314,6 +325,8 @@ public class UserService {
         for (UserToken token : userTokenRepository.findByUserAndRevokedFalse(user)) {
             token.setRevoked(true);
         }
+
+        activityLogService.log(user, ActivityAction.SOFT_DELETE_ACCOUNT, "Your account was deleted.", ipAddress);
 
         telemetryClient.trackTrace("User account soft deleted", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
     }

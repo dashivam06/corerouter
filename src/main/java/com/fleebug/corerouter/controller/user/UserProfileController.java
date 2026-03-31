@@ -49,7 +49,7 @@ public class UserProfileController {
             @Valid @RequestBody UpdateProfileRequest updateRequest,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
-        UserProfileResponse response = userService.updateProfile(user.getUserId(), updateRequest);
+        UserProfileResponse response = userService.updateProfile(user.getUserId(), updateRequest, request.getRemoteAddr());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Profile updated successfully", response, request));
     }
@@ -61,7 +61,7 @@ public class UserProfileController {
             @Valid @RequestBody ChangePasswordRequest changePasswordRequest,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
-        userService.changePassword(user.getUserId(), changePasswordRequest);
+        userService.changePassword(user.getUserId(), changePasswordRequest, request.getRemoteAddr());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Password changed successfully", null, request));
     }
@@ -73,7 +73,7 @@ public class UserProfileController {
             @Valid @RequestBody DeleteAccountRequest deleteAccountRequest,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
-        userService.softDeleteAccount(user.getUserId(), deleteAccountRequest.getPassword());
+        userService.softDeleteAccount(user.getUserId(), deleteAccountRequest.getPassword(), request.getRemoteAddr());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Account deleted successfully", null, request));
     }
