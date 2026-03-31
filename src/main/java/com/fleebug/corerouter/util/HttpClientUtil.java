@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -48,7 +49,12 @@ public class HttpClientUtil {
     }
 
     public Map<String, Object> getJsonMap(String url, Map<String, String> headers, int connectTimeoutMs, int readTimeoutMs) {
-        return getJson(url, headers, Map.class, connectTimeoutMs, readTimeoutMs);
+        String responseBody = get(url, headers, connectTimeoutMs, readTimeoutMs);
+        try {
+            return objectMapper.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to parse JSON response from " + url + ": " + ex.getMessage(), ex);
+        }
     }
 
     public String postJson(String url, Map<String, String> headers, Object payload, int connectTimeoutMs, int readTimeoutMs) {

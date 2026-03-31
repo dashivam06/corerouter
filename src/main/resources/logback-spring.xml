@@ -14,6 +14,10 @@
         </encoder>
     </appender>
 
+    <!-- Azure SDK cache/netty mismatch warnings are noisy and non-fatal in this setup. -->
+    <logger name="com.azure.core.http.netty.implementation.Utility" level="ERROR"/>
+    <logger name="com.microsoft.aad.msal4j.ConfidentialClientApplication" level="ERROR"/>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>

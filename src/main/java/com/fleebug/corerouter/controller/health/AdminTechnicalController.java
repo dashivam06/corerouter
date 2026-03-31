@@ -166,6 +166,69 @@ public class AdminTechnicalController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed jobs fetched successfully", payload, request));
     }
 
+        @GetMapping("/total-requests")
+        public ResponseEntity<ApiResponse<Object>> getTotalRequests(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getTotalRequests(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total requests fetched successfully", payload, request));
+        }
+
+        @GetMapping("/failed-requests")
+        public ResponseEntity<ApiResponse<Object>> getFailedRequests(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getFailedRequests(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed requests fetched successfully", payload, request));
+        }
+
+        @GetMapping("/error-rate")
+        public ResponseEntity<ApiResponse<Object>> getErrorRate(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getErrorRate(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Error rate fetched successfully", payload, request));
+        }
+
+        @GetMapping("/average-response-time")
+        public ResponseEntity<ApiResponse<Object>> getAverageResponseTime(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getAverageResponseTime(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Average response time fetched successfully", payload, request));
+        }
+
+        @GetMapping("/requests-over-time")
+        public ResponseEntity<ApiResponse<Object>> getRequestsOverTime(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getRequestsOverTime(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Requests over time fetched successfully", payload, request));
+        }
+
+        @GetMapping("/failed-requests-over-time")
+        public ResponseEntity<ApiResponse<Object>> getFailedRequestsOverTime(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getFailedRequestsOverTime(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed requests over time fetched successfully", payload, request));
+        }
+
+        @GetMapping("/top-endpoints")
+        public ResponseEntity<ApiResponse<Object>> getTopEndpoints(
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                Object payload = azureInsightsService.getTopEndpointsForRange(range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Top endpoints fetched successfully", payload, request));
+        }
+
     private Map<String, Object> timeoutResult() {
         return Map.of(
                 "status", "DOWN",

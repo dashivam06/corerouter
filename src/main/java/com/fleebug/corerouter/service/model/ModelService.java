@@ -10,10 +10,12 @@ import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.entity.documentation.ApiDocumentation;
 import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.entity.model.ModelStatusAudit;
+import com.fleebug.corerouter.entity.model.Provider;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.repository.documentation.ApiDocumentationRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
+import com.fleebug.corerouter.repository.model.ProviderRepository;
 import com.fleebug.corerouter.repository.model.ModelStatusAuditRepository;
 import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class ModelService {
     private final TelemetryClient telemetryClient;
     private final ModelRepository modelRepository;
     private final ModelStatusAuditRepository modelStatusAuditRepository;
+    private final ProviderRepository providerRepository;
     private final ApiDocumentationRepository documentationRepository;
     private final RedisService redisService;
 
@@ -53,10 +56,13 @@ public class ModelService {
             throw new IllegalArgumentException("Model with this name already exists");
         }
 
+        Provider provider = providerRepository.findByProviderName(createRequest.getProvider())
+            .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + createRequest.getProvider()));
+
         Model model = Model.builder()
                 .fullname(createRequest.getFullname())
                 .username(createRequest.getUsername())
-                .provider(createRequest.getProvider())
+            .provider(provider)
                 .status(ModelStatus.ACTIVE)
                 .endpointUrl(createRequest.getEndpointUrl())
                 .description(createRequest.getDescription())
@@ -171,7 +177,9 @@ public class ModelService {
             model.setUsername(updateRequest.getUsername());
         }
         if (updateRequest.getProvider() != null && !updateRequest.getProvider().isBlank()) {
-            model.setProvider(updateRequest.getProvider());
+            Provider provider = providerRepository.findByProviderName(updateRequest.getProvider())
+                    .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + updateRequest.getProvider()));
+            model.setProvider(provider);
         }
         if (updateRequest.getEndpointUrl() != null && !updateRequest.getEndpointUrl().isBlank()) {
             model.setEndpointUrl(updateRequest.getEndpointUrl());
@@ -383,7 +391,7 @@ public class ModelService {
                 .modelId(model.getModelId())
                 .fullname(model.getFullname())
                 .username(model.getUsername())
-                .provider(model.getProvider())
+            .provider(model.getProvider() != null ? model.getProvider().getProviderName() : null)
                 .status(model.getStatus())
                 .endpointUrl(model.getEndpointUrl())
                 .type(model.getType())
@@ -398,7 +406,7 @@ public class ModelService {
                 .modelId(model.getModelId())
                 .fullname(model.getFullname())
                 .username(model.getUsername())
-                .provider(model.getProvider())
+            .provider(model.getProvider() != null ? model.getProvider().getProviderName() : null)
                 .status(model.getStatus())
                 .endpointUrl(model.getEndpointUrl())
                 .type(model.getType())

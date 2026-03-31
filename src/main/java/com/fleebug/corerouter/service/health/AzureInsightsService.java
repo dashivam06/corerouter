@@ -1,5 +1,7 @@
 package com.fleebug.corerouter.service.health;
 
+import com.fleebug.corerouter.config.AzureTokenProvider;
+import com.fleebug.corerouter.exception.health.AzureInsightsAccessException;
 import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,28 +22,39 @@ public class AzureInsightsService {
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final int DEFAULT_LOG_PAGE_SIZE = 100;
     private static final int MAX_PAGE_SIZE = 200;
+    private static final String DEFAULT_RANGE_KEY = "1d";
 
     @Value("${azure.appinsights.app.id}")
     private String appId;
 
-    @Value("${azure.appinsights.api.key}")
-    private String apiKey;
-
     private final HttpClientUtil httpClientUtil;
+    private final AzureTokenProvider azureTokenProvider;
 
     private Object query(String kql) {
         String endpoint = "https://api.applicationinsights.io/v1/apps/" + appId + "/query";
-        return httpClientUtil.postJsonForObject(
-            endpoint,
-            Map.of(
-                "x-api-key", apiKey,
-                "Content-Type", "application/json"
-            ),
-            Map.of("query", kql),
-            Object.class,
-            5000,
-            10000
-        );
+        String token = azureTokenProvider.getToken();
+        try {
+            return httpClientUtil.postJsonForObject(
+                endpoint,
+                Map.of(
+                    "Authorization", "Bearer " + token,
+                    "Content-Type", "application/json"
+                ),
+                Map.of("query", kql),
+                Object.class,
+                5000,
+                10000
+            );
+        } catch (IllegalStateException ex) {
+            String message = ex.getMessage() == null ? "" : ex.getMessage();
+            if (message.contains("status 403") || message.contains("status 401") || message.contains("InsufficientAccessError")) {
+                throw new AzureInsightsAccessException(
+                        "Azure Application Insights access denied. Verify Entra app permissions/RBAC for this Application Insights resource.",
+                        ex
+                );
+            }
+            throw ex;
+        }
     }
 
     public Object getWarningsPaged(LocalDateTime from, LocalDateTime to, Integer pageSize,
@@ -184,6 +197,97 @@ public class AzureInsightsService {
         return query(kql);
     }
 
+    public Object getTotalRequests(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize totalRequests = count()
+                """.formatted(range.range(), genuineUserFilterClause());
+        return query(kql);
+    }
+
+    public Object getFailedRequests(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize failedRequests = countif(success == false)
+                """.formatted(range.range(), genuineUserFilterClause());
+        return query(kql);
+    }
+
+    public Object getErrorRate(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize total = count(), failed = countif(success == false)
+                | extend errorRate = iff(total == 0, 0.0, failed * 100.0 / total)
+                """.formatted(range.range(), genuineUserFilterClause());
+        return query(kql);
+    }
+
+    public Object getAverageResponseTime(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize avgDurationMs = round(avg(duration / 1ms), 2)
+                """.formatted(range.range(), genuineUserFilterClause());
+        return query(kql);
+    }
+
+    public Object getRequestsOverTime(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize requests = count() by bin(timestamp, %s)
+                | order by timestamp asc
+                """.formatted(range.range(), genuineUserFilterClause(), range.interval());
+        return query(kql);
+    }
+
+    public Object getFailedRequestsOverTime(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | where success == false
+                | summarize failures = count() by bin(timestamp, %s)
+                | order by timestamp asc
+                """.formatted(range.range(), genuineUserFilterClause(), range.interval());
+        return query(kql);
+    }
+
+    public Object getTopEndpointsForRange(String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String kql = """
+                requests
+                | where timestamp >= ago(%s)
+                %s
+                | summarize requestCount = count() by name
+                | top 5 by requestCount desc
+                """.formatted(range.range(), genuineUserFilterClause());
+        return query(kql);
+    }
+
+    private String genuineUserFilterClause() {
+        return """
+                | where not(name has "AdminTechnicalController")
+                | where not(name has "InternalWorkerController")
+                | where not(tostring(url) has "/api/v1/admin/")
+                | where not(tostring(url) has "/api/v1/internal/")
+                """;
+    }
+
     public Object getFailedJobs(LocalDateTime from, LocalDateTime to) {
         return getFailedJobsPaged(from, to, DEFAULT_PAGE_SIZE, null, null);
     }
@@ -304,6 +408,19 @@ public class AzureInsightsService {
             case "WARN" -> 2;
             case "INFO" -> 1;
             default -> 0;
+        };
+    }
+
+    private RangeConfig resolveRange(String rangeKey) {
+        String key = rangeKey == null ? DEFAULT_RANGE_KEY : rangeKey.trim().toLowerCase(Locale.ROOT);
+        return switch (key) {
+            case "1d" -> new RangeConfig("1d", "5m");
+            case "3d" -> new RangeConfig("3d", "15m");
+            case "7d" -> new RangeConfig("7d", "1h");
+            case "1m" -> new RangeConfig("30d", "6h");
+            case "3m" -> new RangeConfig("90d", "1d");
+            case "6m" -> new RangeConfig("180d", "1d");
+            default -> new RangeConfig("1d", "5m");
         };
     }
 
@@ -445,4 +562,6 @@ public class AzureInsightsService {
     private String formatDate(LocalDateTime dateTime) {
         return dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
     }
+
+    private record RangeConfig(String range, String interval) {}
 }

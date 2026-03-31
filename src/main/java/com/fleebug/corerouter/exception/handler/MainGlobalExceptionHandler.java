@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import com.fleebug.corerouter.exception.apikey.RateLimitExceededException;
+import com.fleebug.corerouter.exception.health.AzureInsightsAccessException;
+
 import org.springframework.data.redis.RedisConnectionFailureException;
+import com.fleebug.corerouter.exception.model.ProviderNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -42,11 +45,11 @@ public class MainGlobalExceptionHandler {
     private final TelemetryClient telemetryClient;
     
     /**
-     * Handle validation errors from @Valid annotation
-     * 
-     * Extracts field-level validation errors and returns them in a structured format
-     * allowing clients to easily identify which fields failed validation and why
-     */
+        * Handle validation errors from @Valid annotation
+        * 
+        * Extracts field-level validation errors and returns them in a structured format
+        * allowing clients to easily identify which fields failed validation and why
+        */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex,
@@ -73,9 +76,6 @@ public class MainGlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
     
-    /**
-     * Handle 404 errors for non-existent endpoints
-     */
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(
             NoHandlerFoundException ex,
@@ -93,12 +93,6 @@ public class MainGlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
     
-    /**
-     * Handle rate limit exceeded errors
-     * 
-     * Catches RateLimitExceededException thrown when request rate limits are exceeded.
-     * Returns 429 Too Many Requests status.
-     */
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleRateLimitExceededException(
             RateLimitExceededException ex,
@@ -116,27 +110,19 @@ public class MainGlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingBody(HttpMessageNotReadableException ex,
+                                                            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Request body missing or malformed", SeverityLevel.Information, properties);
 
-        @ExceptionHandler(HttpMessageNotReadableException.class)
-        public ResponseEntity<ApiResponse<Void>> handleMissingBody(HttpMessageNotReadableException ex,
-                                                                HttpServletRequest request) {
-                Map<String, String> properties = new HashMap<>();
-                properties.put("path", request.getRequestURI());
-                properties.put("error", ex.getMessage());
-                telemetryClient.trackTrace("Request body missing or malformed", SeverityLevel.Information, properties);
+        ApiResponse<Void> response = ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
 
-                ApiResponse<Void> response =  ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
     
-    /**
-     * Handle Redis connection failures during request processing
-     * 
-     * Catches RedisConnectionFailureException which occurs when Redis becomes unavailable
-     * after application startup. Returns a user-friendly error message.
-     * Admin can check server logs for detailed connection information.
-     */
     @ExceptionHandler(RedisConnectionFailureException.class)
     public ResponseEntity<ApiResponse<Void>> handleRedisConnectionFailure(
             RedisConnectionFailureException ex,
@@ -153,14 +139,58 @@ public class MainGlobalExceptionHandler {
         
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
     }
+
+    @ExceptionHandler(AzureInsightsAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAzureInsightsAccessException(
+            AzureInsightsAccessException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackException(ex, properties, null);
+
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.FORBIDDEN,
+                "Azure Insights access denied. Grant the app identity Monitoring Reader (or equivalent) on the target Application Insights resource.",
+                request);
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+    }
     
+    @ExceptionHandler(ProviderNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleProviderNotFoundException(
+            ProviderNotFoundException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Provider not found", SeverityLevel.Information, properties);
+        
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                request);
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
     
-    /**
-     * Generic fallback handler for all uncaught exceptions
-     * 
-     * Logs the full exception stack trace for debugging purposes
-     * Returns a generic error message without exposing internal details
-     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
+            IllegalArgumentException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Invalid argument", SeverityLevel.Information, properties);
+        
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                request);
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(
             Exception ex,
