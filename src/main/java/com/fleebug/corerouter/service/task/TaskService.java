@@ -5,6 +5,7 @@ import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 
 import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
+import com.fleebug.corerouter.dto.task.response.TaskInsightsResponse;
 import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.entity.task.Task;
@@ -121,6 +122,40 @@ public class TaskService {
         Task saved = taskRepository.save(task);
         telemetryClient.trackTrace("Task status updated - taskId=" + saved.getTaskId() + ", status=" + saved.getStatus(), SeverityLevel.Information, Map.of("taskId", saved.getTaskId(), "status", saved.getStatus().toString()));
         return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public TaskInsightsResponse getTaskInsightsByUser(Integer userId) {
+        long totalTasks = taskRepository.countByApiKey_User_UserId(userId);
+        long completed = taskRepository.countByApiKey_User_UserIdAndStatus(userId, TaskStatus.COMPLETED);
+        long failed = taskRepository.countByApiKey_User_UserIdAndStatus(userId, TaskStatus.FAILED);
+        long processing = taskRepository.countByApiKey_User_UserIdAndStatus(userId, TaskStatus.PROCESSING);
+        long queued = taskRepository.countByApiKey_User_UserIdAndStatus(userId, TaskStatus.QUEUED);
+
+        return TaskInsightsResponse.builder()
+                .totalTasks(totalTasks)
+                .completed(completed)
+                .failed(failed)
+                .processing(processing)
+                .queued(queued)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TaskInsightsResponse getTaskInsightsForAdmin() {
+        long totalTasks = taskRepository.count();
+        long completed = taskRepository.countByStatus(TaskStatus.COMPLETED);
+        long failed = taskRepository.countByStatus(TaskStatus.FAILED);
+        long processing = taskRepository.countByStatus(TaskStatus.PROCESSING);
+        long queued = taskRepository.countByStatus(TaskStatus.QUEUED);
+
+        return TaskInsightsResponse.builder()
+                .totalTasks(totalTasks)
+                .completed(completed)
+                .failed(failed)
+                .processing(processing)
+                .queued(queued)
+                .build();
     }
 }
 

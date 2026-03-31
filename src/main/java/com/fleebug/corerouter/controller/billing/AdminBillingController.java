@@ -6,11 +6,14 @@ import com.fleebug.corerouter.dto.billing.request.CreateBillingConfigRequest;
 import com.fleebug.corerouter.dto.billing.request.RecordUsageRequest;
 import com.fleebug.corerouter.dto.billing.request.UpdateBillingConfigRequest;
 import com.fleebug.corerouter.dto.billing.response.BillingConfigResponse;
+import com.fleebug.corerouter.dto.billing.response.BillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.service.billing.BillingConfigService;
 import com.fleebug.corerouter.service.billing.UsageService;
+import com.fleebug.corerouter.service.payment.TransactionService;
+import com.fleebug.corerouter.repository.user.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -23,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +40,8 @@ public class AdminBillingController {
 
     private final BillingConfigService billingConfigService;
     private final UsageService usageService;
+    private final TransactionService transactionService;
+    private final UserRepository userRepository;
     private final TelemetryClient telemetryClient;
 
     // ---- Billing Config CRUD ----
@@ -318,5 +324,29 @@ public class AdminBillingController {
         UsageSummaryResponse response = usageService.getUsageSummaryByApiKeyGroupedByModel(apiKeyId, from, to);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage summary by model retrieved successfully", response, request));
+    }
+
+    @Operation(summary = "Get billing insights", description = "Get total system balance, this month's billing volume, and today's top-up amount across all users")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Billing insights retrieved successfully")
+    })
+    @GetMapping("/insights")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<BillingInsightsResponse>> getBillingInsights(HttpServletRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+
+        BigDecimal totalBalance = userRepository.sumAllBalances();
+        BigDecimal thisMonthVolume = usageService.getTotalCostForAllUsers(monthStart, now);
+        BigDecimal todayTopUpAmount = transactionService.getTopUpAmountByPeriod(todayStart, now);
+
+        BillingInsightsResponse insights = BillingInsightsResponse.builder()
+                .totalBalance(totalBalance)
+                .thisMonthVolume(thisMonthVolume)
+                .todayTopUpAmount(todayTopUpAmount)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
     }
 }

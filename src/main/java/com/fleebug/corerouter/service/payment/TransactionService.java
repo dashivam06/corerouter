@@ -261,4 +261,14 @@ public class TransactionService {
                 to
         );
     }
+
+    @Transactional(readOnly = true)
+    public BigDecimal getTopUpAmountByPeriod(LocalDateTime from, LocalDateTime to) {
+        return transactionRepository.sumAmountByTypeAndStatusAndCompletedAtBetween(
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED,
+                from,
+                to
+        );
+    }
 }

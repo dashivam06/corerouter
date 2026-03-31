@@ -86,4 +86,11 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("from") LocalDateTime from,
         @Param("to") LocalDateTime to
     );
+
+    @Query("SELECT COALESCE(SUM(u.cost), 0) FROM UsageRecord u " +
+           "WHERE u.recordedAt BETWEEN :from AND :to")
+    BigDecimal sumCostByPeriod(
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
 }

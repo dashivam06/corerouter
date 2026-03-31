@@ -212,6 +212,11 @@ public class UsageService {
         return usageRecordRepository.sumCostByUserAndPeriod(userId, from, to);
     }
 
+    @Transactional(readOnly = true)
+    public BigDecimal getTotalCostForAllUsers(LocalDateTime from, LocalDateTime to) {
+        return usageRecordRepository.sumCostByPeriod(from, to);
+    }
+
     // ---- Internal helpers ----
 
     private BigDecimal extractRate(BillingConfig billingConfig, UsageUnitType unitType) {

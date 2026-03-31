@@ -36,4 +36,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("status") TransactionStatus status,
             @Param("from") java.time.LocalDateTime from,
             @Param("to") java.time.LocalDateTime to);
+
+            @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+                "WHERE t.type = :type " +
+                "AND t.status = :status " +
+                "AND t.completedAt BETWEEN :from AND :to")
+            BigDecimal sumAmountByTypeAndStatusAndCompletedAtBetween(
+                @Param("type") TransactionType type,
+                @Param("status") TransactionStatus status,
+                @Param("from") java.time.LocalDateTime from,
+                @Param("to") java.time.LocalDateTime to);
 }
