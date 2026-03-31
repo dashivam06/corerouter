@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fleebug.corerouter.dto.apikey.request.CreateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.request.UpdateApiKeyRequest;
+import com.fleebug.corerouter.dto.apikey.response.AdminApiKeyInsightsResponse;
 import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
 import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.user.User;
@@ -170,6 +171,21 @@ public class ApiKeyService {
         apiKeyRepository.save(apiKey);
 
         telemetryClient.trackTrace("API key soft deleted successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
+    }
+
+    @Transactional(readOnly = true)
+    public AdminApiKeyInsightsResponse getAdminInsights() {
+        long totalKeys = apiKeyRepository.count();
+        long active = apiKeyRepository.countByStatus(ApiKeyStatus.ACTIVE);
+        long inactive = apiKeyRepository.countByStatus(ApiKeyStatus.INACTIVE);
+        long revoked = apiKeyRepository.countByStatus(ApiKeyStatus.REVOKED);
+
+        return AdminApiKeyInsightsResponse.builder()
+                .totalKeys(totalKeys)
+                .active(active)
+                .inactive(inactive)
+                .revoked(revoked)
+                .build();
     }
 
     private ApiKey getOwnedNonRevokedApiKey(Integer apiKeyId, Integer userId, String operation) {
