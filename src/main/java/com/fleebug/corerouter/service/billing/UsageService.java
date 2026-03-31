@@ -9,6 +9,7 @@ import com.fleebug.corerouter.dto.billing.request.RecordUsageRequest;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryItem;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
+import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
 import com.fleebug.corerouter.entity.billing.BillingConfig;
 import com.fleebug.corerouter.entity.billing.UsageRecord;
 import com.fleebug.corerouter.entity.model.Model;
@@ -21,6 +22,7 @@ import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -217,7 +219,64 @@ public class UsageService {
         return usageRecordRepository.sumCostByPeriod(from, to);
     }
 
+    @Transactional(readOnly = true)
+    public UserUsageInsightsResponse getUserUsageInsights(Integer userId) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime currentStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime previousStart = currentStart.minusMonths(1);
+        LocalDateTime previousEnd = previousStart.plusSeconds(java.time.Duration.between(currentStart, now).getSeconds());
+
+        BigDecimal totalSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, currentStart, now);
+        BigDecimal priorSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, previousStart, previousEnd);
+
+        long totalRequests = usageRecordRepository.countDistinctRequestsByUserAndPeriod(userId, currentStart, now);
+        long priorRequests = usageRecordRepository.countDistinctRequestsByUserAndPeriod(userId, previousStart, previousEnd);
+
+        BigDecimal avgCostPerRequest = calculateAverage(totalSpend, totalRequests);
+        BigDecimal priorAvgCostPerRequest = calculateAverage(priorSpend, priorRequests);
+
+        BigDecimal totalSpendChangePercent = calculatePercentChange(totalSpend, priorSpend);
+        BigDecimal totalRequestsChangePercent = calculatePercentChange(BigDecimal.valueOf(totalRequests), BigDecimal.valueOf(priorRequests));
+        BigDecimal avgCostPerRequestChangePercent = calculatePercentChange(avgCostPerRequest, priorAvgCostPerRequest);
+
+        List<Object[]> topModels = usageRecordRepository.findTopModelsByUserAndPeriod(
+                userId,
+                currentStart,
+                now,
+                PageRequest.of(0, 1)
+        );
+
+        String mostUsedModel = topModels.isEmpty() ? "N/A" : String.valueOf(topModels.get(0)[0]);
+
+        return UserUsageInsightsResponse.builder()
+                .totalSpend(totalSpend.setScale(2, RoundingMode.HALF_UP))
+                .totalSpendChangePercent(totalSpendChangePercent)
+                .totalRequests(totalRequests)
+                .totalRequestsChangePercent(totalRequestsChangePercent)
+                .mostUsedModel(mostUsedModel)
+                .avgCostPerRequest(avgCostPerRequest)
+                .avgCostPerRequestChangePercent(avgCostPerRequestChangePercent)
+                .build();
+    }
+
     // ---- Internal helpers ----
+
+    private BigDecimal calculateAverage(BigDecimal total, long count) {
+        if (count <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calculatePercentChange(BigDecimal current, BigDecimal previous) {
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+        }
+
+        return current.subtract(previous)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(previous, 1, RoundingMode.HALF_UP);
+    }
 
     private BigDecimal extractRate(BillingConfig billingConfig, UsageUnitType unitType) {
         String metadata = billingConfig.getPricingMetadata();

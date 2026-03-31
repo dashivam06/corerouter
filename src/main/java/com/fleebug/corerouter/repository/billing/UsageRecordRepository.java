@@ -93,4 +93,26 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("from") LocalDateTime from,
         @Param("to") LocalDateTime to
     );
+
+    @Query("SELECT COUNT(DISTINCT u.task.taskId) FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to")
+    long countDistinctRequestsByUserAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
+
+    @Query("SELECT u.model.fullname, COUNT(DISTINCT u.task.taskId) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to " +
+           "GROUP BY u.model.fullname " +
+           "ORDER BY COUNT(DISTINCT u.task.taskId) DESC")
+    List<Object[]> findTopModelsByUserAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        Pageable pageable
+    );
 }

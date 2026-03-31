@@ -4,6 +4,7 @@ import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
+import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
@@ -184,6 +185,21 @@ public class UserBillingController {
         BigDecimal totalCost = usageService.getTotalCostByUser(user.getUserId(), from, to);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total cost retrieved successfully", totalCost, request));
+    }
+
+    @Operation(summary = "Get usage insights", description = "Get dashboard insights for authenticated user usage page")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Usage insights retrieved successfully")
+    })
+    @GetMapping("/usage/insights")
+    public ResponseEntity<ApiResponse<UserUsageInsightsResponse>> getUsageInsights(
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        UserUsageInsightsResponse insights = usageService.getUserUsageInsights(user.getUserId());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage insights retrieved successfully", insights, request));
     }
 
 }
