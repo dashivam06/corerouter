@@ -5,6 +5,7 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.model.request.CreateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelStatusRequest;
+import com.fleebug.corerouter.dto.model.response.AdminModelInsightsResponse;
 import com.fleebug.corerouter.dto.model.response.ModelResponse;
 import com.fleebug.corerouter.entity.model.ModelStatusAudit;
 import com.fleebug.corerouter.entity.user.User;
@@ -39,6 +40,18 @@ public class ModelController {
     private final ModelService modelService;
     private final ActivityLogService activityLogService;
     private final TelemetryClient telemetryClient;
+
+    @Operation(summary = "Get model insights", description = "Get total models, active models, and provider count for admin dashboard")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Model insights retrieved successfully")
+    })
+    @GetMapping("/insights")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<AdminModelInsightsResponse>> getModelInsights(HttpServletRequest request) {
+        AdminModelInsightsResponse insights = modelService.getAdminInsights();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Model insights retrieved successfully", insights, request));
+    }
 
     @Operation(summary = "Create model", description = "Register a new AI model in the system")
     @ApiResponses({

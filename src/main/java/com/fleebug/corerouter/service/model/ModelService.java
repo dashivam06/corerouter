@@ -3,6 +3,7 @@ package com.fleebug.corerouter.service.model;
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.documentation.response.ApiDocumentationResponse;
+import com.fleebug.corerouter.dto.model.response.AdminModelInsightsResponse;
 import com.fleebug.corerouter.dto.model.request.CreateModelRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateModelRequest;
 import com.fleebug.corerouter.dto.model.response.ModelDetailsResponse;
@@ -351,6 +352,19 @@ public class ModelService {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public AdminModelInsightsResponse getAdminInsights() {
+        long totalModels = modelRepository.count();
+        long activeModels = modelRepository.countByStatus(ModelStatus.ACTIVE);
+        long providers = providerRepository.count();
+
+        return AdminModelInsightsResponse.builder()
+                .totalModels(totalModels)
+                .activeModels(activeModels)
+                .providers(providers)
+                .build();
     }
 
     private void createAuditLog(Model model, ModelStatus previousStatus, ModelStatus newStatus, User admin, String changeReason) {

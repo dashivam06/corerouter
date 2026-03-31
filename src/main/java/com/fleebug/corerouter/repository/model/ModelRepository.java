@@ -23,4 +23,6 @@ public interface ModelRepository extends JpaRepository<Model, Integer> {
 
     List<Model> findByStatusAndType(ModelStatus status, String type);
 
+    long countByStatus(ModelStatus status);
+
 }
