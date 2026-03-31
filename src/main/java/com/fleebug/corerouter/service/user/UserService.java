@@ -15,11 +15,13 @@ import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
 import com.fleebug.corerouter.dto.user.request.ChangePasswordRequest;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
 import com.fleebug.corerouter.dto.user.request.UpdateProfileRequest;
+import com.fleebug.corerouter.dto.user.response.AdminUserInsightsResponse;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.dto.user.response.UserProfileResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.activity.ActivityAction;
+import com.fleebug.corerouter.enums.user.UserRole;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
 import com.fleebug.corerouter.exception.user.InvalidOtpException;
@@ -30,6 +32,10 @@ import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -329,6 +335,47 @@ public class UserService {
         activityLogService.log(user, ActivityAction.SOFT_DELETE_ACCOUNT, "Your account was deleted.", ipAddress);
 
         telemetryClient.trackTrace("User account soft deleted", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserInsightsResponse getAdminInsights() {
+        long totalUsers = userRepository.count();
+        long activeUsers = userRepository.countByStatus(UserStatus.ACTIVE);
+        long inactiveUsers = userRepository.countByStatus(UserStatus.INACTIVE);
+        long suspendedUsers = userRepository.countByStatus(UserStatus.SUSPENDED);
+        long adminUsers = userRepository.countByRole(UserRole.ADMIN);
+
+        LocalDateTime currentMonthStart = LocalDateTime.now()
+                .withDayOfMonth(1)
+                .withHour(0)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+        long pastMonthBaseline = userRepository.countByCreatedAtBefore(currentMonthStart);
+
+        BigDecimal usersChangeFromPastMonthPercent = BigDecimal.ZERO;
+        if (pastMonthBaseline > 0) {
+            usersChangeFromPastMonthPercent = BigDecimal.valueOf(totalUsers - pastMonthBaseline)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(pastMonthBaseline), 1, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal activeSharePercent = BigDecimal.ZERO;
+        if (totalUsers > 0) {
+            activeSharePercent = BigDecimal.valueOf(activeUsers)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(totalUsers), 1, RoundingMode.HALF_UP);
+        }
+
+        return AdminUserInsightsResponse.builder()
+                .totalUsers(totalUsers)
+                .usersChangeFromPastMonthPercent(usersChangeFromPastMonthPercent)
+                .activeUsers(activeUsers)
+                .inactiveUsers(inactiveUsers)
+                .activeSharePercent(activeSharePercent)
+                .suspendedUsers(suspendedUsers)
+                .adminUsers(adminUsers)
+                .build();
     }
 
     private UserProfileResponse mapToProfileResponse(User user) {
