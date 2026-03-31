@@ -250,4 +250,15 @@ public class TransactionService {
             }
         }
     }
+
+    @Transactional(readOnly = true)
+    public BigDecimal getTopUpAmountByUserAndPeriod(Integer userId, LocalDateTime from, LocalDateTime to) {
+        return transactionRepository.sumAmountByUserAndTypeAndStatusAndCompletedAtBetween(
+                userId,
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED,
+                from,
+                to
+        );
+    }
 }

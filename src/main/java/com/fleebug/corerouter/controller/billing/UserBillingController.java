@@ -3,11 +3,13 @@ package com.fleebug.corerouter.controller.billing;
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
+import com.fleebug.corerouter.dto.billing.response.BillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 import com.fleebug.corerouter.service.billing.UsageService;
+import com.fleebug.corerouter.service.payment.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -35,6 +37,7 @@ import java.util.Map;
 public class UserBillingController {
 
     private final UsageService usageService;
+    private final TransactionService transactionService;
     private final TelemetryClient telemetryClient;
 
     /**
@@ -184,5 +187,31 @@ public class UserBillingController {
         BigDecimal totalCost = usageService.getTotalCostByUser(user.getUserId(), from, to);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total cost retrieved successfully", totalCost, request));
+    }
+
+    @Operation(summary = "Get billing insights", description = "Get total balance, this month's billing volume, and today's top-up amount for the authenticated user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Billing insights retrieved successfully")
+    })
+    @GetMapping("/insights")
+    public ResponseEntity<ApiResponse<BillingInsightsResponse>> getBillingInsights(
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+
+        BigDecimal thisMonthVolume = usageService.getTotalCostByUser(user.getUserId(), monthStart, now);
+        BigDecimal todayTopUpAmount = transactionService.getTopUpAmountByUserAndPeriod(user.getUserId(), todayStart, now);
+
+        BillingInsightsResponse insights = BillingInsightsResponse.builder()
+                .totalBalance(user.getBalance())
+                .thisMonthVolume(thisMonthVolume)
+                .todayTopUpAmount(todayTopUpAmount)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
     }
 }
