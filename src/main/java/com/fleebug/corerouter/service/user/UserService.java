@@ -12,14 +12,19 @@ import java.util.Map;
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
 import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
+import com.fleebug.corerouter.dto.user.request.ChangePasswordRequest;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
+import com.fleebug.corerouter.dto.user.request.UpdateProfileRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
+import com.fleebug.corerouter.dto.user.response.UserProfileResponse;
+import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
 import com.fleebug.corerouter.exception.user.InvalidOtpException;
 import com.fleebug.corerouter.exception.user.UserAlreadyExistsException;
 import com.fleebug.corerouter.exception.user.UserNotFoundException;
+import com.fleebug.corerouter.repository.token.UserTokenRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
@@ -34,6 +39,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final OtpService otpService;
+    private final UserTokenRepository userTokenRepository;
 
     /**
      * Step 1: Request OTP for user registration
@@ -236,6 +242,90 @@ public class UserService {
         telemetryClient.trackTrace("Password changed successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         return tokenService.buildAuthResponse(user);
+    }
+
+    /**
+     * Get profile details for authenticated user.
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getMyProfile(Integer userId) {
+        User user = getUserById(userId);
+        return mapToProfileResponse(user);
+    }
+
+    /**
+     * Update profile for authenticated user.
+     */
+    public UserProfileResponse updateProfile(Integer userId, UpdateProfileRequest request) {
+        telemetryClient.trackTrace("Updating user profile", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+
+        User user = getUserById(userId);
+
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new IllegalArgumentException("Deleted account cannot be updated");
+        }
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+        }
+
+        if (request.getProfileImage() != null) {
+            user.setProfileImage(request.getProfileImage().trim().isEmpty() ? null : request.getProfileImage().trim());
+        }
+
+        User updated = userRepository.save(user);
+        telemetryClient.trackTrace("User profile updated successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+
+        return mapToProfileResponse(updated);
+    }
+
+    /**
+     * Change password for authenticated user using request payload.
+     */
+    public void changePassword(Integer userId, ChangePasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+
+        changePassword(userId, request.getCurrentPassword(), request.getNewPassword());
+    }
+
+    /**
+     * Soft delete account while preserving historical records.
+     */
+    public void softDeleteAccount(Integer userId, String currentPassword) {
+        telemetryClient.trackTrace("Soft delete account initiated", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+
+        User user = getUserById(userId);
+
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new IllegalArgumentException("Account is already deleted");
+        }
+
+        if (user.getPassword() != null && !passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid password");
+        }
+
+        user.setStatus(UserStatus.DELETED);
+        user.setEmailSubscribed(false);
+        userRepository.save(user);
+
+        // Revoke all active tokens to force logout from all sessions.
+        for (UserToken token : userTokenRepository.findByUserAndRevokedFalse(user)) {
+            token.setRevoked(true);
+        }
+
+        telemetryClient.trackTrace("User account soft deleted", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+    }
+
+    private UserProfileResponse mapToProfileResponse(User user) {
+        return UserProfileResponse.builder()
+                .userId(user.getUserId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .profileImage(user.getProfileImage())
+                .status(user.getStatus())
+                .build();
     }
 
   }
