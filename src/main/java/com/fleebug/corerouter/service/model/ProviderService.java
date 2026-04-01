@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,16 +29,11 @@ public class ProviderService {
             throw new IllegalArgumentException("Provider with name '" + request.getProviderName() + "' already exists");
         }
 
-        byte[] logoBytes = null;
-        if (request.getLogo() != null && !request.getLogo().isBlank()) {
-            logoBytes = request.getLogo().getBytes(StandardCharsets.UTF_8);
-        }
-
         Provider provider = Provider.builder()
                 .providerName(request.getProviderName())
                 .providerCountry(request.getProviderCountry())
                 .companyName(request.getCompanyName())
-                .logo(logoBytes)
+                .logo(request.getLogo())
                 .status(ProviderStatus.ACTIVE)
                 .build();
 
@@ -112,7 +106,7 @@ public class ProviderService {
         }
 
         if (request.getLogo() != null && !request.getLogo().isBlank()) {
-            provider.setLogo(request.getLogo().getBytes(StandardCharsets.UTF_8));
+            provider.setLogo(request.getLogo());
         }
 
         Provider updatedProvider = providerRepository.save(provider);
@@ -157,17 +151,12 @@ public class ProviderService {
      * Convert Provider entity to response DTO
      */
     private ProviderResponse convertToResponse(Provider provider) {
-        String logoUrl = null;
-        if (provider.getLogo() != null && provider.getLogo().length > 0) {
-            logoUrl = new String(provider.getLogo(), StandardCharsets.UTF_8);
-        }
-
         return ProviderResponse.builder()
                 .providerId(provider.getProviderId())
                 .providerName(provider.getProviderName())
                 .providerCountry(provider.getProviderCountry())
                 .companyName(provider.getCompanyName())
-                .logo(logoUrl)
+                .logo(provider.getLogo())
                 .status(provider.getStatus())
                 .createdAt(provider.getCreatedAt())
                 .updatedAt(provider.getUpdatedAt())

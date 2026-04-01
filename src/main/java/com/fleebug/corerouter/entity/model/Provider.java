@@ -32,8 +32,8 @@ public class Provider {
     @Column(nullable = false)
     private String companyName;
 
-    @Column(nullable = true, columnDefinition = "LONGBLOB")
-    private byte[] logo;
+    @Column(nullable = true, columnDefinition = "TEXT")
+    private String logo;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

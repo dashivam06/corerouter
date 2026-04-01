@@ -82,6 +82,12 @@ public class AzureTokenProvider {
 
     private void initializeCredentialIfNecessary() {
         if (credential == null) {
+            if (tenantId == null || tenantId.isBlank() ||
+                clientId == null || clientId.isBlank() ||
+                clientSecret == null || clientSecret.isBlank()) {
+                throw new IllegalStateException("Azure Entra credentials are not configured. Set AZURE_ENTRA_TENANT_ID, AZURE_ENTRA_CLIENT_ID, and AZURE_ENTRA_CLIENT_SECRET.");
+            }
+
             credential = new ClientSecretCredentialBuilder()
                     .tenantId(tenantId)
                     .clientId(clientId)

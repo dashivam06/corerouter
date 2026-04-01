@@ -45,7 +45,7 @@ public class BillingConfig {
     @Column(columnDefinition = "jsonb")
     private String pricingMetadata;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default true")
     @Builder.Default
     private Boolean active = true;
 
