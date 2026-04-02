@@ -241,6 +241,11 @@ public class UserService {
     public AuthResponse changePassword(Integer userId, String oldPassword, String newPassword, String ipAddress) {
         telemetryClient.trackTrace("Attempting to change password", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
+        if (oldPassword != null && oldPassword.equals(newPassword)) {
+            telemetryClient.trackTrace("Change password failed - new password matches current password", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
+            throw new IllegalArgumentException("New password must be different from the current password");
+        }
+
         User user = getUserById(userId);
 
         // Verify old password
