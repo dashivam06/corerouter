@@ -29,6 +29,9 @@ public class UserProfileResponse {
     @Schema(description = "Profile image URL", example = "https://cdn.example.com/profiles/user-123.png")
     private String profileImage;
 
+    @Schema(description = "Email subscription preference", example = "true")
+    private Boolean emailSubscribed;
+
     @Schema(description = "User status", example = "ACTIVE")
     private UserStatus status;
 }

@@ -288,10 +288,14 @@ public class UserService {
             user.setProfileImage(request.getProfileImage().trim().isEmpty() ? null : request.getProfileImage().trim());
         }
 
+        if (request.getEmailSubscribed() != null) {
+            user.setEmailSubscribed(request.getEmailSubscribed());
+        }
+
         User updated = userRepository.save(user);
         telemetryClient.trackTrace("User profile updated successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
-        activityLogService.log(updated, ActivityAction.UPDATE_PROFILE, "Your profile was updated successfully.", ipAddress);
+        activityLogService.log(updated, ActivityAction.UPDATE_PROFILE, "Your profile and email preferences were updated successfully.", ipAddress);
 
         return mapToProfileResponse(updated);
     }
@@ -384,6 +388,7 @@ public class UserService {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .profileImage(user.getProfileImage())
+            .emailSubscribed(user.isEmailSubscribed())
                 .status(user.getStatus())
                 .build();
     }

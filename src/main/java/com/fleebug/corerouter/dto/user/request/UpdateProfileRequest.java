@@ -2,6 +2,7 @@ package com.fleebug.corerouter.dto.user.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,4 +25,8 @@ public class UpdateProfileRequest {
     @Size(max = 255, message = "Profile image URL must not exceed 255 characters")
     @Schema(description = "Profile image URL", example = "https://cdn.example.com/profiles/user-123.png")
     private String profileImage;
+
+    @NotNull(message = "Email subscription preference is required")
+    @Schema(description = "Whether the user wants to receive email updates", example = "true")
+    private Boolean emailSubscribed;
 }
