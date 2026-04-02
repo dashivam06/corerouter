@@ -15,6 +15,8 @@ import com.fleebug.corerouter.exception.user.OtpExpiredException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -149,17 +151,32 @@ public class OtpService {
         String otpKey = OTP_KEY_PREFIX + verificationId;
         String cachedOtp = redisService.getFromCache(otpKey);
 
-        String decryptedOtp = messageEncryption.decrypt(cachedOtp);
-
-        if (decryptedOtp == null) {
+        if (cachedOtp == null || cachedOtp.isBlank()) {
             Map<String, String> properties = new HashMap<>();
             properties.put("verificationId", verificationId);
             telemetryClient.trackTrace("OTP not found or expired", SeverityLevel.Information, properties);
             throw new OtpExpiredException();
         }
 
+        String decryptedOtp;
+        try {
+            decryptedOtp = messageEncryption.decrypt(cachedOtp);
+        } catch (RuntimeException ex) {
+            Map<String, String> properties = new HashMap<>();
+            properties.put("verificationId", verificationId);
+            telemetryClient.trackTrace("OTP decrypt failed for verificationId", SeverityLevel.Warning, properties);
+            throw new InvalidOtpException("Invalid OTP session. Please request a new OTP.");
+        }
+
+        if (decryptedOtp == null) {
+            Map<String, String> properties = new HashMap<>();
+            properties.put("verificationId", verificationId);
+            telemetryClient.trackTrace("OTP decrypt returned null", SeverityLevel.Information, properties);
+            throw new OtpExpiredException();
+        }
+
         // Validate OTP
-        if (!decryptedOtp.equals(otp)) {
+        if (!MessageDigest.isEqual(decryptedOtp.getBytes(StandardCharsets.UTF_8), otp.getBytes(StandardCharsets.UTF_8))) {
             Map<String, String> properties = new HashMap<>();
             properties.put("verificationId", verificationId);
             properties.put("attempts", String.valueOf(attempts + 1));

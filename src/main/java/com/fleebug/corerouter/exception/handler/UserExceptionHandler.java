@@ -23,7 +23,10 @@ import java.util.Map;
  * Handles all user-related exceptions and returns standardized error responses
  * with proper HTTP status codes and logging via Azure Telemetry
  */
-@RestControllerAdvice(basePackages = "com.fleebug.corerouter.controller.user")
+@RestControllerAdvice(basePackages = {
+        "com.fleebug.corerouter.controller.user",
+        "com.fleebug.corerouter.controller.auth"
+})
 @RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class UserExceptionHandler {

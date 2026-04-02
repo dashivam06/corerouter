@@ -15,11 +15,19 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import com.fleebug.corerouter.exception.model.ProviderNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import jakarta.validation.ConstraintViolationException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -121,6 +129,107 @@ public class MainGlobalExceptionHandler {
         ApiResponse<Void> response = ApiResponse.error(HttpStatus.BAD_REQUEST, "Request body is missing or malformed", request);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("parameter", ex.getName());
+        telemetryClient.trackTrace("Request parameter type mismatch", SeverityLevel.Information, properties);
+
+        String message = "Invalid value for parameter '" + ex.getName() + "'. Please check request format.";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, message, request));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("parameter", ex.getParameterName());
+        telemetryClient.trackTrace("Missing required request parameter", SeverityLevel.Information, properties);
+
+        String message = "Missing required request parameter: " + ex.getParameterName();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, message, request));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+            ConstraintViolationException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackTrace("Constraint validation failed", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Validation failed for request parameters.", request));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("method", request.getMethod());
+        telemetryClient.trackTrace("HTTP method not supported", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ApiResponse.error(HttpStatus.METHOD_NOT_ALLOWED, "HTTP method not allowed for this endpoint.", request));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackTrace("Unsupported media type", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiResponse.error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported content type. Use application/json.", request));
+    }
+
+    @ExceptionHandler(HttpMessageConversionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMessageConversionException(
+            HttpMessageConversionException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackTrace("Message conversion failed", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST, "Could not parse request payload.", request));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(
+            AuthenticationException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackTrace("Authentication failed", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, "Authentication failed. Please log in and try again.", request));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        telemetryClient.trackTrace("Access denied", SeverityLevel.Information, properties);
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(HttpStatus.FORBIDDEN, "You do not have permission to access this resource.", request));
     }
     
     @ExceptionHandler(RedisConnectionFailureException.class)
