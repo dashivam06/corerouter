@@ -112,7 +112,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,
                         ApiPaths.AUTH_REGISTER,
                         ApiPaths.AUTH_LOGIN,
-                        ApiPaths.AUTH_REQUEST_OTP).permitAll()
+                        ApiPaths.AUTH_REQUEST_OTP,
+                        ApiPaths.AUTH_VERIFY_OTP).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.MODELS,
                         "/test-payment.html",

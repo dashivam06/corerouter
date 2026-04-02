@@ -8,6 +8,7 @@ public final class ApiPaths {
     public static final String AUTH_REGISTER    = "/api/v1/auth/register";
     public static final String AUTH_LOGIN       = "/api/v1/auth/login";
     public static final String AUTH_REQUEST_OTP = "/api/v1/auth/request-otp";
+    public static final String AUTH_VERIFY_OTP = "/api/v1/auth/verify-otp";
     public static final String AUTH_ALL         = "/api/v1/auth/**";
 
     // ── Models ─────────────────────────────────────────────────────────
