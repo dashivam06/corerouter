@@ -80,4 +80,16 @@ public class ApiKeyResponse {
         format = "date-time"
     )
     private LocalDateTime lastUsedAt;
+
+    @Schema(
+        description = "Email of the user who owns this API key",
+        example = "user@example.com"
+    )
+    private String userEmail;
+
+    @Schema(
+        description = "Name of the user who owns this API key",
+        example = "John Doe"
+    )
+    private String userName;
 }

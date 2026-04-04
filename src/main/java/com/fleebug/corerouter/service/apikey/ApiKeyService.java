@@ -339,6 +339,8 @@ public class ApiKeyService {
                 .status(apiKey.getStatus())
                 .createdAt(apiKey.getCreatedAt())
                 .lastUsedAt(apiKey.getLastUsedAt())
+                .userEmail(apiKey.getUser() != null ? apiKey.getUser().getEmail() : null)
+                .userName(apiKey.getUser() != null ? apiKey.getUser().getFullName() : null)
                 .build();
     }
 }
