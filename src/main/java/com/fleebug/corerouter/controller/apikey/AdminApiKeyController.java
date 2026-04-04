@@ -2,6 +2,7 @@ package com.fleebug.corerouter.controller.apikey;
 
 import com.fleebug.corerouter.dto.apikey.response.AdminApiKeyInsightsResponse;
 import com.fleebug.corerouter.dto.apikey.response.ApiKeyAnalyticsResponse;
+import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
 import com.fleebug.corerouter.dto.apikey.response.PaginatedApiKeyListResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
@@ -16,6 +17,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -86,5 +89,22 @@ public class AdminApiKeyController {
         PaginatedApiKeyListResponse response = apiKeyService.getApiKeysWithFilters(page, size, status);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API keys retrieved successfully", response, request));
+    }
+
+    @Operation(summary = "Update API key status", description = "Admin can change status of any API key by API key ID")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API key status updated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "API key not found")
+    })
+    @PatchMapping("/{apiKeyId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ApiKeyResponse>> updateApiKeyStatus(
+            @Parameter(description = "API key ID", example = "1") @PathVariable Integer apiKeyId,
+            @Parameter(description = "New API key status", example = "INACTIVE") @RequestParam ApiKeyStatus status,
+            HttpServletRequest request) {
+
+        ApiKeyResponse response = apiKeyService.updateApiKeyStatusByAdmin(apiKeyId, status);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "API key status updated successfully", response, request));
     }
 }

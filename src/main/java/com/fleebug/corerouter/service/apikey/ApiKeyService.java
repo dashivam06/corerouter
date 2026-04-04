@@ -205,6 +205,23 @@ public class ApiKeyService {
                 .build();
     }
 
+    public ApiKeyResponse updateApiKeyStatusByAdmin(Integer apiKeyId, ApiKeyStatus newStatus) {
+        ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
+                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
+
+        ApiKeyStatus oldStatus = apiKey.getStatus();
+        if (oldStatus == newStatus) {
+            throw new IllegalArgumentException("API key already has status " + newStatus);
+        }
+
+        apiKey.setStatus(newStatus);
+        ApiKey saved = apiKeyRepository.save(apiKey);
+
+        createStatusAudit(saved, oldStatus, newStatus, "Admin updated API key status", "admin");
+
+        return mapToResponse(saved);
+    }
+
     @Transactional(readOnly = true)
     public ApiKeyAnalyticsResponse getApiKeyAnalyticsByDateRange(LocalDateTime fromDate, LocalDateTime toDate) {
         telemetryClient.trackTrace("Fetching API key analytics", SeverityLevel.Information,
