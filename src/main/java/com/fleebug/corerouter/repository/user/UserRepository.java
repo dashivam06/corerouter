@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.user.UserRole;
@@ -18,8 +21,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByEmail(String email);
 
-
-
     List<User> findByStatus(UserStatus status);
 
     long countByStatus(UserStatus status);
@@ -30,5 +31,18 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     @Query("SELECT COALESCE(SUM(u.balance), 0) FROM User u")
     BigDecimal sumAllBalances();
-    
+
+    // Analytics queries for date range
+    long countByStatusAndCreatedAtBetween(UserStatus status, LocalDateTime from, LocalDateTime to);
+
+    long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    // Pagination with role and status
+    Page<User> findByRoleAndStatus(UserRole role, UserStatus status, Pageable pageable);
+
+    // Pagination with role only
+    Page<User> findByRole(UserRole role, Pageable pageable);
+
+    // Pagination with status only
+    Page<User> findByStatus(UserStatus status, Pageable pageable);
 }

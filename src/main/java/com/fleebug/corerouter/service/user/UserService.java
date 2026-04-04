@@ -6,8 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
@@ -18,6 +19,9 @@ import com.fleebug.corerouter.dto.user.request.UpdateProfileRequest;
 import com.fleebug.corerouter.dto.user.response.AdminUserInsightsResponse;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
 import com.fleebug.corerouter.dto.user.response.UserProfileResponse;
+import com.fleebug.corerouter.dto.user.response.UserAnalyticsResponse;
+import com.fleebug.corerouter.dto.user.response.DailyUserAnalyticsResponse;
+import com.fleebug.corerouter.dto.user.response.PaginatedUserListResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.activity.ActivityAction;
@@ -36,6 +40,8 @@ import com.fleebug.corerouter.service.token.TokenService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -385,6 +391,110 @@ public class UserService {
                 .suspendedUsers(suspendedUsers)
                 .adminUsers(adminUsers)
                 .build();
+    }
+
+    /**
+     * Get user analytics for a date range
+     * Returns daily counts of created, deleted, and revoked (suspended/banned) users
+     *
+     * @param fromDate Start date (inclusive)
+     * @param toDate End date (inclusive)
+     * @return UserAnalyticsResponse with daily breakdown
+     */
+    @Transactional(readOnly = true)
+    public UserAnalyticsResponse getUserAnalyticsByDateRange(LocalDateTime fromDate, LocalDateTime toDate) {
+        telemetryClient.trackTrace("Fetching user analytics from " + fromDate + " to " + toDate, SeverityLevel.Information, 
+            Map.of("fromDate", fromDate.toString(), "toDate", toDate.toString()));
+
+        long totalCreated = userRepository.countByStatusAndCreatedAtBetween(null, fromDate, toDate);
+        // Since User entity doesn't have explicit deletedAt, we count users with DELETED status created in range
+        long totalDeleted = userRepository.countByStatusAndCreatedAtBetween(UserStatus.DELETED, fromDate, toDate);
+        // Revoked = SUSPENDED or BANNED users
+        long totalSuspended = userRepository.countByStatusAndCreatedAtBetween(UserStatus.SUSPENDED, fromDate, toDate);
+        long totalBanned = userRepository.countByStatusAndCreatedAtBetween(UserStatus.BANNED, fromDate, toDate);
+        long totalRevoked = totalSuspended + totalBanned;
+
+        List<DailyUserAnalyticsResponse> dailyAnalytics = new java.util.ArrayList<>();
+        java.time.LocalDate currentDate = fromDate.toLocalDate();
+        java.time.LocalDate endDate = toDate.toLocalDate();
+
+        // Build daily breakdown
+        while (!currentDate.isAfter(endDate)) {
+            LocalDateTime dayStart = currentDate.atStartOfDay();
+            LocalDateTime dayEnd = currentDate.atTime(23, 59, 59);
+
+            long dayCreated = countUsersByCreatedAtBetween(dayStart, dayEnd);
+            long dayDeleted = userRepository.countByStatusAndCreatedAtBetween(UserStatus.DELETED, dayStart, dayEnd);
+            long daySuspended = userRepository.countByStatusAndCreatedAtBetween(UserStatus.SUSPENDED, dayStart, dayEnd);
+            long dayBanned = userRepository.countByStatusAndCreatedAtBetween(UserStatus.BANNED, dayStart, dayEnd);
+            long dayRevoked = daySuspended + dayBanned;
+
+            if (dayCreated > 0 || dayDeleted > 0 || dayRevoked > 0) {
+                dailyAnalytics.add(DailyUserAnalyticsResponse.builder()
+                        .date(currentDate)
+                        .created(dayCreated)
+                        .deleted(dayDeleted)
+                        .revoked(dayRevoked)
+                        .build());
+            }
+
+            currentDate = currentDate.plusDays(1);
+        }
+
+        return UserAnalyticsResponse.builder()
+                .dailyAnalytics(dailyAnalytics)
+                .totalCreated(totalCreated)
+                .totalDeleted(totalDeleted)
+                .totalRevoked(totalRevoked)
+                .build();
+    }
+
+    /**
+     * Get paginated list of users with optional role and status filters
+     *
+     * @param page Page number (0-indexed)
+     * @param size Page size
+     * @param role Filter by role (USER, ADMIN, or null for all)
+     * @param status Filter by status (ACTIVE, INACTIVE, etc., or null for all)
+     * @return PaginatedUserListResponse with user list and pagination info
+     */
+    @Transactional(readOnly = true)
+    public PaginatedUserListResponse getUsersWithFilters(int page, int size, UserRole role, UserStatus status) {
+        telemetryClient.trackTrace("Fetching paginated users - page: " + page + ", size: " + size + 
+            (role != null ? ", role: " + role : "") + (status != null ? ", status: " + status : ""),
+            SeverityLevel.Information, Map.of("page", String.valueOf(page), "size", String.valueOf(size)));
+
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<User> userPage;
+
+        if (role != null && status != null) {
+            userPage = userRepository.findByRoleAndStatus(role, status, pageable);
+        } else if (role != null) {
+            userPage = userRepository.findByRole(role, pageable);
+        } else if (status != null) {
+            userPage = userRepository.findByStatus(status, pageable);
+        } else {
+            userPage = userRepository.findAll(pageable);
+        }
+
+        Page<UserProfileResponse> responsePage = userPage.map(this::mapToProfileResponse);
+        return PaginatedUserListResponse.fromPage(responsePage);
+    }
+
+    /**
+     * Count all users created within a date range (any status)
+     * Helper method for analytics
+     */
+    private long countUsersByCreatedAtBetween(LocalDateTime from, LocalDateTime to) {
+        // Since we only have createdAt, we count all users in that range
+        return userRepository.countByCreatedAtBetween(from, to);
+    }
+
+    /**
+     * Count users by status within date range (for analytics)
+     */
+    private long countByStatusInRange(UserStatus status, LocalDateTime from, LocalDateTime to) {
+        return userRepository.countByStatusAndCreatedAtBetween(status, from, to);
     }
 
     private UserProfileResponse mapToProfileResponse(User user) {
