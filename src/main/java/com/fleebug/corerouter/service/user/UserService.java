@@ -482,6 +482,30 @@ public class UserService {
     }
 
     /**
+     * Admin-only status update for any user.
+     */
+    public UserProfileResponse updateUserStatusByAdmin(Integer userId, UserStatus newStatus) {
+        telemetryClient.trackTrace("Admin updating user status", SeverityLevel.Information,
+                Map.of("userId", String.valueOf(userId), "newStatus", newStatus.name()));
+
+        User user = getUserById(userId);
+
+        if (user.getStatus() == newStatus) {
+            throw new IllegalArgumentException("User already has status " + newStatus);
+        }
+
+        user.setStatus(newStatus);
+
+        // Keep subscription disabled for deleted users.
+        if (newStatus == UserStatus.DELETED) {
+            user.setEmailSubscribed(false);
+        }
+
+        User saved = userRepository.save(user);
+        return mapToProfileResponse(saved);
+    }
+
+    /**
      * Count all users created within a date range (any status)
      * Helper method for analytics
      */

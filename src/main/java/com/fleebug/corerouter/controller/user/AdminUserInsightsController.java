@@ -4,6 +4,7 @@ import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.user.response.AdminUserInsightsResponse;
 import com.fleebug.corerouter.dto.user.response.UserAnalyticsResponse;
 import com.fleebug.corerouter.dto.user.response.PaginatedUserListResponse;
+import com.fleebug.corerouter.dto.user.response.UserProfileResponse;
 import com.fleebug.corerouter.enums.user.UserRole;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.service.user.UserService;
@@ -86,5 +87,22 @@ public class AdminUserInsightsController {
         PaginatedUserListResponse users = userService.getUsersWithFilters(page, size, role, status);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Users retrieved successfully", users, request));
+    }
+
+    @Operation(summary = "Update user status", description = "Admin can change any user's status by user ID")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User status updated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateUserStatus(
+            @Parameter(description = "User ID", example = "12") @PathVariable Integer userId,
+            @Parameter(description = "New user status", example = "SUSPENDED") @RequestParam UserStatus status,
+            HttpServletRequest request) {
+
+        UserProfileResponse updatedUser = userService.updateUserStatusByAdmin(userId, status);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "User status updated successfully", updatedUser, request));
     }
 }
