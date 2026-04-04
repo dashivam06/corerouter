@@ -9,21 +9,31 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fleebug.corerouter.dto.apikey.request.CreateApiKeyRequest;
 import com.fleebug.corerouter.dto.apikey.request.UpdateApiKeyRequest;
+import com.fleebug.corerouter.dto.apikey.response.ApiKeyAnalyticsResponse;
 import com.fleebug.corerouter.dto.apikey.response.AdminApiKeyInsightsResponse;
 import com.fleebug.corerouter.dto.apikey.response.ApiKeyResponse;
+import com.fleebug.corerouter.dto.apikey.response.DailyApiKeyAnalyticsResponse;
+import com.fleebug.corerouter.dto.apikey.response.PaginatedApiKeyListResponse;
 import com.fleebug.corerouter.entity.apikey.ApiKey;
+import com.fleebug.corerouter.entity.apikey.ApiKeyStatusAudit;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
+import com.fleebug.corerouter.repository.apikey.ApiKeyStatusAuditRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +42,7 @@ public class ApiKeyService {
 
     private final TelemetryClient telemetryClient;
     private final ApiKeyRepository apiKeyRepository;
+    private final ApiKeyStatusAuditRepository apiKeyStatusAuditRepository;
 
     @Value("${security.apikey.pepper}")
     private String pepper;
@@ -147,11 +158,15 @@ public class ApiKeyService {
         telemetryClient.trackTrace("Toggling API key status - ID: " + apiKeyId + ", User ID: " + userId + ", Disable: " + disable, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "modify");
+        ApiKeyStatus oldStatus = apiKey.getStatus();
 
         ApiKeyStatus newStatus = disable ? ApiKeyStatus.INACTIVE : ApiKeyStatus.ACTIVE;
         apiKey.setStatus(newStatus);
 
         ApiKey updatedApiKey = apiKeyRepository.save(apiKey);
+        if (oldStatus != newStatus) {
+            createStatusAudit(updatedApiKey, oldStatus, newStatus, "User toggled API key status", "user:" + userId);
+        }
         telemetryClient.trackTrace("API key status updated successfully - ID: " + apiKeyId + ", New Status: " + newStatus, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         return mapToResponse(updatedApiKey);
@@ -167,8 +182,10 @@ public class ApiKeyService {
         telemetryClient.trackTrace("Soft deleting API key - ID: " + apiKeyId + ", User ID: " + userId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
 
         ApiKey apiKey = getOwnedNonRevokedApiKey(apiKeyId, userId, "delete");
+        ApiKeyStatus oldStatus = apiKey.getStatus();
         apiKey.setStatus(ApiKeyStatus.REVOKED);
-        apiKeyRepository.save(apiKey);
+        ApiKey savedApiKey = apiKeyRepository.save(apiKey);
+        createStatusAudit(savedApiKey, oldStatus, ApiKeyStatus.REVOKED, "User revoked API key", "user:" + userId);
 
         telemetryClient.trackTrace("API key soft deleted successfully - ID: " + apiKeyId, SeverityLevel.Information, Map.of("apiKeyId", String.valueOf(apiKeyId)));
     }
@@ -186,6 +203,92 @@ public class ApiKeyService {
                 .inactive(inactive)
                 .revoked(revoked)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ApiKeyAnalyticsResponse getApiKeyAnalyticsByDateRange(LocalDateTime fromDate, LocalDateTime toDate) {
+        telemetryClient.trackTrace("Fetching API key analytics", SeverityLevel.Information,
+                Map.of("fromDate", fromDate.toString(), "toDate", toDate.toString()));
+
+        long totalCreated = apiKeyRepository.countByCreatedAtBetween(fromDate, toDate);
+        long totalRevoked = apiKeyStatusAuditRepository.countByNewStatusAndChangedAtBetween(ApiKeyStatus.REVOKED, fromDate, toDate);
+
+        List<Object[]> createdPerDayRaw = apiKeyRepository.countCreatedPerDayBetween(fromDate, toDate);
+        List<Object[]> revokedPerDayRaw = apiKeyStatusAuditRepository.countByNewStatusPerDayBetween(ApiKeyStatus.REVOKED, fromDate, toDate);
+
+        Map<LocalDate, Long> createdPerDay = new HashMap<>();
+        for (Object[] row : createdPerDayRaw) {
+            LocalDate date = toLocalDate(row[0]);
+            long count = ((Number) row[1]).longValue();
+            createdPerDay.put(date, count);
+        }
+
+        Map<LocalDate, Long> revokedPerDay = new HashMap<>();
+        for (Object[] row : revokedPerDayRaw) {
+            LocalDate date = toLocalDate(row[0]);
+            long count = ((Number) row[1]).longValue();
+            revokedPerDay.put(date, count);
+        }
+
+        LocalDate startDate = fromDate.toLocalDate();
+        LocalDate endDate = toDate.toLocalDate();
+        List<DailyApiKeyAnalyticsResponse> dailyAnalytics = new java.util.ArrayList<>();
+
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            long created = createdPerDay.getOrDefault(date, 0L);
+            long revoked = revokedPerDay.getOrDefault(date, 0L);
+
+            if (created > 0 || revoked > 0) {
+                dailyAnalytics.add(DailyApiKeyAnalyticsResponse.builder()
+                        .date(date)
+                        .created(created)
+                        .revoked(revoked)
+                        .build());
+            }
+        }
+
+        return ApiKeyAnalyticsResponse.builder()
+                .dailyAnalytics(dailyAnalytics)
+                .totalCreated(totalCreated)
+                .totalRevoked(totalRevoked)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedApiKeyListResponse getApiKeysWithFilters(int page, int size, ApiKeyStatus status) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ApiKey> apiKeyPage = (status == null)
+                ? apiKeyRepository.findAll(pageable)
+                : apiKeyRepository.findByStatus(status, pageable);
+
+        Page<ApiKeyResponse> responsePage = apiKeyPage.map(this::mapToResponse);
+        return PaginatedApiKeyListResponse.fromPage(responsePage);
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof java.sql.Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+        return LocalDate.parse(String.valueOf(value));
+    }
+
+    private void createStatusAudit(ApiKey apiKey, ApiKeyStatus oldStatus, ApiKeyStatus newStatus, String reason, String changedBy) {
+        ApiKeyStatusAudit audit = ApiKeyStatusAudit.builder()
+                .apiKey(apiKey)
+                .oldStatus(oldStatus)
+                .newStatus(newStatus)
+                .reason(reason)
+                .changedBy(changedBy)
+                .changedAt(LocalDateTime.now())
+                .build();
+
+        apiKeyStatusAuditRepository.save(audit);
     }
 
     private ApiKey getOwnedNonRevokedApiKey(Integer apiKeyId, Integer userId, String operation) {
