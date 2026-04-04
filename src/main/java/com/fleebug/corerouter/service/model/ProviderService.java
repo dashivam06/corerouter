@@ -132,7 +132,7 @@ public class ProviderService {
 
         // When provider is disabled, suspended, or deleted, disable all its models
         if (newStatus == ProviderStatus.DISABLED || newStatus == ProviderStatus.SUSPENDED || newStatus == ProviderStatus.DELETED) {
-            List<Model> modelsToDisable = modelRepository.findByProviderId(providerId);
+            List<Model> modelsToDisable = modelRepository.findByProvider_ProviderId(providerId);
             for (Model model : modelsToDisable) {
                 if (!model.getStatus().equals(ModelStatus.INACTIVE)) {
                     model.setStatus(ModelStatus.INACTIVE);

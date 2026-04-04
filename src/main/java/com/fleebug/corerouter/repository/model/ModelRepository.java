@@ -25,6 +25,6 @@ public interface ModelRepository extends JpaRepository<Model, Integer> {
 
     long countByStatus(ModelStatus status);
 
-    List<Model> findByProviderId(Integer providerId);
+    List<Model> findByProvider_ProviderId(Integer providerId);
 
 }
