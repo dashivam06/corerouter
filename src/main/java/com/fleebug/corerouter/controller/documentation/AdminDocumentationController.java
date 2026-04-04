@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -30,6 +31,22 @@ import java.util.Map;
 public class AdminDocumentationController {
 
     private final ApiDocumentationService documentationService;
+
+    @Operation(summary = "Get documentation by model", description = "Get all active documentation entries for a specific model")
+    @GetMapping("/models/{modelId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ApiDocumentationResponse>>> getDocumentationByModelId(
+            @Parameter(description = "Model ID", example = "1") @PathVariable Integer modelId,
+            HttpServletRequest httpRequest) {
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("modelId", String.valueOf(modelId));
+        // telemetryClient.trackTrace("Get documentation by model request", SeverityLevel.Verbose, properties);
+
+        List<ApiDocumentationResponse> response = documentationService.getDocumentationByModelId(modelId);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Documentation retrieved successfully", response, httpRequest));
+    }
 
     @Operation(summary = "Create documentation", description = "Create API documentation for a specific model")
     @PostMapping("/models/{modelId}")
