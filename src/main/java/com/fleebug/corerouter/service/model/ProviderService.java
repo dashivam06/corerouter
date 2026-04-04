@@ -4,13 +4,17 @@ import com.fleebug.corerouter.dto.model.request.CreateProviderRequest;
 import com.fleebug.corerouter.dto.model.request.UpdateProviderRequest;
 import com.fleebug.corerouter.dto.model.response.ProviderResponse;
 import com.fleebug.corerouter.entity.model.Provider;
+import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.enums.model.ProviderStatus;
+import com.fleebug.corerouter.enums.model.ModelStatus;
 import com.fleebug.corerouter.exception.model.ProviderNotFoundException;
 import com.fleebug.corerouter.repository.model.ProviderRepository;
+import com.fleebug.corerouter.repository.model.ModelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +23,7 @@ import java.util.stream.Collectors;
 public class ProviderService {
 
     private final ProviderRepository providerRepository;
+    private final ModelRepository modelRepository;
 
     /**
      * Create a new provider
@@ -115,6 +120,7 @@ public class ProviderService {
 
     /**
      * Change provider status (activate, disable, suspend, etc.)
+     * When disabling, suspending, or deleting a provider, all associated models are also disabled.
      */
     @Transactional
     public ProviderResponse changeProviderStatus(Integer providerId, ProviderStatus newStatus) {
@@ -122,6 +128,21 @@ public class ProviderService {
                 .orElseThrow(() -> new ProviderNotFoundException(providerId));
 
         provider.setStatus(newStatus);
+        provider.setUpdatedAt(LocalDateTime.now());
+
+        // When provider is disabled, suspended, or deleted, disable all its models
+        if (newStatus == ProviderStatus.DISABLED || newStatus == ProviderStatus.SUSPENDED || newStatus == ProviderStatus.DELETED) {
+            List<Model> modelsToDisable = modelRepository.findByProviderId(providerId);
+            for (Model model : modelsToDisable) {
+                if (!model.getStatus().equals(ModelStatus.INACTIVE)) {
+                    model.setStatus(ModelStatus.INACTIVE);
+                    model.setUpdatedAt(LocalDateTime.now());
+                }
+            }
+            if (!modelsToDisable.isEmpty()) {
+                modelRepository.saveAll(modelsToDisable);
+            }
+        }
 
         Provider updatedProvider = providerRepository.save(provider);
         return convertToResponse(updatedProvider);
