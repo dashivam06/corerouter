@@ -271,4 +271,55 @@ public class TransactionService {
                 to
         );
     }
+
+    /**
+     * Get list of transactions filtered by type, status and date range
+     */
+    @Transactional(readOnly = true)
+    public List<Transaction> getTransactionsByFilters(
+            TransactionType type,
+            TransactionStatus status,
+            LocalDateTime from,
+            LocalDateTime to) {
+        if (type != null && status != null) {
+            return transactionRepository.findByTypeAndStatusAndCompletedAtBetween(
+                    type, status, from, to,
+                    org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE)
+            ).getContent();
+        } else if (type != null) {
+            // If only type is specified, get all by type
+            List<Transaction> allByType = transactionRepository.findByType(type);
+            return allByType.stream()
+                    .filter(t -> t.getCompletedAt() != null && 
+                               t.getCompletedAt().isAfter(from) && 
+                               t.getCompletedAt().isBefore(to))
+                    .sorted((a, b) -> b.getCompletedAt().compareTo(a.getCompletedAt()))
+                    .toList();
+        } else if (status != null) {
+            // If only status is specified, get all by status
+            List<Transaction> allByStatus = transactionRepository.findByStatus(status);
+            return allByStatus.stream()
+                    .filter(t -> t.getCompletedAt() != null && 
+                               t.getCompletedAt().isAfter(from) && 
+                               t.getCompletedAt().isBefore(to))
+                    .sorted((a, b) -> b.getCompletedAt().compareTo(a.getCompletedAt()))
+                    .toList();
+        } else {
+            // Get all transactions in date range
+            return transactionRepository.findByCompletedAtBetween(from, to);
+        }
+    }
+
+    /**
+     * Get daily earnings (sum of completed WALLET_TOPUP transactions grouped by date)
+     */
+    @Transactional(readOnly = true)
+    public List<Object[]> getDailyEarnings(LocalDateTime from, LocalDateTime to) {
+        return transactionRepository.getEarningsByDateBetween(
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED,
+                from,
+                to
+        );
+    }
 }

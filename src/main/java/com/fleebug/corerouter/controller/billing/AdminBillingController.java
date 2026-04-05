@@ -9,11 +9,16 @@ import com.fleebug.corerouter.dto.billing.response.BillingConfigResponse;
 import com.fleebug.corerouter.dto.billing.response.BillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
+import com.fleebug.corerouter.dto.billing.response.EarningsDataResponse;
+import com.fleebug.corerouter.dto.billing.response.TransactionResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.service.billing.BillingConfigService;
 import com.fleebug.corerouter.service.billing.UsageService;
 import com.fleebug.corerouter.service.payment.TransactionService;
 import com.fleebug.corerouter.repository.user.UserRepository;
+import com.fleebug.corerouter.entity.payment.Transaction;
+import com.fleebug.corerouter.enums.payment.TransactionType;
+import com.fleebug.corerouter.enums.payment.TransactionStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -28,9 +33,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/admin/billing")
@@ -74,6 +82,188 @@ public class AdminBillingController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Billing config created successfully", response, request));
     }
+
+
+
+
+     // ---- Earnings & Transactions (Admin) ----
+
+    /**
+     * Get daily earnings aggregated from all users.
+     * Shows the money earned from wallet top-ups grouped by date.
+     *
+     * @param filterPeriod "today" or "all" - determines date range
+     * @param fromDate     optional custom start date (ISO 8601)
+     * @param toDate       optional custom end date (ISO 8601)
+     * @param request      HTTP servlet request
+     * @return earnings data grouped by date with counts
+     */
+    @Operation(
+        summary = "Get daily earnings",
+        description = "Get daily earnings (top-up income) aggregated from all users. Supports filtering by period (today/all) or custom date range."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Daily earnings retrieved successfully")
+    })
+    @GetMapping("/earnings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<EarningsDataResponse>> getDailyEarnings(
+            @Parameter(description = "Filter period: 'today' or 'all'", example = "today") 
+            @RequestParam(defaultValue = "all") String filterPeriod,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00") 
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-05T23:59:59") 
+            @RequestParam(required = false) LocalDateTime toDate,
+            HttpServletRequest request) {
+
+        LocalDateTime from = fromDate;
+        LocalDateTime to = toDate;
+        String appliedFilter = filterPeriod;
+
+        // If custom dates not provided, use filter period
+        if (from == null || to == null) {
+            LocalDateTime now = LocalDateTime.now();
+            if ("today".equalsIgnoreCase(filterPeriod)) {
+                from = now.toLocalDate().atStartOfDay();
+                to = now.toLocalDate().plusDays(1).atStartOfDay();
+            } else {
+                // "all" - get last 90 days by default for performance
+                from = now.minusDays(90);
+                to = now;
+            }
+        }
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("filterPeriod", appliedFilter);
+        telemetryClient.trackTrace("Admin: get daily earnings", SeverityLevel.Information, properties);
+
+        // Get daily earnings from repository
+        List<Object[]> dailyEarnings = transactionService.getDailyEarnings(from, to);
+
+        // Convert to map format: date -> amount
+        Map<String, String> earningsByDate = new LinkedHashMap<>();
+        BigDecimal totalEarned = BigDecimal.ZERO;
+        int totalTransactionCount = 0;
+
+        for (Object[] row : dailyEarnings) {
+            LocalDate date = (LocalDate) row[0];
+            BigDecimal amount = (BigDecimal) row[1];
+            Long count = (Long) row[2];
+
+            earningsByDate.put(date.toString(), amount.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+            totalEarned = totalEarned.add(amount);
+            totalTransactionCount += count.intValue();
+        }
+
+        EarningsDataResponse response = EarningsDataResponse.builder()
+                .earningsByDate(earningsByDate)
+                .totalEarnings(totalEarned.setScale(2, java.math.RoundingMode.HALF_UP).toString())
+                .totalTransactionCount(totalTransactionCount)
+                .filterPeriod(appliedFilter)
+                .filterType("WALLET_TOPUP")
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Daily earnings retrieved successfully", response, request));
+    }
+
+    /**
+     * Get transaction history with filtering options.
+     * Supports filtering by type, status, and date range.
+     *
+     * @param transactionType "WALLET", "CARD", "WALLET_TOPUP", or null for all
+     * @param status         "PENDING", "COMPLETED", "FAILED", or null for all
+     * @param filterPeriod   "today" or "all"
+     * @param fromDate       optional custom start date
+     * @param toDate         optional custom end date
+     * @param request        HTTP servlet request
+     * @return list of transactions matching filters
+     */
+    @Operation(
+        summary = "Get transaction history",
+        description = "Get transaction history with filtering by type, status, and date range"
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Transaction history retrieved successfully")
+    })
+    @GetMapping("/transactions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
+            @Parameter(description = "Transaction type filter: WALLET, CARD, WALLET_TOPUP, or empty for all", example = "WALLET_TOPUP") 
+            @RequestParam(required = false) String transactionType,
+            @Parameter(description = "Transaction status filter: PENDING, COMPLETED, FAILED, or empty for all", example = "COMPLETED") 
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter period: 'today' or 'all'", example = "today") 
+            @RequestParam(defaultValue = "all") String filterPeriod,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00") 
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-05T23:59:59") 
+            @RequestParam(required = false) LocalDateTime toDate,
+            HttpServletRequest request) {
+
+        LocalDateTime from = fromDate;
+        LocalDateTime to = toDate;
+
+        // If custom dates not provided, use filter period
+        if (from == null || to == null) {
+            LocalDateTime now = LocalDateTime.now();
+            if ("today".equalsIgnoreCase(filterPeriod)) {
+                from = now.toLocalDate().atStartOfDay();
+                to = now.toLocalDate().plusDays(1).atStartOfDay();
+            } else {
+                // "all" - get last 90 days by default
+                from = now.minusDays(90);
+                to = now;
+            }
+        }
+
+        // Parse transaction type and status
+        TransactionType type = null;
+        TransactionStatus txStatus = null;
+
+        if (transactionType != null && !transactionType.isEmpty()) {
+            try {
+                type = TransactionType.valueOf(transactionType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid type provided, ignore
+            }
+        }
+
+        if (status != null && !status.isEmpty()) {
+            try {
+                txStatus = TransactionStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid status provided, ignore
+            }
+        }
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("filterPeriod", filterPeriod);
+        if (type != null) properties.put("type", type.toString());
+        if (txStatus != null) properties.put("status", txStatus.toString());
+        telemetryClient.trackTrace("Admin: get transaction history", SeverityLevel.Information, properties);
+
+        // Get transactions with filters
+        List<Transaction> transactions = transactionService.getTransactionsByFilters(type, txStatus, from, to);
+
+        // Convert to response DTOs
+        List<TransactionResponse> transactionResponses = transactions.stream()
+                .map(t -> TransactionResponse.builder()
+                        .transactionId(t.getTransactionId())
+                        .userId(t.getUser().getUserId())
+                        .userName(t.getUser().getFullName())
+                        .amount(t.getAmount())
+                        .type(t.getType())
+                        .status(t.getStatus())
+                        .esewaTransactionId(t.getEsewaTransactionId())
+                        .relatedTaskId(t.getRelatedTask() != null ? t.getRelatedTask().getTaskId() : null)
+                        .completedAt(t.getCompletedAt())
+                        .createdAt(t.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Transaction history retrieved successfully", transactionResponses, request));
+    }
+    
 
     /**
      * Get all billing configurations.
@@ -348,5 +538,4 @@ public class AdminBillingController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
-    }
-}
+        }}
