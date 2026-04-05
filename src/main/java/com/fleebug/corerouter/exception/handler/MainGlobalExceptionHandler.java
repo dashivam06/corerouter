@@ -13,6 +13,7 @@ import com.fleebug.corerouter.exception.health.AzureInsightsAccessException;
 
 import org.springframework.data.redis.RedisConnectionFailureException;
 import com.fleebug.corerouter.exception.model.ProviderNotFoundException;
+import com.fleebug.corerouter.exception.model.ModelNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConversionException;
@@ -280,6 +281,23 @@ public class MainGlobalExceptionHandler {
                 ex.getMessage(),
                 request);
         
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(ModelNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleModelNotFoundException(
+            ModelNotFoundException ex,
+            HttpServletRequest request) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("path", request.getRequestURI());
+        properties.put("error", ex.getMessage());
+        telemetryClient.trackTrace("Model not found", SeverityLevel.Information, properties);
+
+        ApiResponse<Void> errorResponse = ApiResponse.error(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                request);
+
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
     

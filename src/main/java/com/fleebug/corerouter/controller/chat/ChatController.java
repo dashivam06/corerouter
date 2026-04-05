@@ -63,7 +63,7 @@ public class ChatController {
 
         ApiKey apiKey = requireApiKey(request);
         Model model = modelRepository.findByFullname(chatRequest.getModel())
-                .orElseThrow(() -> new ModelNotFoundException("username", chatRequest.getModel()));
+                .orElseThrow(() -> new ModelNotFoundException("fullname", chatRequest.getModel()));
 
 
         Map<String, Object> payload = objectMapper.convertValue(chatRequest, new TypeReference<>() {});
