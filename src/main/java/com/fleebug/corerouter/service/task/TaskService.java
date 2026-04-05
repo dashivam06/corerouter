@@ -5,6 +5,8 @@ import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 
 import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
+import com.fleebug.corerouter.dto.task.response.AdminTaskAnalyticsResponse;
+import com.fleebug.corerouter.dto.task.response.DailyTaskAnalyticsResponse;
 import com.fleebug.corerouter.dto.task.response.TaskInsightsResponse;
 import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.model.Model;
@@ -27,8 +29,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -156,6 +162,96 @@ public class TaskService {
                 .processing(processing)
                 .queued(queued)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AdminTaskAnalyticsResponse getTaskAnalyticsForAdmin(LocalDateTime from, LocalDateTime to, TaskStatus statusFilter) {
+        List<Object[]> raw = taskRepository.countPerDayAndStatusBetween(from, to, statusFilter);
+
+        Map<LocalDate, DailyAccumulator> byDate = new HashMap<>();
+        for (Object[] row : raw) {
+            LocalDate date = toLocalDate(row[0]);
+            TaskStatus status = (TaskStatus) row[1];
+            long count = ((Number) row[2]).longValue();
+
+            DailyAccumulator accumulator = byDate.computeIfAbsent(date, ignored -> new DailyAccumulator());
+            accumulator.add(status, count);
+        }
+
+        List<DailyTaskAnalyticsResponse> dailyAnalytics = new ArrayList<>();
+        LocalDate startDate = from.toLocalDate();
+        LocalDate endDate = to.toLocalDate();
+
+        long total = 0L;
+        long queued = 0L;
+        long processing = 0L;
+        long completed = 0L;
+        long failed = 0L;
+
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            DailyAccumulator day = byDate.getOrDefault(date, new DailyAccumulator());
+
+            dailyAnalytics.add(DailyTaskAnalyticsResponse.builder()
+                    .date(date)
+                    .total(day.total)
+                    .queued(day.queued)
+                    .processing(day.processing)
+                    .completed(day.completed)
+                    .failed(day.failed)
+                    .build());
+
+            total += day.total;
+            queued += day.queued;
+            processing += day.processing;
+            completed += day.completed;
+            failed += day.failed;
+        }
+
+        return AdminTaskAnalyticsResponse.builder()
+                .fromDate(startDate)
+                .toDate(endDate)
+                .statusFilter(statusFilter == null ? "ALL" : statusFilter.name())
+                .dailyAnalytics(dailyAnalytics)
+                .totalTasks(total)
+                .queued(queued)
+                .processing(processing)
+                .completed(completed)
+                .failed(failed)
+                .build();
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof java.sql.Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+        return LocalDate.parse(String.valueOf(value));
+    }
+
+    private static final class DailyAccumulator {
+        private long total;
+        private long queued;
+        private long processing;
+        private long completed;
+        private long failed;
+
+        private void add(TaskStatus status, long count) {
+            total += count;
+            switch (status) {
+                case QUEUED -> queued += count;
+                case PROCESSING -> processing += count;
+                case COMPLETED -> completed += count;
+                case FAILED -> failed += count;
+                default -> {
+                    // no-op for forward compatibility
+                }
+            }
+        }
     }
 }
 
