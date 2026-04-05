@@ -2,6 +2,7 @@ package com.fleebug.corerouter.controller.task;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.dto.task.response.AdminTaskAnalyticsResponse;
+import com.fleebug.corerouter.dto.task.response.PaginatedTaskListResponse;
 import com.fleebug.corerouter.dto.task.response.TaskInsightsResponse;
 import com.fleebug.corerouter.enums.task.TaskStatus;
 import com.fleebug.corerouter.service.task.TaskService;
@@ -66,6 +67,32 @@ public class AdminTaskInsightsController {
         AdminTaskAnalyticsResponse response = taskService.getTaskAnalyticsForAdmin(from, to, statusFilter);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Admin task analytics retrieved successfully", response, request));
+    }
+
+    @Operation(summary = "Get paginated task list", description = "Get paginated tasks with optional status filter (ALL, QUEUED, PROCESSING, COMPLETED, FAILED)")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Task list retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid pagination or status filter")
+    })
+    @GetMapping("/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaginatedTaskListResponse>> getTaskList(
+            @Parameter(description = "Page number (0-indexed)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", example = "5")
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Optional status filter", example = "QUEUED")
+            @RequestParam(defaultValue = "ALL") String status,
+            HttpServletRequest request) {
+
+        if (page < 0 || size <= 0) {
+            throw new IllegalArgumentException("Page must be >= 0 and size must be > 0");
+        }
+
+        TaskStatus statusFilter = parseStatusFilter(status);
+        PaginatedTaskListResponse response = taskService.getTasksWithFiltersForAdmin(page, size, statusFilter);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Task list retrieved successfully", response, request));
     }
 
     private TaskStatus parseStatusFilter(String status) {

@@ -7,7 +7,9 @@ import com.fleebug.corerouter.dto.task.request.TaskCreateRequest;
 import com.fleebug.corerouter.dto.task.request.TaskStatusUpdateRequest;
 import com.fleebug.corerouter.dto.task.response.AdminTaskAnalyticsResponse;
 import com.fleebug.corerouter.dto.task.response.DailyTaskAnalyticsResponse;
+import com.fleebug.corerouter.dto.task.response.PaginatedTaskListResponse;
 import com.fleebug.corerouter.dto.task.response.TaskInsightsResponse;
+import com.fleebug.corerouter.dto.task.response.TaskListItemResponse;
 import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.entity.task.Task;
@@ -25,6 +27,9 @@ import com.fleebug.corerouter.service.redis.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -220,6 +225,18 @@ public class TaskService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public PaginatedTaskListResponse getTasksWithFiltersForAdmin(int page, int size, TaskStatus statusFilter) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Task> taskPage = (statusFilter == null)
+                ? taskRepository.findAll(pageable)
+                : taskRepository.findByStatus(statusFilter, pageable);
+
+        Page<TaskListItemResponse> responsePage = taskPage.map(this::mapToTaskListItem);
+        return PaginatedTaskListResponse.fromPage(responsePage);
+    }
+
     private LocalDate toLocalDate(Object value) {
         if (value instanceof LocalDate localDate) {
             return localDate;
@@ -252,6 +269,19 @@ public class TaskService {
                 }
             }
         }
+    }
+
+    private TaskListItemResponse mapToTaskListItem(Task task) {
+        return TaskListItemResponse.builder()
+                .taskId(task.getTaskId())
+                .status(task.getStatus())
+                .apiKeyId(task.getApiKey() != null ? task.getApiKey().getApiKeyId() : null)
+                .modelId(task.getModel() != null ? task.getModel().getModelId() : null)
+                .createdAt(task.getCreatedAt())
+                .updatedAt(task.getUpdatedAt())
+                .completedAt(task.getCompletedAt())
+                .processingTimeMs(task.getProcessingTimeMs())
+                .build();
     }
 }
 
