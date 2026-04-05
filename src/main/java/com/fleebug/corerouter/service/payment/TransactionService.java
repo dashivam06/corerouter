@@ -22,12 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -315,11 +319,34 @@ public class TransactionService {
      */
     @Transactional(readOnly = true)
     public List<Object[]> getDailyEarnings(LocalDateTime from, LocalDateTime to) {
-        return transactionRepository.getEarningsByDateBetween(
+        List<Transaction> transactions = transactionRepository.findAllByTypeAndStatusAndCompletedAtBetween(
                 TransactionType.WALLET_TOPUP,
                 TransactionStatus.COMPLETED,
                 from,
                 to
         );
+
+        Map<LocalDate, BigDecimal> amountByDate = new TreeMap<>(Comparator.reverseOrder());
+        Map<LocalDate, Long> countByDate = new TreeMap<>(Comparator.reverseOrder());
+
+        for (Transaction transaction : transactions) {
+            if (transaction.getCompletedAt() == null) {
+                continue;
+            }
+
+            LocalDate date = transaction.getCompletedAt().toLocalDate();
+            BigDecimal amount = transaction.getAmount() == null ? BigDecimal.ZERO : transaction.getAmount();
+
+            amountByDate.put(date, amountByDate.getOrDefault(date, BigDecimal.ZERO).add(amount));
+            countByDate.put(date, countByDate.getOrDefault(date, 0L) + 1L);
+        }
+
+        List<Object[]> result = new ArrayList<>();
+        for (Map.Entry<LocalDate, BigDecimal> entry : amountByDate.entrySet()) {
+            LocalDate date = entry.getKey();
+            result.add(new Object[]{date, entry.getValue(), countByDate.getOrDefault(date, 0L)});
+        }
+
+        return result;
     }
 }
