@@ -32,6 +32,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT COALESCE(SUM(u.balance), 0) FROM User u")
     BigDecimal sumAllBalances();
 
+    @Query("SELECT COALESCE(SUM(u.balance), 0) FROM User u WHERE u.role = :role")
+    BigDecimal sumAllBalancesByRole(@Param("role") UserRole role);
+
     // Analytics queries for date range
     long countByStatusAndCreatedAtBetween(UserStatus status, LocalDateTime from, LocalDateTime to);
 

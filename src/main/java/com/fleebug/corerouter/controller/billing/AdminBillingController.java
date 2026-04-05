@@ -19,6 +19,7 @@ import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.entity.payment.Transaction;
 import com.fleebug.corerouter.enums.payment.TransactionType;
 import com.fleebug.corerouter.enums.payment.TransactionStatus;
+import com.fleebug.corerouter.enums.user.UserRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -527,8 +528,8 @@ public class AdminBillingController {
         LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
         LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
 
-        BigDecimal totalBalance = userRepository.sumAllBalances();
-        BigDecimal thisMonthVolume = usageService.getTotalCostForAllUsers(monthStart, now);
+        BigDecimal totalBalance = userRepository.sumAllBalancesByRole(UserRole.USER);
+        BigDecimal thisMonthVolume = transactionService.getTopUpAmountByPeriod(monthStart, now);
         BigDecimal todayTopUpAmount = transactionService.getTopUpAmountByPeriod(todayStart, now);
 
         BillingInsightsResponse insights = BillingInsightsResponse.builder()
@@ -538,4 +539,5 @@ public class AdminBillingController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
-        }}
+    }
+}
