@@ -2,8 +2,10 @@ package com.fleebug.corerouter.controller.billing;
 
 import com.fleebug.corerouter.dto.billing.response.AdminDashboardOverviewResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.entity.activity.ActivityLog;
 import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.enums.task.TaskStatus;
+import com.fleebug.corerouter.repository.activity.ActivityLogRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
 import com.fleebug.corerouter.service.payment.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +42,7 @@ public class AdminDashboardController {
 
     private final TransactionService transactionService;
     private final TaskRepository taskRepository;
+    private final ActivityLogRepository activityLogRepository;
 
     @Operation(summary = "Get dashboard overview", description = "Get fixed dashboard overview with UTC-based insights, 24h task volume and revenue trend for today/yesterday/7-days-ago")
     @ApiResponses({
@@ -71,10 +74,10 @@ public class AdminDashboardController {
                 .sevenDaysAgo(buildRevenueTrendForDay(todayStartUtc.minusDays(7)))
                 .build();
 
-        List<String> recentActivity = taskRepository.findTop10ByStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(TaskStatus.COMPLETED)
-                .stream()
-                .map(task -> "Task completed · " + task.getTaskId())
-                .toList();
+        List<String> recentActivity = activityLogRepository.findTop10ByOrderByCreatedAtDesc()
+            .stream()
+            .map(this::formatActivity)
+            .toList();
 
         AdminDashboardOverviewResponse response = AdminDashboardOverviewResponse.builder()
                 .totalEarnings(totalEarnings)
@@ -152,5 +155,11 @@ public class AdminDashboardController {
         return current.subtract(previous)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(previous, 1, RoundingMode.HALF_UP);
+    }
+
+    private String formatActivity(ActivityLog log) {
+        String action = log.getAction() == null || log.getAction().isBlank() ? "Activity" : log.getAction();
+        String details = log.getDetails() == null || log.getDetails().isBlank() ? "no details" : log.getDetails();
+        return action + " · " + details;
     }
 }

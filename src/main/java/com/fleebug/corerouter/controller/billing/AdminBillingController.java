@@ -10,7 +10,11 @@ import com.fleebug.corerouter.dto.billing.response.BillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.billing.response.EarningsDataResponse;
+import com.fleebug.corerouter.dto.billing.response.TransactionResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.entity.payment.Transaction;
+import com.fleebug.corerouter.enums.payment.TransactionStatus;
+import com.fleebug.corerouter.enums.payment.TransactionType;
 import com.fleebug.corerouter.service.billing.BillingConfigService;
 import com.fleebug.corerouter.service.billing.UsageService;
 import com.fleebug.corerouter.service.payment.TransactionService;
@@ -23,6 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -183,7 +188,7 @@ public class AdminBillingController {
     })
     @GetMapping("/transactions")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<List<EarningsDataResponse>>> getTransactionHistory(
+    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
             @Parameter(description = "Transaction type filter: WALLET, CARD, WALLET_TOPUP, or empty for all", example = "WALLET_TOPUP") 
             @RequestParam(required = false) String transactionType,
             @Parameter(description = "Transaction status filter: PENDING, COMPLETED, FAILED, or empty for all", example = "COMPLETED") 
@@ -214,35 +219,61 @@ public class AdminBillingController {
 
         Map<String, String> properties = new HashMap<>();
         properties.put("filterPeriod", filterPeriod);
+        if (transactionType != null && !transactionType.isBlank()) {
+            properties.put("type", transactionType);
+        }
+        if (status != null && !status.isBlank()) {
+            properties.put("status", status);
+        }
         telemetryClient.trackTrace("Admin: get transaction history", SeverityLevel.Information, properties);
 
-        // Get all transactions in the date range and return as earnings data
-        List<Object[]> dailyEarnings = transactionService.getDailyEarnings(from, to);
+        TransactionType type = null;
+        TransactionStatus txStatus = null;
 
-        // Convert to earnings response
-        Map<String, String> earningsByDate = new LinkedHashMap<>();
-        BigDecimal totalEarned = BigDecimal.ZERO;
-        int totalTransactionCount = 0;
-
-        for (Object[] row : dailyEarnings) {
-            LocalDate date = (LocalDate) row[0];
-            BigDecimal amount = (BigDecimal) row[1];
-            Long count = (Long) row[2];
-
-            earningsByDate.put(date.toString(), amount.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-            totalEarned = totalEarned.add(amount);
-            totalTransactionCount += count.intValue();
+        if (transactionType != null && !transactionType.isEmpty()) {
+            try {
+                type = TransactionType.valueOf(transactionType.toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // Keep null to avoid breaking old clients on invalid filter values.
+            }
         }
 
-        EarningsDataResponse response = EarningsDataResponse.builder()
-                .earningsByDate(earningsByDate)
-                .totalEarnings(totalEarned.setScale(2, java.math.RoundingMode.HALF_UP).toString())
-                .totalTransactionCount(totalTransactionCount)
-                .filterPeriod(filterPeriod)
-                .filterType(transactionType != null ? transactionType : "ALL")
-                .build();
+        if (status != null && !status.isEmpty()) {
+            try {
+                txStatus = TransactionStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // Keep null to avoid breaking old clients on invalid filter values.
+            }
+        }
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Transaction history retrieved successfully", java.util.List.of(response), request));
+        Page<Transaction> transactionPage = transactionService.getTransactionsByFilters(
+                type,
+                txStatus,
+                null,
+                from,
+                to,
+                0,
+                1000
+        );
+
+        List<Transaction> transactions = transactionPage.getContent();
+
+        List<TransactionResponse> transactionResponses = transactions.stream()
+                .map(t -> TransactionResponse.builder()
+                        .transactionId(t.getTransactionId())
+                        .userId(t.getUser().getUserId())
+                        .userName(t.getUser().getFullName())
+                        .amount(t.getAmount())
+                        .type(t.getType())
+                        .status(t.getStatus())
+                        .esewaTransactionId(t.getEsewaTransactionId())
+                        .relatedTaskId(t.getRelatedTask() != null ? t.getRelatedTask().getTaskId() : null)
+                        .completedAt(t.getCompletedAt())
+                        .createdAt(t.getCreatedAt())
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Transaction history retrieved successfully", transactionResponses, request));
     }
 
     /**

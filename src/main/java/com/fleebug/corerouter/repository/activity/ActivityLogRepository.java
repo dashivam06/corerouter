@@ -17,4 +17,6 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Intege
     List<ActivityLog> findByUserAndCreatedAtBetween(User user, LocalDateTime start, LocalDateTime end);
 
     List<ActivityLog> findByDetailsContainingIgnoreCase(String keyword);
+
+    List<ActivityLog> findTop10ByOrderByCreatedAtDesc();
 }
