@@ -3,12 +3,11 @@ package com.fleebug.corerouter.controller.billing;
 import com.fleebug.corerouter.dto.billing.response.AdminDashboardOverviewResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
 import com.fleebug.corerouter.entity.activity.ActivityLog;
-import com.fleebug.corerouter.entity.payment.Transaction;
 import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.enums.task.TaskStatus;
 import com.fleebug.corerouter.repository.activity.ActivityLogRepository;
-import com.fleebug.corerouter.repository.payment.TransactionRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
+import com.fleebug.corerouter.security.details.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,7 +44,6 @@ public class AdminDashboardController {
 
     private final TaskRepository taskRepository;
     private final ActivityLogRepository activityLogRepository;
-    private final TransactionRepository transactionRepository;
 
     @Operation(summary = "Get dashboard overview", description = "Get fixed dashboard overview with UTC-based insights, 24h task volume and revenue trend for today/yesterday/7-days-ago")
     @ApiResponses({
@@ -53,7 +51,8 @@ public class AdminDashboardController {
     })
     @GetMapping("/overview")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<AdminDashboardOverviewResponse>> getDashboardOverview(HttpServletRequest request) {
+        public ResponseEntity<ApiResponse<AdminDashboardOverviewResponse>> getDashboardOverview(HttpServletRequest request,
+                                                     Authentication authentication) {
         LocalDateTime nowUtc = LocalDateTime.now(Clock.systemUTC());
         LocalDateTime todayStartUtc = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
         LocalDateTime monthStartUtc = nowUtc.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
@@ -106,7 +105,11 @@ public class AdminDashboardController {
         }
 
         try {
-            recentActivity = buildRecentActivity();
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            recentActivity = activityLogRepository.findTop10ByUserOrderByCreatedAtDesc(userDetails.getUser())
+                    .stream()
+                    .map(this::formatActivity)
+                    .toList();
         } catch (RuntimeException ignored) {
             // Keep defaults so dashboard still loads.
         }
@@ -256,36 +259,5 @@ public class AdminDashboardController {
         String action = log.getAction() == null || log.getAction().isBlank() ? "Activity" : log.getAction();
         String details = log.getDetails() == null || log.getDetails().isBlank() ? "no details" : log.getDetails();
         return action + " · " + details;
-    }
-
-    private List<String> buildRecentActivity() {
-        List<TimedActivity> combined = new ArrayList<>();
-
-        for (ActivityLog log : activityLogRepository.findTop10ByOrderByCreatedAtDesc()) {
-            LocalDateTime createdAt = log.getCreatedAt() == null ? LocalDateTime.MIN : log.getCreatedAt();
-            combined.add(new TimedActivity(createdAt, formatActivity(log)));
-        }
-
-        for (Transaction tx : transactionRepository.findTop10ByOrderByCreatedAtDesc()) {
-            LocalDateTime createdAt = tx.getCreatedAt() == null ? LocalDateTime.MIN : tx.getCreatedAt();
-            combined.add(new TimedActivity(createdAt, formatTransactionActivity(tx)));
-        }
-
-        combined.sort(Comparator.comparing(TimedActivity::at).reversed());
-
-        return combined.stream()
-                .limit(10)
-                .map(TimedActivity::message)
-                .toList();
-    }
-
-    private String formatTransactionActivity(Transaction tx) {
-        String type = tx.getType() == null ? "UNKNOWN" : tx.getType().name();
-        String status = tx.getStatus() == null ? "UNKNOWN" : tx.getStatus().name();
-        BigDecimal amount = tx.getAmount() == null ? BigDecimal.ZERO : tx.getAmount();
-        return "Transaction " + type + " · रू " + amount.setScale(2, RoundingMode.HALF_UP) + " · " + status;
-    }
-
-    private record TimedActivity(LocalDateTime at, String message) {
     }
 }
