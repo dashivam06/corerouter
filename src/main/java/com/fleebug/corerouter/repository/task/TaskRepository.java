@@ -20,6 +20,20 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     long countByStatus(TaskStatus status);
 
+    long countByStatusAndCompletedAtBetween(TaskStatus status, LocalDateTime from, LocalDateTime to);
+
+    @Query("SELECT COUNT(DISTINCT t.apiKey.user.userId) FROM Task t WHERE t.createdAt BETWEEN :from AND :to")
+    long countDistinctUsersByCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("SELECT FUNCTION('HOUR', t.createdAt), COUNT(t) FROM Task t " +
+            "WHERE t.createdAt BETWEEN :from AND :to " +
+            "GROUP BY FUNCTION('HOUR', t.createdAt)")
+    List<Object[]> countByHourBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    List<Task> findTop10ByStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(TaskStatus status);
+
+    List<Task> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
+
     long countByApiKey_User_UserId(Integer userId);
 
     long countByApiKey_User_UserIdAndStatus(Integer userId, TaskStatus status);

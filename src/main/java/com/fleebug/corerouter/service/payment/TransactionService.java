@@ -16,6 +16,11 @@ import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +35,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -276,42 +282,70 @@ public class TransactionService {
         );
     }
 
-    /**
-     * Get list of transactions filtered by type, status and date range
-     */
     @Transactional(readOnly = true)
-    public List<Transaction> getTransactionsByFilters(
+    public BigDecimal getTopUpAmountAllTime() {
+        return transactionRepository.sumAmountByTypeAndStatus(
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Integer, BigDecimal> getTopUpAmountByHour(LocalDateTime from, LocalDateTime to) {
+        List<Object[]> rows = transactionRepository.sumAmountByTypeAndStatusAndCompletedAtBetweenGroupedByHour(
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED,
+                from,
+                to
+        );
+
+        Map<Integer, BigDecimal> result = new HashMap<>();
+        for (Object[] row : rows) {
+            Integer hour = ((Number) row[0]).intValue();
+            BigDecimal amount = (BigDecimal) row[1];
+            result.put(hour, amount);
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Transaction> getTransactionsByFilters(
             TransactionType type,
             TransactionStatus status,
+            String search,
             LocalDateTime from,
-            LocalDateTime to) {
-        if (type != null && status != null) {
-            return transactionRepository.findByTypeAndStatusAndCompletedAtBetween(
-                    type, status, from, to,
-                    org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE)
-            ).getContent();
-        } else if (type != null) {
-            // If only type is specified, get all by type
-            List<Transaction> allByType = transactionRepository.findByType(type);
-            return allByType.stream()
-                    .filter(t -> t.getCompletedAt() != null && 
-                               t.getCompletedAt().isAfter(from) && 
-                               t.getCompletedAt().isBefore(to))
-                    .sorted((a, b) -> b.getCompletedAt().compareTo(a.getCompletedAt()))
-                    .toList();
-        } else if (status != null) {
-            // If only status is specified, get all by status
-            List<Transaction> allByStatus = transactionRepository.findByStatus(status);
-            return allByStatus.stream()
-                    .filter(t -> t.getCompletedAt() != null && 
-                               t.getCompletedAt().isAfter(from) && 
-                               t.getCompletedAt().isBefore(to))
-                    .sorted((a, b) -> b.getCompletedAt().compareTo(a.getCompletedAt()))
-                    .toList();
-        } else {
-            // Get all transactions in date range
-            return transactionRepository.findByCompletedAtBetween(from, to);
-        }
+            LocalDateTime to,
+            int page,
+            int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "completedAt"));
+
+        Specification<Transaction> specification = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            predicates.add(cb.between(root.get("completedAt"), from, to));
+
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (search != null && !search.trim().isEmpty()) {
+                String keyword = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+                jakarta.persistence.criteria.Join<Object, Object> userJoin = root.join("user");
+                predicates.add(cb.or(
+                        cb.like(cb.lower(userJoin.get("fullName")), keyword),
+                        cb.like(cb.lower(userJoin.get("email")), keyword),
+                        cb.like(cb.lower(root.get("esewaTransactionId")), keyword)
+                ));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        return transactionRepository.findAll(specification, pageable);
     }
 
     /**
