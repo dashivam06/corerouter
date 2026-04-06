@@ -40,9 +40,9 @@ public class AdminDashboardController {
 
     private static final DateTimeFormatter HOUR_LABEL = DateTimeFormatter.ofPattern("HH:00");
 
-    private final TransactionService transactionService;
     private final TaskRepository taskRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final TransactionService transactionService;
 
     @Operation(summary = "Get dashboard overview", description = "Get fixed dashboard overview with UTC-based insights, 24h task volume and revenue trend for today/yesterday/7-days-ago")
     @ApiResponses({
@@ -132,7 +132,14 @@ public class AdminDashboardController {
     private List<AdminDashboardOverviewResponse.HourlyAmountPoint> buildRevenueTrendForDay(LocalDateTime dayStartUtc) {
         LocalDateTime dayEndUtc = dayStartUtc.plusDays(1).minusNanos(1);
 
-        Map<Integer, BigDecimal> hourlyMap = transactionService.getTopUpAmountByHour(dayStartUtc, dayEndUtc);
+        List<Object[]> rows = taskRepository.sumTotalCostByHourBetween(dayStartUtc, dayEndUtc, TaskStatus.COMPLETED);
+        Map<Integer, BigDecimal> hourlyMap = new HashMap<>();
+        for (Object[] row : rows) {
+            Integer hour = ((Number) row[0]).intValue();
+            BigDecimal amount = row[1] == null ? BigDecimal.ZERO : (BigDecimal) row[1];
+            hourlyMap.put(hour, amount);
+        }
+
         List<AdminDashboardOverviewResponse.HourlyAmountPoint> points = new ArrayList<>();
 
         for (int hour = 0; hour < 24; hour++) {

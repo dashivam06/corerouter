@@ -191,15 +191,35 @@ public class AdminBillingController {
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
             @Parameter(description = "Transaction type filter: WALLET, CARD, WALLET_TOPUP, or empty for all", example = "WALLET_TOPUP") 
             @RequestParam(required = false) String transactionType,
+            @Parameter(description = "Transaction type alias used by frontend: WALLET, CARD, WALLET_TOPUP, Wallet Topup", example = "Wallet Topup")
+            @RequestParam(required = false) String type,
             @Parameter(description = "Transaction status filter: PENDING, COMPLETED, FAILED, or empty for all", example = "COMPLETED") 
             @RequestParam(required = false) String status,
             @Parameter(description = "Filter period: 'today' or 'all'", example = "today") 
             @RequestParam(defaultValue = "all") String filterPeriod,
+            @Parameter(description = "Date filter alias used by frontend: 'today' or 'all'", example = "today")
+            @RequestParam(required = false) String dateFilter,
+            @Parameter(description = "Search by user name, email, or eSewa ID", example = "john@example.com")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Page number (0-indexed)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", example = "1000")
+            @RequestParam(defaultValue = "1000") int size,
             @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00") 
             @RequestParam(required = false) LocalDateTime fromDate,
             @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-05T23:59:59") 
             @RequestParam(required = false) LocalDateTime toDate,
             HttpServletRequest request) {
+
+        String resolvedFilterPeriod = (dateFilter != null && !dateFilter.isBlank()) ? dateFilter : filterPeriod;
+        String resolvedType = (transactionType != null && !transactionType.isBlank()) ? transactionType : type;
+
+        if (page < 0) {
+            page = 0;
+        }
+        if (size <= 0) {
+            size = 1000;
+        }
 
         LocalDateTime from = fromDate;
         LocalDateTime to = toDate;
@@ -207,7 +227,7 @@ public class AdminBillingController {
         // If custom dates not provided, use filter period
         if (from == null || to == null) {
             LocalDateTime now = LocalDateTime.now();
-            if ("today".equalsIgnoreCase(filterPeriod)) {
+            if ("today".equalsIgnoreCase(resolvedFilterPeriod)) {
                 from = now.toLocalDate().atStartOfDay();
                 to = now.toLocalDate().plusDays(1).atStartOfDay();
             } else {
@@ -218,21 +238,25 @@ public class AdminBillingController {
         }
 
         Map<String, String> properties = new HashMap<>();
-        properties.put("filterPeriod", filterPeriod);
-        if (transactionType != null && !transactionType.isBlank()) {
-            properties.put("type", transactionType);
+        properties.put("filterPeriod", resolvedFilterPeriod);
+        if (resolvedType != null && !resolvedType.isBlank()) {
+            properties.put("type", resolvedType);
         }
         if (status != null && !status.isBlank()) {
             properties.put("status", status);
         }
+        if (search != null && !search.isBlank()) {
+            properties.put("search", search);
+        }
         telemetryClient.trackTrace("Admin: get transaction history", SeverityLevel.Information, properties);
 
-        TransactionType type = null;
+        TransactionType transactionTypeEnum = null;
         TransactionStatus txStatus = null;
 
-        if (transactionType != null && !transactionType.isEmpty()) {
+        if (resolvedType != null && !resolvedType.isEmpty()) {
             try {
-                type = TransactionType.valueOf(transactionType.toUpperCase());
+                String normalizedType = resolvedType.trim().toUpperCase().replace('-', '_').replace(' ', '_');
+                transactionTypeEnum = TransactionType.valueOf(normalizedType);
             } catch (IllegalArgumentException ignored) {
                 // Keep null to avoid breaking old clients on invalid filter values.
             }
@@ -247,13 +271,13 @@ public class AdminBillingController {
         }
 
         Page<Transaction> transactionPage = transactionService.getTransactionsByFilters(
-                type,
+            transactionTypeEnum,
                 txStatus,
-                null,
+            search,
                 from,
                 to,
-                0,
-                1000
+            page,
+            size
         );
 
         List<Transaction> transactions = transactionPage.getContent();

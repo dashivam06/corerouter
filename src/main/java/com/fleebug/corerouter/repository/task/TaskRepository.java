@@ -30,6 +30,14 @@ public interface TaskRepository extends JpaRepository<Task, String> {
             "GROUP BY FUNCTION('HOUR', t.createdAt)")
     List<Object[]> countByHourBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
+        @Query("SELECT FUNCTION('HOUR', t.completedAt), COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t " +
+            "WHERE t.completedAt BETWEEN :from AND :to " +
+            "AND t.status = :status " +
+            "GROUP BY FUNCTION('HOUR', t.completedAt)")
+        List<Object[]> sumTotalCostByHourBetween(@Param("from") LocalDateTime from,
+                             @Param("to") LocalDateTime to,
+                             @Param("status") TaskStatus status);
+
     List<Task> findTop10ByStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(TaskStatus status);
 
     List<Task> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
