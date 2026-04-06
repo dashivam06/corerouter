@@ -19,6 +19,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findByEsewaTransactionId(String esewaTransactionId);
 
+        List<Transaction> findTop10ByOrderByCreatedAtDesc();
+
     List<Transaction> findByStatusAndCreatedAtBefore(TransactionStatus status, LocalDateTime cutoff);
 
     List<Transaction> findByTypeAndStatusAndCompletedAtBetween(TransactionType type, TransactionStatus status, LocalDateTime from, LocalDateTime to);
