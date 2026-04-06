@@ -1,6 +1,8 @@
 package com.fleebug.corerouter.repository.activity;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import com.fleebug.corerouter.entity.activity.ActivityLog;
@@ -13,6 +15,8 @@ import java.time.LocalDateTime;
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, Integer> {
 
     List<ActivityLog> findByUser(User user);
+
+    Page<ActivityLog> findByUser(User user, Pageable pageable);
 
     List<ActivityLog> findTop10ByUserOrderByCreatedAtDesc(User user);
 

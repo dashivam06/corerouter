@@ -7,7 +7,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
@@ -514,12 +513,6 @@ public class UserService {
         return userRepository.countByCreatedAtBetween(from, to);
     }
 
-    /**
-     * Count users by status within date range (for analytics)
-     */
-    private long countByStatusInRange(UserStatus status, LocalDateTime from, LocalDateTime to) {
-        return userRepository.countByStatusAndCreatedAtBetween(status, from, to);
-    }
 
     private UserProfileResponse mapToProfileResponse(User user) {
         return UserProfileResponse.builder()
