@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,28 +57,55 @@ public class AdminDashboardController {
         LocalDateTime monthStartUtc = nowUtc.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
         LocalDateTime lastMonthStartUtc = monthStartUtc.minusMonths(1);
 
-        BigDecimal totalEarnings = transactionService.getTopUpAmountAllTime().setScale(2, RoundingMode.HALF_UP);
-        BigDecimal todayEarning = transactionService.getTopUpAmountByPeriod(todayStartUtc, nowUtc).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal thisMonthRevenue = transactionService.getTopUpAmountByPeriod(monthStartUtc, nowUtc);
-        BigDecimal lastMonthRevenue = transactionService.getTopUpAmountByPeriod(lastMonthStartUtc, monthStartUtc.minusNanos(1));
-
-        BigDecimal totalEarningsChangeFromPastMonthPercent = calculatePercentChange(thisMonthRevenue, lastMonthRevenue);
-
-        Long tasksProcessedToday = taskRepository.countByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, todayStartUtc, nowUtc);
-        Long activeUsersToday = taskRepository.countDistinctUsersByCreatedAtBetween(todayStartUtc, nowUtc);
-
-        List<AdminDashboardOverviewResponse.HourlyCountPoint> taskVolume24h = buildTaskVolume24h(nowUtc);
-
+        BigDecimal totalEarnings = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal todayEarning = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalEarningsChangeFromPastMonthPercent = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+        Long tasksProcessedToday = 0L;
+        Long activeUsersToday = 0L;
+        List<AdminDashboardOverviewResponse.HourlyCountPoint> taskVolume24h = Collections.emptyList();
         AdminDashboardOverviewResponse.RevenueTrendResponse revenueTrend = AdminDashboardOverviewResponse.RevenueTrendResponse.builder()
-                .today(buildRevenueTrendForDay(todayStartUtc))
-                .yesterday(buildRevenueTrendForDay(todayStartUtc.minusDays(1)))
-                .sevenDaysAgo(buildRevenueTrendForDay(todayStartUtc.minusDays(7)))
+                .today(buildEmptyRevenuePoints())
+                .yesterday(buildEmptyRevenuePoints())
+                .sevenDaysAgo(buildEmptyRevenuePoints())
                 .build();
+        List<String> recentActivity = Collections.emptyList();
 
-        List<String> recentActivity = activityLogRepository.findTop10ByOrderByCreatedAtDesc()
-            .stream()
-            .map(this::formatActivity)
-            .toList();
+        try {
+            totalEarnings = transactionService.getTopUpAmountAllTime().setScale(2, RoundingMode.HALF_UP);
+            todayEarning = transactionService.getTopUpAmountByPeriod(todayStartUtc, nowUtc).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal thisMonthRevenue = transactionService.getTopUpAmountByPeriod(monthStartUtc, nowUtc);
+            BigDecimal lastMonthRevenue = transactionService.getTopUpAmountByPeriod(lastMonthStartUtc, monthStartUtc.minusNanos(1));
+            totalEarningsChangeFromPastMonthPercent = calculatePercentChange(thisMonthRevenue, lastMonthRevenue);
+        } catch (RuntimeException ignored) {
+            // Keep defaults so dashboard still loads.
+        }
+
+        try {
+            tasksProcessedToday = taskRepository.countByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, todayStartUtc, nowUtc);
+            activeUsersToday = taskRepository.countDistinctUsersByCreatedAtBetween(todayStartUtc, nowUtc);
+            taskVolume24h = buildTaskVolume24h(nowUtc);
+        } catch (RuntimeException ignored) {
+            // Keep defaults so dashboard still loads.
+        }
+
+        try {
+            revenueTrend = AdminDashboardOverviewResponse.RevenueTrendResponse.builder()
+                    .today(buildRevenueTrendForDay(todayStartUtc))
+                    .yesterday(buildRevenueTrendForDay(todayStartUtc.minusDays(1)))
+                    .sevenDaysAgo(buildRevenueTrendForDay(todayStartUtc.minusDays(7)))
+                    .build();
+        } catch (RuntimeException ignored) {
+            // Keep defaults so dashboard still loads.
+        }
+
+        try {
+            recentActivity = activityLogRepository.findTop10ByOrderByCreatedAtDesc()
+                    .stream()
+                    .map(this::formatActivity)
+                    .toList();
+        } catch (RuntimeException ignored) {
+            // Keep defaults so dashboard still loads.
+        }
 
         AdminDashboardOverviewResponse response = AdminDashboardOverviewResponse.builder()
                 .totalEarnings(totalEarnings)
@@ -132,11 +160,20 @@ public class AdminDashboardController {
     private List<AdminDashboardOverviewResponse.HourlyAmountPoint> buildRevenueTrendForDay(LocalDateTime dayStartUtc) {
         LocalDateTime dayEndUtc = dayStartUtc.plusDays(1).minusNanos(1);
 
-        List<Object[]> rows = taskRepository.sumTotalCostByHourBetween(dayStartUtc, dayEndUtc, TaskStatus.COMPLETED);
+        List<Object[]> rows;
+        try {
+            rows = taskRepository.sumTotalCostByHourBetween(dayStartUtc, dayEndUtc, TaskStatus.COMPLETED);
+        } catch (RuntimeException ex) {
+            rows = buildRevenueRowsInMemory(dayStartUtc, dayEndUtc);
+        }
+
         Map<Integer, BigDecimal> hourlyMap = new HashMap<>();
         for (Object[] row : rows) {
+            if (row == null || row.length < 2 || row[0] == null) {
+                continue;
+            }
             Integer hour = ((Number) row[0]).intValue();
-            BigDecimal amount = row[1] == null ? BigDecimal.ZERO : (BigDecimal) row[1];
+            BigDecimal amount = toBigDecimal(row[1]);
             hourlyMap.put(hour, amount);
         }
 
@@ -152,6 +189,53 @@ public class AdminDashboardController {
         }
 
         return points;
+    }
+
+    private List<Object[]> buildRevenueRowsInMemory(LocalDateTime dayStartUtc, LocalDateTime dayEndUtc) {
+        Map<Integer, BigDecimal> sums = new HashMap<>();
+        for (Task task : taskRepository.findAll()) {
+            if (task.getStatus() != TaskStatus.COMPLETED || task.getCompletedAt() == null) {
+                continue;
+            }
+            LocalDateTime completedAt = task.getCompletedAt();
+            if (completedAt.isBefore(dayStartUtc) || completedAt.isAfter(dayEndUtc)) {
+                continue;
+            }
+            int hour = completedAt.getHour();
+            BigDecimal cost = task.getTotalCost() == null ? BigDecimal.ZERO : task.getTotalCost();
+            sums.put(hour, sums.getOrDefault(hour, BigDecimal.ZERO).add(cost));
+        }
+
+        List<Object[]> rows = new ArrayList<>();
+        for (Map.Entry<Integer, BigDecimal> entry : sums.entrySet()) {
+            rows.add(new Object[]{entry.getKey(), entry.getValue()});
+        }
+        return rows;
+    }
+
+    private List<AdminDashboardOverviewResponse.HourlyAmountPoint> buildEmptyRevenuePoints() {
+        List<AdminDashboardOverviewResponse.HourlyAmountPoint> points = new ArrayList<>();
+        for (int hour = 0; hour < 24; hour++) {
+            points.add(AdminDashboardOverviewResponse.HourlyAmountPoint.builder()
+                    .hour(hour)
+                    .labelUtc(String.format("%02d:00", hour))
+                    .value(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
+                    .build());
+        }
+        return points;
+    }
+
+    private BigDecimal toBigDecimal(Object raw) {
+        if (raw == null) {
+            return BigDecimal.ZERO;
+        }
+        if (raw instanceof BigDecimal value) {
+            return value;
+        }
+        if (raw instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal calculatePercentChange(BigDecimal current, BigDecimal previous) {
