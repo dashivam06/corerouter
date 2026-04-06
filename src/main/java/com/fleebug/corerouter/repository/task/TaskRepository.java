@@ -22,6 +22,14 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     long countByStatusAndCompletedAtBetween(TaskStatus status, LocalDateTime from, LocalDateTime to);
 
+    @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status")
+    java.math.BigDecimal sumTotalCostByStatus(@Param("status") TaskStatus status);
+
+    @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status AND t.completedAt BETWEEN :from AND :to")
+    java.math.BigDecimal sumTotalCostByStatusAndCompletedAtBetween(@Param("status") TaskStatus status,
+                                                                   @Param("from") LocalDateTime from,
+                                                                   @Param("to") LocalDateTime to);
+
     @Query("SELECT COUNT(DISTINCT t.apiKey.user.userId) FROM Task t WHERE t.createdAt BETWEEN :from AND :to")
     long countDistinctUsersByCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 

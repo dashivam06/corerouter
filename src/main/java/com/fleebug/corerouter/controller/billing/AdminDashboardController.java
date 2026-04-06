@@ -7,7 +7,6 @@ import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.enums.task.TaskStatus;
 import com.fleebug.corerouter.repository.activity.ActivityLogRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
-import com.fleebug.corerouter.service.payment.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,7 +42,6 @@ public class AdminDashboardController {
 
     private final TaskRepository taskRepository;
     private final ActivityLogRepository activityLogRepository;
-    private final TransactionService transactionService;
 
     @Operation(summary = "Get dashboard overview", description = "Get fixed dashboard overview with UTC-based insights, 24h task volume and revenue trend for today/yesterday/7-days-ago")
     @ApiResponses({
@@ -71,10 +69,15 @@ public class AdminDashboardController {
         List<String> recentActivity = Collections.emptyList();
 
         try {
-            totalEarnings = transactionService.getTopUpAmountAllTime().setScale(2, RoundingMode.HALF_UP);
-            todayEarning = transactionService.getTopUpAmountByPeriod(todayStartUtc, nowUtc).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal thisMonthRevenue = transactionService.getTopUpAmountByPeriod(monthStartUtc, nowUtc);
-            BigDecimal lastMonthRevenue = transactionService.getTopUpAmountByPeriod(lastMonthStartUtc, monthStartUtc.minusNanos(1));
+            totalEarnings = taskRepository.sumTotalCostByStatus(TaskStatus.COMPLETED).setScale(2, RoundingMode.HALF_UP);
+            todayEarning = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, todayStartUtc, nowUtc)
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal thisMonthRevenue = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, monthStartUtc, nowUtc);
+            BigDecimal lastMonthRevenue = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(
+                    TaskStatus.COMPLETED,
+                    lastMonthStartUtc,
+                    monthStartUtc.minusNanos(1)
+            );
             totalEarningsChangeFromPastMonthPercent = calculatePercentChange(thisMonthRevenue, lastMonthRevenue);
         } catch (RuntimeException ignored) {
             // Keep defaults so dashboard still loads.
