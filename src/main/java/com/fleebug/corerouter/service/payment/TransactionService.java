@@ -348,6 +348,15 @@ public class TransactionService {
         return transactionRepository.findAll(specification, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public List<Transaction> getTransactionsByFilters(
+            TransactionType type,
+            TransactionStatus status,
+            LocalDateTime from,
+            LocalDateTime to) {
+        return getTransactionsByFilters(type, status, null, from, to, 0, 1000).getContent();
+    }
+
     /**
      * Get daily earnings (sum of completed WALLET_TOPUP transactions grouped by date)
      */
