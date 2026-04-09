@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -198,84 +199,133 @@ public class AzureInsightsService {
     }
 
     public Object getTotalRequests(String rangeKey) {
+        return getTotalRequests(null, null, rangeKey);
+    }
+
+    public Object getTotalRequests(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize totalRequests = count()
-                """.formatted(range.range(), genuineUserFilterClause());
+                """.formatted(timeFilterClause, genuineUserFilterClause());
         return query(kql);
     }
 
     public Object getFailedRequests(String rangeKey) {
+        return getFailedRequests(null, null, rangeKey);
+    }
+
+    public Object getFailedRequests(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize failedRequests = countif(success == false)
-                """.formatted(range.range(), genuineUserFilterClause());
+                """.formatted(timeFilterClause, genuineUserFilterClause());
         return query(kql);
     }
 
     public Object getErrorRate(String rangeKey) {
+        return getErrorRate(null, null, rangeKey);
+    }
+
+    public Object getErrorRate(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize total = count(), failed = countif(success == false)
                 | extend errorRate = iff(total == 0, 0.0, failed * 100.0 / total)
-                """.formatted(range.range(), genuineUserFilterClause());
+                """.formatted(timeFilterClause, genuineUserFilterClause());
         return query(kql);
     }
 
     public Object getAverageResponseTime(String rangeKey) {
+        return getAverageResponseTime(null, null, rangeKey);
+    }
+
+    public Object getAverageResponseTime(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize avgDurationMs = round(avg(duration / 1ms), 2)
-                """.formatted(range.range(), genuineUserFilterClause());
+                """.formatted(timeFilterClause, genuineUserFilterClause());
+        return query(kql);
+    }
+
+    public Object getP95ResponseTime(LocalDateTime from, LocalDateTime to, String rangeKey) {
+        RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
+        String kql = """
+                requests
+                %s
+                %s
+                | summarize p95DurationMs = round(percentile(duration / 1ms, 95), 2)
+                """.formatted(timeFilterClause, genuineUserFilterClause());
         return query(kql);
     }
 
     public Object getRequestsOverTime(String rangeKey) {
+        return getRequestsOverTime(null, null, rangeKey);
+    }
+
+    public Object getRequestsOverTime(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
+        String interval = resolveInterval(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize requests = count() by bin(timestamp, %s)
                 | order by timestamp asc
-                """.formatted(range.range(), genuineUserFilterClause(), range.interval());
+                """.formatted(timeFilterClause, genuineUserFilterClause(), interval);
         return query(kql);
     }
 
     public Object getFailedRequestsOverTime(String rangeKey) {
+        return getFailedRequestsOverTime(null, null, rangeKey);
+    }
+
+    public Object getFailedRequestsOverTime(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
+        String interval = resolveInterval(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | where success == false
                 | summarize failures = count() by bin(timestamp, %s)
                 | order by timestamp asc
-                """.formatted(range.range(), genuineUserFilterClause(), range.interval());
+                """.formatted(timeFilterClause, genuineUserFilterClause(), interval);
         return query(kql);
     }
 
     public Object getTopEndpointsForRange(String rangeKey) {
+        return getTopEndpointsForRange(null, null, rangeKey);
+    }
+
+    public Object getTopEndpointsForRange(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
+        String timeFilterClause = buildRequestTimeFilterClause(from, to, range);
         String kql = """
                 requests
-                | where timestamp >= ago(%s)
+                %s
                 %s
                 | summarize requestCount = count() by name
                 | top 5 by requestCount desc
-                """.formatted(range.range(), genuineUserFilterClause());
+                """.formatted(timeFilterClause, genuineUserFilterClause());
         return query(kql);
     }
 
@@ -400,6 +450,168 @@ public class AzureInsightsService {
         );
 
         return query(kql);
+    }
+
+    public Object getAlertsPaged(LocalDateTime from, LocalDateTime to, String severity, Integer pageSize,
+                                 LocalDateTime cursorTimestamp, String cursorItemId) {
+        LocalDateTime resolvedFrom = resolveFrom(from, to);
+        LocalDateTime resolvedTo = resolveTo(from, to);
+        int resolvedPageSize = sanitizePageSize(pageSize, DEFAULT_PAGE_SIZE);
+
+        String alertSeverityClause = buildAlertSeverityClause(severity);
+        String cursorClause = buildCursorClause(cursorTimestamp, cursorItemId);
+
+        String kql = """
+                union
+                (
+                    requests
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | summarize
+                        Total = count(),
+                        Failed = countif(success == false)
+                      by cloud_RoleName
+                    | where (Failed * 100.0 / Total) > 5
+                    | project
+                        timestamp = now(),
+                        service = cloud_RoleName,
+                        alertType = "HIGH_ERROR_RATE",
+                        severity = "WARN",
+                        value = strcat(tostring(round(Failed * 100.0 / Total, 2)), "%%"),
+                        itemId = tostring(hash(strcat(cloud_RoleName, "|HIGH_ERROR_RATE|", tostring(round(Failed * 100.0 / Total, 2)))))
+                ),
+                (
+                    requests
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | summarize P95 = percentile(duration, 95) by cloud_RoleName
+                    | where P95 > 2000
+                    | project
+                        timestamp = now(),
+                        service = cloud_RoleName,
+                        alertType = "SLOW_RESPONSE",
+                        severity = "WARN",
+                        value = strcat(tostring(round(P95, 0)), "ms"),
+                        itemId = tostring(hash(strcat(cloud_RoleName, "|SLOW_RESPONSE|", tostring(round(P95, 0)))))
+                ),
+                (
+                    customEvents
+                    | where name in ("WORKER_DOWN", "VLLM_DOWN", "REDIS_DOWN")
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | project
+                        timestamp,
+                        service = cloud_RoleName,
+                        alertType = name,
+                        severity = "ERROR",
+                        value = tostring(customDimensions.reason),
+                        itemId = tostring(itemId)
+                )
+                %s
+                %s
+                | order by timestamp desc, itemId desc
+                | take %d
+                """.formatted(
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                alertSeverityClause,
+                cursorClause,
+                resolvedPageSize
+        );
+
+        String countKql = """
+                union
+                (
+                    requests
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | summarize
+                        Total = count(),
+                        Failed = countif(success == false)
+                      by cloud_RoleName
+                    | where (Failed * 100.0 / Total) > 5
+                    | project
+                        timestamp = now(),
+                        service = cloud_RoleName,
+                        alertType = "HIGH_ERROR_RATE",
+                        severity = "WARN",
+                        value = strcat(tostring(round(Failed * 100.0 / Total, 2)), "%%"),
+                        itemId = tostring(hash(strcat(cloud_RoleName, "|HIGH_ERROR_RATE|", tostring(round(Failed * 100.0 / Total, 2)))))
+                ),
+                (
+                    requests
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | summarize P95 = percentile(duration, 95) by cloud_RoleName
+                    | where P95 > 2000
+                    | project
+                        timestamp = now(),
+                        service = cloud_RoleName,
+                        alertType = "SLOW_RESPONSE",
+                        severity = "WARN",
+                        value = strcat(tostring(round(P95, 0)), "ms"),
+                        itemId = tostring(hash(strcat(cloud_RoleName, "|SLOW_RESPONSE|", tostring(round(P95, 0)))))
+                ),
+                (
+                    customEvents
+                    | where name in ("WORKER_DOWN", "VLLM_DOWN", "REDIS_DOWN")
+                    | where timestamp between (datetime(%s) .. datetime(%s))
+                    | project
+                        timestamp,
+                        service = cloud_RoleName,
+                        alertType = name,
+                        severity = "ERROR",
+                        value = tostring(customDimensions.reason),
+                        itemId = tostring(itemId)
+                )
+                %s
+                | summarize totalCount = count()
+                """.formatted(
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                formatDate(resolvedFrom), formatDate(resolvedTo),
+                alertSeverityClause
+        );
+
+        return buildPagedResponse(query(kql), query(countKql), resolvedFrom, resolvedTo, resolvedPageSize);
+    }
+
+    private String buildAlertSeverityClause(String severity) {
+        String normalized = severity == null ? "ALL" : severity.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "WARN", "WARNING" -> "| where severity == \"WARN\"";
+            case "ERROR", "HIGH" -> "| where severity == \"ERROR\"";
+            default -> "";
+        };
+    }
+
+    private String buildRequestTimeFilterClause(LocalDateTime from, LocalDateTime to, RangeConfig fallbackRange) {
+        if (from != null || to != null) {
+            LocalDateTime resolvedFrom = resolveFrom(from, to);
+            LocalDateTime resolvedTo = resolveTo(from, to);
+            return "| where timestamp between (datetime(" + formatDate(resolvedFrom) + ") .. datetime(" + formatDate(resolvedTo) + "))";
+        }
+        return "| where timestamp >= ago(" + fallbackRange.range() + ")";
+    }
+
+    private String resolveInterval(LocalDateTime from, LocalDateTime to, RangeConfig fallbackRange) {
+        if (from == null && to == null) {
+            return fallbackRange.interval();
+        }
+
+        LocalDateTime resolvedFrom = resolveFrom(from, to);
+        LocalDateTime resolvedTo = resolveTo(from, to);
+        long hours = Math.max(1, ChronoUnit.HOURS.between(resolvedFrom, resolvedTo));
+
+        if (hours <= 24) {
+            return "5m";
+        }
+        if (hours <= 72) {
+            return "15m";
+        }
+        if (hours <= 24L * 7) {
+            return "1h";
+        }
+        if (hours <= 24L * 31) {
+            return "6h";
+        }
+        return "1d";
     }
 
     private int mapSeverity(String severity) {

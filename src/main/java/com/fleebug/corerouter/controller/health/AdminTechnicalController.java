@@ -102,6 +102,8 @@ public class AdminTechnicalController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             HttpServletRequest request) {
 
+        validateDateRange(from, to);
+
         Map<String, Object> payload = Map.of(
                 "requestStats", azureInsightsService.getRequestStats(from, to),
                 "failedJobs", azureInsightsService.getFailedJobs(from, to),
@@ -123,6 +125,9 @@ public class AdminTechnicalController {
                         @RequestParam(required = false) String cursorItemId,
             HttpServletRequest request) {
 
+                                validateDateRange(from, to);
+                                validatePageSize(pageSize);
+
                 Object payload = azureInsightsService.getLogsPaged(from, to, severity, pageSize, cursorTimestamp, cursorItemId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Logs fetched successfully", payload, request));
     }
@@ -135,6 +140,9 @@ public class AdminTechnicalController {
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorTimestamp,
                         @RequestParam(required = false) String cursorItemId,
             HttpServletRequest request) {
+
+                                validateDateRange(from, to);
+                                validatePageSize(pageSize);
 
                 Object payload = azureInsightsService.getErrorsPaged(from, to, pageSize, cursorTimestamp, cursorItemId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Errors fetched successfully", payload, request));
@@ -149,6 +157,9 @@ public class AdminTechnicalController {
                         @RequestParam(required = false) String cursorItemId,
             HttpServletRequest request) {
 
+                                validateDateRange(from, to);
+                                validatePageSize(pageSize);
+
                 Object payload = azureInsightsService.getWarningsPaged(from, to, pageSize, cursorTimestamp, cursorItemId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Warnings fetched successfully", payload, request));
     }
@@ -162,71 +173,123 @@ public class AdminTechnicalController {
                         @RequestParam(required = false) String cursorItemId,
             HttpServletRequest request) {
 
+                                validateDateRange(from, to);
+                                validatePageSize(pageSize);
+
                 Object payload = azureInsightsService.getFailedJobsPaged(from, to, pageSize, cursorTimestamp, cursorItemId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed jobs fetched successfully", payload, request));
     }
 
         @GetMapping("/total-requests")
         public ResponseEntity<ApiResponse<Object>> getTotalRequests(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getTotalRequests(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getTotalRequests(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total requests fetched successfully", payload, request));
         }
 
         @GetMapping("/failed-requests")
         public ResponseEntity<ApiResponse<Object>> getFailedRequests(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getFailedRequests(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getFailedRequests(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed requests fetched successfully", payload, request));
         }
 
         @GetMapping("/error-rate")
         public ResponseEntity<ApiResponse<Object>> getErrorRate(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getErrorRate(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getErrorRate(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Error rate fetched successfully", payload, request));
         }
 
         @GetMapping("/average-response-time")
         public ResponseEntity<ApiResponse<Object>> getAverageResponseTime(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getAverageResponseTime(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getAverageResponseTime(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Average response time fetched successfully", payload, request));
+        }
+
+        @GetMapping("/p95-response-time")
+        public ResponseEntity<ApiResponse<Object>> getP95ResponseTime(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+                        @RequestParam(required = false, defaultValue = "1d") String range,
+                        HttpServletRequest request) {
+
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getP95ResponseTime(from, to, range);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "P95 response time fetched successfully", payload, request));
         }
 
         @GetMapping("/requests-over-time")
         public ResponseEntity<ApiResponse<Object>> getRequestsOverTime(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getRequestsOverTime(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getRequestsOverTime(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Requests over time fetched successfully", payload, request));
         }
 
         @GetMapping("/failed-requests-over-time")
         public ResponseEntity<ApiResponse<Object>> getFailedRequestsOverTime(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getFailedRequestsOverTime(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getFailedRequestsOverTime(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Failed requests over time fetched successfully", payload, request));
         }
 
         @GetMapping("/top-endpoints")
         public ResponseEntity<ApiResponse<Object>> getTopEndpoints(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
                         @RequestParam(required = false, defaultValue = "1d") String range,
                         HttpServletRequest request) {
 
-                Object payload = azureInsightsService.getTopEndpointsForRange(range);
+                validateDateRange(from, to);
+                Object payload = azureInsightsService.getTopEndpointsForRange(from, to, range);
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Top endpoints fetched successfully", payload, request));
+        }
+
+        @GetMapping("/alerts")
+        public ResponseEntity<ApiResponse<Object>> getAlerts(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+                        @RequestParam(required = false, defaultValue = "ALL") String severity,
+                        @RequestParam(required = false, defaultValue = "50") Integer pageSize,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorTimestamp,
+                        @RequestParam(required = false) String cursorItemId,
+                        HttpServletRequest request) {
+
+                validateDateRange(from, to);
+                validatePageSize(pageSize);
+                Object payload = azureInsightsService.getAlertsPaged(from, to, severity, pageSize, cursorTimestamp, cursorItemId);
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Operational alerts fetched successfully", payload, request));
         }
 
     private Map<String, Object> timeoutResult() {
@@ -235,4 +298,16 @@ public class AdminTechnicalController {
                 "reason", "Timeout after 5 seconds"
         );
     }
+
+        private void validateDateRange(LocalDateTime from, LocalDateTime to) {
+                if (from != null && to != null && from.isAfter(to)) {
+                        throw new IllegalArgumentException("Start date must be before end date");
+                }
+        }
+
+        private void validatePageSize(Integer pageSize) {
+                if (pageSize != null && pageSize <= 0) {
+                        throw new IllegalArgumentException("Page size must be > 0");
+                }
+        }
 }
