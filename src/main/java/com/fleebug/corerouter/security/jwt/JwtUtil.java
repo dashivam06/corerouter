@@ -35,15 +35,17 @@ public class JwtUtil {
     private long refreshTokenExpirationMs;
 
     /**
-     * Generate lean JWT token (sub=userId, email claim only).
+     * Generate lean JWT token (sub=userId, email + role claims).
      *
      * @param userId user ID
      * @param email user email
+     * @param role user role
      * @return generated JWT token
      */
-    public String generateToken(Integer userId, String email) {
+    public String generateToken(Integer userId, String email, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
+        claims.put("role", role);
 
         return createToken(claims, userId.toString());
     }

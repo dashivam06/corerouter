@@ -38,7 +38,7 @@ public class TokenService {
         telemetryClient.trackTrace("Building auth response for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
         
         // Generate access token
-        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail());
+        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getRole().toString());
         Long accessTokenExpiresIn = jwtUtil.getTokenExpirationTimeInMs(accessToken);
         
         // Save access token to UserToken table
@@ -146,7 +146,7 @@ public class TokenService {
      */
     public String generateAccessToken(User user) {
         telemetryClient.trackTrace("Generating access token for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
-        return jwtUtil.generateToken(user.getUserId(), user.getEmail());
+        return jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getRole().toString());
     }
 
     /**
