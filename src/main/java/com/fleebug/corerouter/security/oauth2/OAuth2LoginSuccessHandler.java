@@ -62,6 +62,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 .queryParam("accessToken", authResponse.getAccessToken())
                 .queryParam("refreshToken", authResponse.getRefreshToken())
                 .queryParam("expiresIn", authResponse.getExpiresIn())
+            .queryParam("fullName", authResponse.getProfile() != null ? authResponse.getProfile().getFullName() : null)
+            .queryParam("email", authResponse.getProfile() != null ? authResponse.getProfile().getEmail() : null)
+            .queryParam("profileImage", authResponse.getProfile() != null ? authResponse.getProfile().getProfileImage() : null)
                 .build(true)
                 .toUriString();
 
