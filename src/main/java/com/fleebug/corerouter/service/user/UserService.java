@@ -3,7 +3,6 @@ package com.fleebug.corerouter.service.user;
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,18 +58,6 @@ public class UserService {
     private final UserTokenRepository userTokenRepository;
     private final ActivityLogService activityLogService;
     private final HttpClientUtil httpClientUtil;
-
-    @Value("${auth.oauth.google.token-url:https://oauth2.googleapis.com/token}")
-    private String googleTokenUrl;
-
-    @Value("${auth.oauth.google.redirect-uri:https://api.corerouter.me/auth/callback}")
-    private String googleRedirectUri;
-
-    @Value("${spring.security.oauth2.client.registration.google.client-id:}")
-    private String googleClientId;
-
-    @Value("${spring.security.oauth2.client.registration.google.client-secret:}")
-    private String googleClientSecret;
 
     /**
      * Step 1: Request OTP for user registration
@@ -239,35 +226,6 @@ public class UserService {
         String profileImage = asString(profile.get("picture"));
 
         return upsertSocialUserAndLogin(email, fullName, profileImage, "GOOGLE");
-    }
-
-    public AuthResponse loginWithGoogleCode(String code) {
-        if (googleClientId == null || googleClientId.isBlank() || googleClientSecret == null || googleClientSecret.isBlank()) {
-            throw new IllegalStateException("Google OAuth credentials are not configured");
-        }
-
-        Map<String, String> formData = Map.of(
-                "client_id", googleClientId,
-                "client_secret", googleClientSecret,
-                "code", code,
-                "redirect_uri", googleRedirectUri,
-                "grant_type", "authorization_code"
-        );
-
-        Map<String, Object> tokenResponse = httpClientUtil.postFormForMap(
-                googleTokenUrl,
-                Map.of("Accept", "application/json"),
-                formData,
-                5000,
-                10000
-        );
-
-        String accessToken = asString(tokenResponse.get("access_token"));
-        if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Google token exchange failed: access token missing");
-        }
-
-        return loginWithGoogle(accessToken);
     }
 
     public AuthResponse loginWithGithub(String accessToken) {

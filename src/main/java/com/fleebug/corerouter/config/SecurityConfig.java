@@ -9,6 +9,8 @@ import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.MdcLoggingFilter;
 import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.TaskRateLimitFilter;
+import com.fleebug.corerouter.security.oauth2.OAuth2LoginFailureHandler;
+import com.fleebug.corerouter.security.oauth2.OAuth2LoginSuccessHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +52,8 @@ public class SecurityConfig {
     private final ChatRateLimitFilter chatRateLimitFilter;
     private final MdcLoggingFilter mdcLoggingFilter;
     private final ObjectMapper objectMapper;
+        private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
+        private final OAuth2LoginFailureHandler oauth2LoginFailureHandler;
 
         @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:8080,https://corerouter.me,https://www.corerouter.me,https://api.corerouter.me}")
         private String allowedOrigins;
@@ -57,6 +61,23 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
+    public SecurityFilterChain oauth2FilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/oauth2/**", "/login/oauth2/**")
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oauth2LoginSuccessHandler)
+                        .failureHandler(oauth2LoginFailureHandler)
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain chatFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher(ApiPaths.CHAT_COMPLETIONS)
@@ -72,7 +93,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2)
+        @Order(3)
     public SecurityFilterChain taskFilterChain(HttpSecurity http) throws Exception {
         http
             .securityMatcher(ApiPaths.TASKS_ALL)
@@ -100,7 +121,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(3)
+        @Order(4)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
@@ -114,15 +135,16 @@ public class SecurityConfig {
                         ApiPaths.AUTH_LOGIN,
                         ApiPaths.AUTH_REQUEST_OTP,
                         ApiPaths.AUTH_VERIFY_OTP,
-                        ApiPaths.AUTH_GOOGLE_LOGIN,
-                        ApiPaths.AUTH_GITHUB_LOGIN,
                         ApiPaths.AUTH_FORGOT_PASSWORD_REQUEST_OTP,
                         ApiPaths.AUTH_FORGOT_PASSWORD_VERIFY_OTP,
                         ApiPaths.AUTH_FORGOT_PASSWORD_RESET).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.MODELS,
                         "/test-payment.html",
-                        ApiPaths.MODELS_ALL).permitAll()
+                        ApiPaths.MODELS_ALL,
+                        "/oauth2/authorization/google",
+                        "/oauth2/authorization/github",
+                        "/login/oauth2/code/*").permitAll()
                 .requestMatchers(
                         ApiPaths.SCALAR_ALL,
                         ApiPaths.API_DOCS,

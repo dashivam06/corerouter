@@ -9,8 +9,6 @@ public final class ApiPaths {
     public static final String AUTH_LOGIN       = "/api/v1/auth/login";
     public static final String AUTH_REQUEST_OTP = "/api/v1/auth/request-otp";
     public static final String AUTH_VERIFY_OTP = "/api/v1/auth/verify-otp";
-    public static final String AUTH_GOOGLE_LOGIN = "/api/v1/auth/google/login";
-    public static final String AUTH_GITHUB_LOGIN = "/api/v1/auth/github/login";
     public static final String AUTH_FORGOT_PASSWORD_REQUEST_OTP = "/api/v1/auth/forgot-password/request-otp";
     public static final String AUTH_FORGOT_PASSWORD_VERIFY_OTP = "/api/v1/auth/forgot-password/verify-otp";
     public static final String AUTH_FORGOT_PASSWORD_RESET = "/api/v1/auth/forgot-password/reset";

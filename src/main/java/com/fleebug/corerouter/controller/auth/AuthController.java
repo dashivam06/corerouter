@@ -13,9 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
-import com.fleebug.corerouter.dto.auth.request.GoogleCodeLoginRequest;
 import com.fleebug.corerouter.dto.auth.request.ResetPasswordRequest;
-import com.fleebug.corerouter.dto.auth.request.SocialLoginRequest;
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
@@ -124,26 +122,6 @@ public class AuthController {
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Login successful", authResponse, request));
     }
-
-        @Operation(summary = "Login with Google", description = "Authenticate using Google OAuth authorization code")
-        @PostMapping("/google/login")
-        public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
-                        @Valid @RequestBody GoogleCodeLoginRequest socialLoginRequest,
-                        HttpServletRequest request) {
-
-                AuthResponse authResponse = userService.loginWithGoogleCode(socialLoginRequest.getCode());
-                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Google login successful", authResponse, request));
-        }
-
-        @Operation(summary = "Login with GitHub", description = "Authenticate using GitHub OAuth access token")
-        @PostMapping("/github/login")
-        public ResponseEntity<ApiResponse<AuthResponse>> loginWithGithub(
-                        @Valid @RequestBody SocialLoginRequest socialLoginRequest,
-                        HttpServletRequest request) {
-
-                AuthResponse authResponse = userService.loginWithGithub(socialLoginRequest.getAccessToken());
-                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "GitHub login successful", authResponse, request));
-        }
 
         @Operation(summary = "Forgot password - request OTP", description = "Send OTP to registered email for password reset")
         @PostMapping("/forgot-password/request-otp")
