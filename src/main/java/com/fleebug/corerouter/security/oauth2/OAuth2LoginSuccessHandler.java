@@ -65,7 +65,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             .queryParam("fullName", authResponse.getProfile() != null ? authResponse.getProfile().getFullName() : null)
             .queryParam("email", authResponse.getProfile() != null ? authResponse.getProfile().getEmail() : null)
             .queryParam("profileImage", authResponse.getProfile() != null ? authResponse.getProfile().getProfileImage() : null)
-                .build(true)
+            .build()
+            .encode()
                 .toUriString();
 
         response.sendRedirect(redirectUrl);

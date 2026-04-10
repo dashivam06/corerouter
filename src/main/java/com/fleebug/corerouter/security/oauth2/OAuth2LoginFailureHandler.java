@@ -25,7 +25,8 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
                 .fromUriString(redirectFailureUrl)
                 .queryParam("status", "error")
                 .queryParam("message", exception.getMessage())
-                .build(true)
+            .build()
+            .encode()
                 .toUriString();
 
         response.sendRedirect(redirectUrl);
