@@ -3,6 +3,7 @@ package com.fleebug.corerouter.service.token;
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
+import com.fleebug.corerouter.dto.user.response.AuthUserInfoResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.token.TokenType;
@@ -37,7 +38,7 @@ public class TokenService {
         telemetryClient.trackTrace("Building auth response for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
         
         // Generate access token
-        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
+        String accessToken = jwtUtil.generateToken(user.getUserId(), user.getEmail());
         Long accessTokenExpiresIn = jwtUtil.getTokenExpirationTimeInMs(accessToken);
         
         // Save access token to UserToken table
@@ -56,6 +57,11 @@ public class TokenService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(accessTokenExpiresIn)
+            .profile(AuthUserInfoResponse.builder()
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .profileImage(user.getProfileImage())
+                .build())
                 .build();
     }
 
@@ -140,7 +146,7 @@ public class TokenService {
      */
     public String generateAccessToken(User user) {
         telemetryClient.trackTrace("Generating access token for user ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
-        return jwtUtil.generateToken(user.getUserId(), user.getEmail(), user.getFullName(), user.getRole().toString());
+        return jwtUtil.generateToken(user.getUserId(), user.getEmail());
     }
 
     /**

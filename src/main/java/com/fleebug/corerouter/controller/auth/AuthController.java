@@ -22,6 +22,7 @@ import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
 import com.fleebug.corerouter.dto.user.request.RefreshTokenRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
+import com.fleebug.corerouter.dto.user.response.AuthUserInfoResponse;
 import com.fleebug.corerouter.enums.otp.OtpPurpose;
 import com.fleebug.corerouter.service.token.TokenService;
 import com.fleebug.corerouter.service.user.UserService;
@@ -188,6 +189,11 @@ public class AuthController {
                 .accessToken(newAccessToken)
                 .refreshToken(refreshTokenRequest.getRefreshToken())
                 .expiresIn(expiresIn)
+                .profile(AuthUserInfoResponse.builder()
+                        .fullName(user.getFullName())
+                        .email(user.getEmail())
+                        .profileImage(user.getProfileImage())
+                        .build())
                 .build();
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Access token refreshed successfully", authResponse, request));

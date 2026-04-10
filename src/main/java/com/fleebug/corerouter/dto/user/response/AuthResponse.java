@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @Schema(
     title = "Authentication Response",
-    description = "Contains authentication tokens and token expiration information returned after successful login or token refresh.",
-    example = "{\"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\", \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\", \"expiresIn\": 3600}"
+    description = "Contains authentication tokens, token expiration information, and basic authenticated user profile.",
+    example = "{\"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\", \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\", \"expiresIn\": 3600, \"profile\": {\"fullName\":\"John Doe\",\"email\":\"john@example.com\",\"profileImage\":\"https://example.com/profile.jpg\"}}"
 )
 public class AuthResponse {
 
@@ -38,4 +38,10 @@ public class AuthResponse {
         example = "3600"
     )
     private Long expiresIn;
+
+    @Schema(
+        description = "Basic authenticated user profile for quick client-side access.",
+        requiredMode = RequiredMode.REQUIRED
+    )
+    private AuthUserInfoResponse profile;
 }
