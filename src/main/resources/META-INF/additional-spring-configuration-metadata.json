@@ -93,5 +93,10 @@
     "name": "azure.application-insights.instrumentation-key",
     "type": "java.lang.String",
     "description": "Legacy Application Insights instrumentation key. Prefer using the connection string setting instead."
+  },
+  {
+    "name": "azure.entra.client-id",
+    "type": "java.lang.String",
+    "description": "A description for 'azure.entra.client-id'"
   }
 ]}

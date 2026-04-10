@@ -3,6 +3,8 @@ package com.fleebug.corerouter.util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
+import okhttp3.FormBody;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -82,6 +84,33 @@ public class HttpClientUtil {
             return objectMapper.readValue(responseBody, responseType);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to parse JSON response from " + url + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    public Map<String, Object> postFormForMap(String url,
+                                              Map<String, String> headers,
+                                              Map<String, String> formData,
+                                              int connectTimeoutMs,
+                                              int readTimeoutMs) {
+        try {
+            FormBody.Builder formBuilder = new FormBody.Builder();
+            if (formData != null) {
+                formData.forEach((key, value) -> formBuilder.add(key, value == null ? "" : value));
+            }
+
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(HttpUrl.get(url))
+                    .post(formBuilder.build());
+            applyHeaders(requestBuilder, headers);
+
+            try (Response response = client(connectTimeoutMs, readTimeoutMs)
+                    .newCall(requestBuilder.build())
+                    .execute()) {
+                String responseBody = handleResponse(response, url);
+                return objectMapper.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("HTTP POST form failed for " + url + ": " + ex.getMessage(), ex);
         }
     }
 

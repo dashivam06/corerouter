@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.dto.auth.request.GoogleCodeLoginRequest;
 import com.fleebug.corerouter.dto.auth.request.ResetPasswordRequest;
 import com.fleebug.corerouter.dto.auth.request.SocialLoginRequest;
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
@@ -124,13 +125,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Login successful", authResponse, request));
     }
 
-        @Operation(summary = "Login with Google", description = "Authenticate using Google OAuth access token")
+        @Operation(summary = "Login with Google", description = "Authenticate using Google OAuth authorization code")
         @PostMapping("/google/login")
         public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
-                        @Valid @RequestBody SocialLoginRequest socialLoginRequest,
+                        @Valid @RequestBody GoogleCodeLoginRequest socialLoginRequest,
                         HttpServletRequest request) {
 
-                AuthResponse authResponse = userService.loginWithGoogle(socialLoginRequest.getAccessToken());
+                AuthResponse authResponse = userService.loginWithGoogleCode(socialLoginRequest.getCode());
                 return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Google login successful", authResponse, request));
         }
 
