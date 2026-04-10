@@ -142,6 +142,7 @@ public class SecurityConfig {
                         ApiPaths.MODELS,
                         "/test-payment.html",
                         ApiPaths.MODELS_ALL,
+                        "/error",
                         "/oauth2/authorization/google",
                         "/oauth2/authorization/github",
                         "/login/oauth2/code/*").permitAll()
