@@ -63,7 +63,7 @@ public class UserService {
     @Value("${auth.oauth.google.token-url:https://oauth2.googleapis.com/token}")
     private String googleTokenUrl;
 
-    @Value("${auth.oauth.google.redirect-uri:http://localhost:3000/auth/callback}")
+    @Value("${auth.oauth.google.redirect-uri:https://api.corerouter.me/auth/callback}")
     private String googleRedirectUri;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id:}")
