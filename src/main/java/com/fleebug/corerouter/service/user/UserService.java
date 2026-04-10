@@ -24,6 +24,7 @@ import com.fleebug.corerouter.dto.user.response.PaginatedUserListResponse;
 import com.fleebug.corerouter.entity.token.UserToken;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.activity.ActivityAction;
+import com.fleebug.corerouter.enums.otp.OtpPurpose;
 import com.fleebug.corerouter.enums.user.UserRole;
 import com.fleebug.corerouter.enums.user.UserStatus;
 import com.fleebug.corerouter.exception.user.InvalidCredentialsException;
@@ -35,12 +36,14 @@ import com.fleebug.corerouter.repository.user.UserRepository;
 import com.fleebug.corerouter.service.activity.ActivityLogService;
 import com.fleebug.corerouter.service.otp.OtpService;
 import com.fleebug.corerouter.service.token.TokenService;
+import com.fleebug.corerouter.util.HttpClientUtil;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +57,7 @@ public class UserService {
     private final OtpService otpService;
     private final UserTokenRepository userTokenRepository;
     private final ActivityLogService activityLogService;
+    private final HttpClientUtil httpClientUtil;
 
     /**
      * Step 1: Request OTP for user registration
@@ -69,7 +73,7 @@ public class UserService {
      * @return RequestOtpResponse with verificationId
      * @throws IllegalArgumentException if email already exists or validation fails
      */
-    public RequestOtpResponse requestOtp(String email) {
+    public RequestOtpResponse requestOtp(String email, OtpPurpose purpose) {
         // telemetryClient.trackTrace("OTP request for registration", SeverityLevel.Verbose, null);
 
         // Validate email is not already registered
@@ -80,7 +84,7 @@ public class UserService {
 
         // telemetryClient.trackTrace("Email validation passed. Proceeding with OTP generation", SeverityLevel.Verbose, null);
 
-        String verificationId = otpService.requestOtp(email);
+        String verificationId = otpService.requestOtp(email, purpose, null, null);
         telemetryClient.trackTrace("OTP sent successfully. VerificationId: " + verificationId, SeverityLevel.Information, Map.of("verificationId", verificationId));
         
         return RequestOtpResponse.builder()
@@ -187,6 +191,12 @@ public class UserService {
             throw new InvalidCredentialsException("User account is not active");
         }
 
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            telemetryClient.trackTrace("Login failed - account does not support password login", SeverityLevel.Information,
+                    Map.of("userId", String.valueOf(user.getUserId()), "email", user.getEmail()));
+            throw new InvalidCredentialsException("Use social login for this account");
+        }
+
         // Verify password using BCrypt
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             telemetryClient.trackTrace("Login failed - invalid password for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
@@ -196,6 +206,188 @@ public class UserService {
         telemetryClient.trackTrace("User logged in successfully. User ID: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
 
         return tokenService.buildAuthResponse(user);
+    }
+
+    public AuthResponse loginWithGoogle(String accessToken) {
+        Map<String, String> headers = Map.of("Authorization", "Bearer " + accessToken);
+        Map<String, Object> profile = httpClientUtil.getJsonMap(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers,
+                5000,
+                10000
+        );
+
+        String email = asString(profile.get("email"));
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Google account email not available");
+        }
+
+        String fullName = firstNonBlank(asString(profile.get("name")), email.split("@")[0]);
+        String profileImage = asString(profile.get("picture"));
+
+        return upsertSocialUserAndLogin(email, fullName, profileImage, "GOOGLE");
+    }
+
+    public AuthResponse loginWithGithub(String accessToken) {
+        Map<String, String> headers = Map.of(
+                "Authorization", "Bearer " + accessToken,
+                "Accept", "application/vnd.github+json",
+                "X-GitHub-Api-Version", "2022-11-28"
+        );
+
+        Map<String, Object> profile = httpClientUtil.getJsonMap(
+                "https://api.github.com/user",
+                headers,
+                5000,
+                10000
+        );
+
+        String email = asString(profile.get("email"));
+        if (email == null || email.isBlank()) {
+            email = resolveGithubPrimaryEmail(headers);
+        }
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("GitHub account email not available");
+        }
+
+        String fullName = firstNonBlank(asString(profile.get("name")), asString(profile.get("login")), email.split("@")[0]);
+        String profileImage = asString(profile.get("avatar_url"));
+
+        return upsertSocialUserAndLogin(email, fullName, profileImage, "GITHUB");
+    }
+
+    public RequestOtpResponse requestPasswordResetOtp(String email) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> {
+                telemetryClient.trackTrace("Forgot password OTP request failed - user not found", SeverityLevel.Information,
+                    Map.of("email", email));
+                return new UserNotFoundException("email", email);
+            });
+
+        String verificationId = otpService.requestOtp(email, OtpPurpose.PASSWORD_RESET, user.getFullName(), user.getUserId());
+        telemetryClient.trackTrace("Forgot password OTP sent", SeverityLevel.Information,
+                Map.of("verificationId", verificationId, "email", email));
+
+        return RequestOtpResponse.builder()
+                .verificationId(verificationId)
+                .message("OTP sent to " + email)
+                .ttlMinutes(5)
+                .build();
+    }
+
+    public VerifyOtpResponse verifyPasswordResetOtp(String verificationId, String otp) {
+        otpService.validateOtp(verificationId, otp);
+        telemetryClient.trackTrace("Forgot password OTP verified", SeverityLevel.Information,
+                Map.of("verificationId", verificationId));
+
+        return VerifyOtpResponse.builder()
+                .verificationId(verificationId)
+                .message("OTP verified successfully. Complete password reset within 20 minutes.")
+                .verified(true)
+                .profileCompletionTtlMinutes(20)
+                .build();
+    }
+
+    public void resetPasswordWithVerification(String verificationId, String newPassword, String confirmPassword) {
+        if (!Objects.equals(newPassword, confirmPassword)) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+
+        if (!otpService.isVerified(verificationId)) {
+            throw new InvalidOtpException("Verification not completed. Please verify OTP first.");
+        }
+
+        String email = otpService.getEmail(verificationId);
+        if (email == null || email.isBlank()) {
+            throw new InvalidOtpException("Verification session expired. Please request OTP again.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("email", email));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        otpService.publishPasswordChangedNotification(user.getEmail(), user.getFullName(), user.getUserId());
+
+        otpService.cleanupVerification(verificationId);
+        telemetryClient.trackTrace("Password reset completed", SeverityLevel.Information,
+                Map.of("userId", String.valueOf(user.getUserId()), "email", email));
+    }
+
+    private AuthResponse upsertSocialUserAndLogin(String email, String fullName, String profileImage, String provider) {
+        User user = userRepository.findByEmail(email).orElseGet(() -> {
+            User created = User.builder()
+                    .email(email)
+                    .fullName(fullName)
+                    .profileImage(profileImage)
+                    .status(UserStatus.ACTIVE)
+                    .role(UserRole.USER)
+                    .password(null)
+                    .emailSubscribed(true)
+                    .build();
+            return userRepository.save(created);
+        });
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidCredentialsException("User account is not active");
+        }
+
+        if ((user.getFullName() == null || user.getFullName().isBlank()) && fullName != null && !fullName.isBlank()) {
+            user.setFullName(fullName);
+        }
+        if ((user.getProfileImage() == null || user.getProfileImage().isBlank()) && profileImage != null && !profileImage.isBlank()) {
+            user.setProfileImage(profileImage);
+        }
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        telemetryClient.trackTrace("Social login successful", SeverityLevel.Information,
+                Map.of("userId", String.valueOf(user.getUserId()), "provider", provider));
+
+        return tokenService.buildAuthResponse(user);
+    }
+
+    private String resolveGithubPrimaryEmail(Map<String, String> headers) {
+        Object raw = httpClientUtil.getJson("https://api.github.com/user/emails", headers, Object.class, 5000, 10000);
+        if (!(raw instanceof List<?> emails)) {
+            return null;
+        }
+
+        for (Object entry : emails) {
+            if (entry instanceof Map<?, ?> map) {
+                Object primaryValue = map.get("primary");
+                Object verifiedValue = map.get("verified");
+                boolean primary = Boolean.TRUE.equals(primaryValue);
+                boolean verified = Boolean.TRUE.equals(verifiedValue);
+                if (primary && verified) {
+                    return asString(map.get("email"));
+                }
+            }
+        }
+
+        for (Object entry : emails) {
+            if (entry instanceof Map<?, ?> map) {
+                boolean verified = Boolean.TRUE.equals(map.get("verified"));
+                if (verified) {
+                    return asString(map.get("email"));
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**
@@ -262,6 +454,7 @@ public class UserService {
         // Hash and update new password
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        otpService.publishPasswordChangedNotification(user.getEmail(), user.getFullName(), user.getUserId());
         telemetryClient.trackTrace("Password changed successfully", SeverityLevel.Information, Map.of("userId", String.valueOf(userId)));
 
         activityLogService.log(user, ActivityAction.CHANGE_PASSWORD, "Your password was changed successfully.", ipAddress);
@@ -340,6 +533,7 @@ public class UserService {
         user.setStatus(UserStatus.DELETED);
         user.setEmailSubscribed(false);
         userRepository.save(user);
+        otpService.publishUserDeletedNotification(user.getEmail(), user.getFullName(), user.getUserId(), "self-service delete");
 
         // Revoke all active tokens to force logout from all sessions.
         for (UserToken token : userTokenRepository.findByUserAndRevokedFalse(user)) {
@@ -501,6 +695,9 @@ public class UserService {
         }
 
         User saved = userRepository.save(user);
+        if (newStatus == UserStatus.DELETED) {
+            otpService.publishUserDeletedNotification(saved.getEmail(), saved.getFullName(), saved.getUserId(), "admin");
+        }
         return mapToProfileResponse(saved);
     }
 

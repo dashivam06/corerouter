@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.dto.auth.request.ResetPasswordRequest;
+import com.fleebug.corerouter.dto.auth.request.SocialLoginRequest;
 import com.fleebug.corerouter.dto.otp.FinalRegistrationRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpRequest;
 import com.fleebug.corerouter.dto.otp.RequestOtpResponse;
@@ -21,6 +23,7 @@ import com.fleebug.corerouter.dto.otp.VerifyOtpResponse;
 import com.fleebug.corerouter.dto.user.request.LoginRequest;
 import com.fleebug.corerouter.dto.user.request.RefreshTokenRequest;
 import com.fleebug.corerouter.dto.user.response.AuthResponse;
+import com.fleebug.corerouter.enums.otp.OtpPurpose;
 import com.fleebug.corerouter.service.token.TokenService;
 import com.fleebug.corerouter.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,7 +49,7 @@ public class AuthController {
         properties.put("email", requestOtpRequest.getEmail());
         telemetryClient.trackEvent("OTP_REQUEST", properties, null);
         
-        RequestOtpResponse otpResponse = userService.requestOtp(requestOtpRequest.getEmail());
+        RequestOtpResponse otpResponse = userService.requestOtp(requestOtpRequest.getEmail(),OtpPurpose.REGISTRATION);
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
                 "OTP sent successfully. Proceed to verify-otp with the verification ID.",
@@ -120,6 +123,70 @@ public class AuthController {
         
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Login successful", authResponse, request));
     }
+
+        @Operation(summary = "Login with Google", description = "Authenticate using Google OAuth access token")
+        @PostMapping("/google/login")
+        public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
+                        @Valid @RequestBody SocialLoginRequest socialLoginRequest,
+                        HttpServletRequest request) {
+
+                AuthResponse authResponse = userService.loginWithGoogle(socialLoginRequest.getAccessToken());
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Google login successful", authResponse, request));
+        }
+
+        @Operation(summary = "Login with GitHub", description = "Authenticate using GitHub OAuth access token")
+        @PostMapping("/github/login")
+        public ResponseEntity<ApiResponse<AuthResponse>> loginWithGithub(
+                        @Valid @RequestBody SocialLoginRequest socialLoginRequest,
+                        HttpServletRequest request) {
+
+                AuthResponse authResponse = userService.loginWithGithub(socialLoginRequest.getAccessToken());
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "GitHub login successful", authResponse, request));
+        }
+
+        @Operation(summary = "Forgot password - request OTP", description = "Send OTP to registered email for password reset")
+        @PostMapping("/forgot-password/request-otp")
+        public ResponseEntity<ApiResponse<RequestOtpResponse>> requestForgotPasswordOtp(
+                        @Valid @RequestBody RequestOtpRequest requestOtpRequest,
+                        HttpServletRequest servletRequest) {
+
+                RequestOtpResponse otpResponse = userService.requestPasswordResetOtp(requestOtpRequest.getEmail());
+
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                                "OTP sent successfully. Proceed to forgot-password/verify-otp with the verification ID.",
+                                otpResponse, servletRequest));
+        }
+
+        @Operation(summary = "Forgot password - verify OTP", description = "Verify OTP before resetting password")
+        @PostMapping("/forgot-password/verify-otp")
+        public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyForgotPasswordOtp(
+                        @Valid @RequestBody VerifyOtpRequest verifyOtpRequest,
+                        HttpServletRequest servletRequest) {
+
+                VerifyOtpResponse response = userService.verifyPasswordResetOtp(
+                                verifyOtpRequest.getVerificationId(),
+                                verifyOtpRequest.getOtp()
+                );
+
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+                                "OTP verified successfully. Proceed to forgot-password/reset.",
+                                response, servletRequest));
+        }
+
+        @Operation(summary = "Forgot password - reset", description = "Reset password after OTP verification")
+        @PostMapping("/forgot-password/reset")
+        public ResponseEntity<ApiResponse<Void>> resetPassword(
+                        @Valid @RequestBody ResetPasswordRequest resetPasswordRequest,
+                        HttpServletRequest request) {
+
+                userService.resetPasswordWithVerification(
+                                resetPasswordRequest.getVerificationId(),
+                                resetPasswordRequest.getNewPassword(),
+                                resetPasswordRequest.getConfirmPassword()
+                );
+
+                return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Password reset successful", null, request));
+        }
 
     @Operation(summary = "Refresh token", description = "Exchange a valid refresh token for a new access token")
     @PostMapping("/refresh")

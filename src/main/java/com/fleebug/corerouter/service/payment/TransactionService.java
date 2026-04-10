@@ -13,6 +13,7 @@ import com.fleebug.corerouter.exception.payment.TransactionNotFoundException;
 import com.fleebug.corerouter.exception.payment.TransactionVerificationException;
 import com.fleebug.corerouter.repository.payment.TransactionRepository;
 import com.fleebug.corerouter.repository.user.UserRepository;
+import com.fleebug.corerouter.service.redis.RedisService;
 import com.fleebug.corerouter.util.HttpClientUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.scheduling.annotation.Scheduled;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +50,7 @@ public class TransactionService {
     private final TelemetryClient telemetryClient;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final RedisService redisService;
     private final HttpClientUtil httpClientUtil;
     private final ObjectMapper objectMapper;
 
@@ -69,22 +72,31 @@ public class TransactionService {
     @Value("${esewa.failure.url}")
     private String failureUrl;
 
+    private static final String TOPUP_SESSION_PREFIX = "payment:topup:session:";
+    private static final long TOPUP_SESSION_TTL_MINUTES = 5;
+    private static final String TOPUP_INVOICE_EMAIL_SKIP_PREFIX = "billing:topup:invoice:skip:";
+
     @Transactional
     public Map<String, String> initiateTopUp(User user, BigDecimal amount) {
-        String transactionUuid = UUID.randomUUID().toString();
+        String transactionUuid = buildTransactionUuid(user.getUserId());
 
-        // Create Pending Transaction
-        Transaction transaction = Transaction.builder()
-                .user(user)
-                .amount(amount)
-                .esewaTransactionId(transactionUuid)
-                .type(TransactionType.WALLET_TOPUP)
-                .status(TransactionStatus.PENDING)
-                .productCode(merchantId)
-                .createdAt(LocalDateTime.now())
-                .build();
-        
-        transactionRepository.save(transaction);
+        Map<String, Object> sessionPayload = new HashMap<>();
+        sessionPayload.put("userId", user.getUserId());
+        sessionPayload.put("amount", amount.toPlainString());
+        sessionPayload.put("transactionUuid", transactionUuid);
+        sessionPayload.put("createdAt", LocalDateTime.now().toString());
+
+        try {
+            redisService.saveToCache(
+                    TOPUP_SESSION_PREFIX + transactionUuid,
+                    objectMapper.writeValueAsString(sessionPayload),
+                    TOPUP_SESSION_TTL_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException e) {
+            telemetryClient.trackException(e, Map.of("transactionUuid", transactionUuid), null);
+            throw new TransactionVerificationException("Failed to initialize payment session", e);
+        }
 
         // Generate Signature
         String signature = generateSignature(amount, transactionUuid, merchantId);
@@ -125,14 +137,32 @@ public class TransactionService {
                 throw new TransactionVerificationException("Transaction status is " + status);
             }
 
-            // Find Transaction
-            Transaction transaction = transactionRepository.findByEsewaTransactionId(transactionUuid)
-                    .orElseThrow(() -> new TransactionNotFoundException("Transaction not found: " + transactionUuid));
+            String normalizedTransactionUuid = normalizeTransactionUuid(transactionUuid);
 
-            if (transaction.getStatus() == TransactionStatus.COMPLETED) {
-                telemetryClient.trackTrace("Transaction already completed: " + transactionUuid, SeverityLevel.Information, Map.of("transactionUuid", transactionUuid));
-                return transaction;
+            Transaction existing = transactionRepository.findByEsewaTransactionId(normalizedTransactionUuid).orElse(null);
+            if (existing != null && existing.getStatus() == TransactionStatus.COMPLETED) {
+                telemetryClient.trackTrace("Transaction already completed: " + normalizedTransactionUuid,
+                        SeverityLevel.Information,
+                        Map.of("transactionUuid", normalizedTransactionUuid));
+                return existing;
             }
+
+            String sessionKey = TOPUP_SESSION_PREFIX + normalizedTransactionUuid;
+            String sessionRaw = redisService.getFromCache(sessionKey);
+            if (sessionRaw == null || sessionRaw.isBlank()) {
+                throw new TransactionVerificationException("Payment session expired or not found");
+            }
+
+            JsonNode sessionNode = objectMapper.readTree(sessionRaw);
+            Integer userId = sessionNode.path("userId").isInt() ? sessionNode.path("userId").asInt() : null;
+            String stagedAmount = sessionNode.path("amount").asText(null);
+
+            if (userId == null || stagedAmount == null || stagedAmount.isBlank()) {
+                throw new TransactionVerificationException("Invalid payment session data");
+            }
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new TransactionNotFoundException("User not found for payment session: " + userId));
 
             // Verify with eSewa API
             String verificationUrl = String.format("%s?product_code=%s&total_amount=%s&transaction_uuid=%s",
@@ -146,22 +176,32 @@ public class TransactionService {
                 String verifiedStatus = (String) response.get("status");
                 
                 if ("COMPLETE".equals(verifiedStatus)) {
-                    // Update Transaction
+                    Transaction transaction = existing != null
+                            ? existing
+                            : Transaction.builder()
+                                    .user(user)
+                                    .amount(new BigDecimal(stagedAmount))
+                                    .esewaTransactionId(normalizedTransactionUuid)
+                                    .type(TransactionType.WALLET_TOPUP)
+                                    .status(TransactionStatus.COMPLETED)
+                                    .productCode(merchantId)
+                                    .createdAt(LocalDateTime.now())
+                                    .build();
+
                     transaction.setStatus(TransactionStatus.COMPLETED);
                     transaction.setCompletedAt(LocalDateTime.now());
                     transactionRepository.save(transaction);
+                    redisService.saveToCache(TOPUP_INVOICE_EMAIL_SKIP_PREFIX + normalizedTransactionUuid, "true", 1, TimeUnit.DAYS);
+                    redisService.deleteFromCache(sessionKey);
 
                     // Credit Wallet
-                    User user = transaction.getUser();
                     user.setBalance(user.getBalance().add(transaction.getAmount()));
                     userRepository.save(user);
                     
-                    telemetryClient.trackTrace("Wallet credited for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId())));
+                    telemetryClient.trackTrace("Wallet credited for user: " + user.getUserId(), SeverityLevel.Information, Map.of("userId", String.valueOf(user.getUserId()), "transactionUuid", normalizedTransactionUuid));
                     return transaction;
                 } else {
                     telemetryClient.trackTrace("eSewa verification failed. Status: " + verifiedStatus, SeverityLevel.Warning, Map.of("verifiedStatus", verifiedStatus != null ? verifiedStatus : "null"));
-                    transaction.setStatus(TransactionStatus.FAILED);
-                    transactionRepository.save(transaction);
                     throw new TransactionVerificationException("eSewa verification failed with status: " + verifiedStatus);
                 }
             } catch (Exception e) {
@@ -217,16 +257,31 @@ public class TransactionService {
         }
 
         if (transactionUuid != null && !transactionUuid.isEmpty()) {
-            final String finalUuid = transactionUuid;
-            transactionRepository.findByEsewaTransactionId(finalUuid)
-                    .ifPresentOrElse(transaction -> {
-                        transaction.setStatus(TransactionStatus.FAILED);
-                        transactionRepository.save(transaction);
-                        telemetryClient.trackTrace("Marked transaction " + finalUuid + " as FAILED", SeverityLevel.Information, Map.of("transactionUuid", finalUuid));
-                    }, () -> telemetryClient.trackTrace("Transaction not found for failure callback: " + finalUuid, SeverityLevel.Information, Map.of("transactionUuid", finalUuid)));
+            String normalized = normalizeTransactionUuid(transactionUuid);
+            redisService.deleteFromCache(TOPUP_SESSION_PREFIX + normalized);
+            telemetryClient.trackTrace("Payment cancelled for transaction: " + normalized,
+                    SeverityLevel.Information,
+                    Map.of("transactionUuid", normalized));
         } else {
             telemetryClient.trackTrace("Could not extract transaction UUID from failure callback", SeverityLevel.Information, null);
         }
+    }
+
+    private String buildTransactionUuid(Integer userId) {
+        return userId + "_" + UUID.randomUUID();
+    }
+
+    private String normalizeTransactionUuid(String transactionUuid) {
+        if (transactionUuid == null) {
+            return null;
+        }
+
+        String trimmed = transactionUuid.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+
+        return trimmed;
     }
 
     private String generateSignature(BigDecimal amount, String transactionUuid, String merchantId) {
@@ -249,16 +304,7 @@ public class TransactionService {
     @Scheduled(fixedDelay = 60000) // Run every minute
     @Transactional
     public void expirePendingTransactions() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(30);
-        List<Transaction> pendingTransactions = transactionRepository.findByStatusAndCreatedAtBefore(TransactionStatus.PENDING, cutoff);
-        
-        if (!pendingTransactions.isEmpty()) {
-            telemetryClient.trackTrace("Found " + pendingTransactions.size() + " pending transactions older than 30 minutes. Marking as FAILED.", SeverityLevel.Information, Map.of("count", String.valueOf(pendingTransactions.size())));
-            for (Transaction t : pendingTransactions) {
-                t.setStatus(TransactionStatus.FAILED);
-                transactionRepository.save(t);
-            }
-        }
+        // No-op: top-up sessions now expire in Redis with TTL and only COMPLETED transactions are persisted.
     }
 
     @Transactional(readOnly = true)

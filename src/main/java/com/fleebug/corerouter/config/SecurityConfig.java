@@ -113,7 +113,12 @@ public class SecurityConfig {
                         ApiPaths.AUTH_REGISTER,
                         ApiPaths.AUTH_LOGIN,
                         ApiPaths.AUTH_REQUEST_OTP,
-                        ApiPaths.AUTH_VERIFY_OTP).permitAll()
+                        ApiPaths.AUTH_VERIFY_OTP,
+                        ApiPaths.AUTH_GOOGLE_LOGIN,
+                        ApiPaths.AUTH_GITHUB_LOGIN,
+                        ApiPaths.AUTH_FORGOT_PASSWORD_REQUEST_OTP,
+                        ApiPaths.AUTH_FORGOT_PASSWORD_VERIFY_OTP,
+                        ApiPaths.AUTH_FORGOT_PASSWORD_RESET).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.MODELS,
                         "/test-payment.html",

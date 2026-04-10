@@ -64,6 +64,12 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         Pageable pageable
     );
 
+    long countByApiKeyApiKeyIdAndRecordedAtBetween(
+        Integer apiKeyId,
+        LocalDateTime from,
+        LocalDateTime to
+    );
+
     // Total usage for a model + unit type
     @Query("SELECT COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0) " +
            "FROM UsageRecord u " +

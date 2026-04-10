@@ -64,7 +64,7 @@ import java.util.Map;
         responseData.put("amount", transaction.getAmount());
         responseData.put("transaction_uuid", transaction.getEsewaTransactionId());
         
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Wallet credited successfully", responseData, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Payment completed", responseData, request));
     }
 
     @GetMapping("/failure")
@@ -72,9 +72,9 @@ import java.util.Map;
                                                              @RequestParam(value = "transaction_uuid", required = false) String transactionUuid,
                                                              HttpServletRequest request) {
         if ((data == null || data.isEmpty()) && (transactionUuid == null || transactionUuid.isEmpty())) {
-             return ResponseEntity.ok(ApiResponse.error(HttpStatus.BAD_REQUEST, "Missing transaction data", request));
+             return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Payment cancelled", null, request));
         }
         transactionService.markTransactionFailed(data, transactionUuid);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Transaction marked as failed", null, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Payment cancelled", null, request));
     }
 }

@@ -20,6 +20,8 @@ import com.fleebug.corerouter.exception.task.TaskNotFoundException;
 import com.fleebug.corerouter.repository.billing.UsageRecordRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
+import com.fleebug.corerouter.service.otp.OtpService;
+import com.fleebug.corerouter.service.redis.RedisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,10 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +51,10 @@ public class UsageService {
     private final ModelRepository modelRepository;
     private final BillingConfigService billingConfigService;
     private final ObjectMapper objectMapper;
+    private final OtpService otpService;
+    private final RedisService redisService;
+
+    private static final String API_KEY_MONTHLY_ALERT_PREFIX = "billing:apikey:monthly-alert:";
 
     /**
      * Record usage for a task, compute cost from billing config, and update task total cost.
@@ -83,6 +91,8 @@ public class UsageService {
 
         // Update task totalCost
         updateTaskCost(task);
+
+        checkAndNotifyMonthlyApiKeyUsage(saved.getApiKey());
 
         return mapToResponse(saved);
     }
@@ -347,5 +357,54 @@ public class UsageService {
                 .cost(record.getCost())
                 .recordedAt(record.getRecordedAt())
                 .build();
+    }
+
+    private void checkAndNotifyMonthlyApiKeyUsage(com.fleebug.corerouter.entity.apikey.ApiKey apiKey) {
+        if (apiKey == null || apiKey.getApiKeyId() == null || apiKey.getMonthlyLimit() == null || apiKey.getMonthlyLimit() <= 0) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        long consumed = usageRecordRepository.countByApiKeyApiKeyIdAndRecordedAtBetween(apiKey.getApiKeyId(), monthStart, now);
+        int monthlyLimit = apiKey.getMonthlyLimit();
+        int percentConsumed = (int) Math.floor((consumed * 100.0) / monthlyLimit);
+
+        String monthKey = YearMonth.now().toString();
+        if (consumed >= monthlyLimit) {
+            maybeQueueMonthlyUsageAlert(apiKey, consumed, monthlyLimit, percentConsumed, monthKey, 100);
+        }
+        
+        else if (percentConsumed >= 90) {
+            maybeQueueMonthlyUsageAlert(apiKey, consumed, monthlyLimit, percentConsumed, monthKey, 90);
+        }
+        else if (percentConsumed >= 80) {
+            maybeQueueMonthlyUsageAlert(apiKey, consumed, monthlyLimit, percentConsumed, monthKey, 80);
+        }
+        
+    }
+
+    private void maybeQueueMonthlyUsageAlert(com.fleebug.corerouter.entity.apikey.ApiKey apiKey,
+                                             long consumed,
+                                             int monthlyLimit,
+                                             int percentConsumed,
+                                             String monthKey,
+                                             int thresholdPercent) {
+        String dedupeKey = API_KEY_MONTHLY_ALERT_PREFIX + apiKey.getApiKeyId() + ":" + monthKey + ":" + thresholdPercent;
+        if (redisService.existsInCache(dedupeKey)) {
+            return;
+        }
+
+        redisService.saveToCache(dedupeKey, "true", 40, TimeUnit.DAYS);
+        otpService.publishApiKeyMonthlyUsageAlert(
+                apiKey.getUser().getEmail(),
+                apiKey.getUser().getFullName(),
+            apiKey.getUser().getUserId(),
+                apiKey.getApiKeyId(),
+            apiKey.getDescription(),
+                monthlyLimit,
+                consumed,
+                thresholdPercent == 100 ? 100 : percentConsumed
+        );
     }
 }

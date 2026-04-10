@@ -35,11 +35,15 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        if ("/api/v1/auth/request-otp".equals(path)) {
+        if ("/api/v1/auth/request-otp".equals(path)
+            || "/api/v1/auth/forgot-password/request-otp".equals(path)) {
             handleOtpRateLimit(request, response, filterChain);
-        } else if ("/api/v1/auth/login".equals(path)) {
+        } else if ("/api/v1/auth/login".equals(path)
+            || "/api/v1/auth/google/login".equals(path)
+            || "/api/v1/auth/github/login".equals(path)) {
             handleLoginRateLimit(request, response, filterChain);
-        } else if ("/api/v1/auth/verify-otp".equals(path)) {
+        } else if ("/api/v1/auth/verify-otp".equals(path)
+            || "/api/v1/auth/forgot-password/verify-otp".equals(path)) {
             handleVerifyRateLimit(request, response, filterChain);
         } else if ("/api/v1/auth/refresh".equals(path)) {
             handleRefreshRateLimit(request, response, filterChain);
