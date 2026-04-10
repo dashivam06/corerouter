@@ -27,6 +27,8 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Integer> {
 
     long countByStatus(ApiKeyStatus status);
 
+    long countByUserUserIdAndStatus(Integer userId, ApiKeyStatus status);
+
     List<ApiKey> findByUserUserIdAndStatus(Integer userId, ApiKeyStatus status);
 
     List<ApiKey> findByLastUsedAtBefore(LocalDateTime time);

@@ -3,13 +3,19 @@ package com.fleebug.corerouter.controller.billing;
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fleebug.corerouter.dto.billing.response.UserBillingInsightsResponse;
+import com.fleebug.corerouter.dto.billing.response.UserBalanceHistoryResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
+import com.fleebug.corerouter.dto.billing.response.TransactionResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
+import com.fleebug.corerouter.entity.payment.Transaction;
 import com.fleebug.corerouter.entity.user.User;
+import com.fleebug.corerouter.enums.payment.TransactionStatus;
+import com.fleebug.corerouter.enums.payment.TransactionType;
 import com.fleebug.corerouter.security.details.CustomUserDetails;
 import com.fleebug.corerouter.service.billing.UsageService;
+import com.fleebug.corerouter.service.payment.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,8 +31,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +43,7 @@ import java.util.Map;
 public class UserBillingController {
 
     private final UsageService usageService;
+    private final TransactionService transactionService;
     private final TelemetryClient telemetryClient;
 
     /**
@@ -196,25 +201,17 @@ public class UserBillingController {
     })
     @GetMapping("/insights")
     public ResponseEntity<ApiResponse<UserBillingInsightsResponse>> getBillingInsights(
+            @Parameter(description = "Spending filter period: 7days, 15days, 30days, 3m, 6m, year", example = "30days")
+            @RequestParam(defaultValue = "30days") String period,
             Authentication authentication,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
-        LocalDateTime comparableLastMonthEnd = lastMonthStart.plusSeconds(Duration.between(thisMonthStart, now).getSeconds());
-
-        BigDecimal creditsUsedThisMonth = usageService.getTotalCostByUser(user.getUserId(), thisMonthStart, now);
-        BigDecimal creditsUsedComparableLastMonth = usageService.getTotalCostByUser(user.getUserId(), lastMonthStart, comparableLastMonthEnd);
-
-        UserBillingInsightsResponse insights = UserBillingInsightsResponse.builder()
-                .currentBalance(user.getBalance().setScale(2, RoundingMode.HALF_UP))
-                .creditsUsedThisMonth(creditsUsedThisMonth.setScale(2, RoundingMode.HALF_UP))
-                .creditsUsedChangeFromLastMonthPercent(
-                        calculatePercentChange(creditsUsedThisMonth, creditsUsedComparableLastMonth)
-                )
-                .build();
+        UserBillingInsightsResponse insights = usageService.getUserBillingInsights(
+            user.getUserId(),
+            user.getBalance(),
+            period
+        );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
     }
@@ -234,14 +231,140 @@ public class UserBillingController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage insights retrieved successfully", insights, request));
     }
 
-    private BigDecimal calculatePercentChange(BigDecimal current, BigDecimal previous) {
-        if (previous.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+    @Operation(summary = "Get balance history", description = "Get user top-up balance history trend by period")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Balance history retrieved successfully")
+    })
+    @GetMapping("/transactions/balance-history")
+    public ResponseEntity<ApiResponse<UserBalanceHistoryResponse>> getBalanceHistory(
+            @Parameter(description = "Period: 7days, 15days, 30days, 3m, 6m", example = "30days")
+            @RequestParam(defaultValue = "30days") String period,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00")
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-11T23:59:59")
+            @RequestParam(required = false) LocalDateTime toDate,
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+        DateRange dateRange = resolveBillingDateRange(period, fromDate, toDate);
+
+        UserBalanceHistoryResponse response = transactionService.getUserBalanceHistory(
+                user.getUserId(),
+                dateRange.from(),
+                dateRange.to(),
+                dateRange.period()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Balance history retrieved successfully", response, request));
+    }
+
+    @Operation(summary = "Get user transaction history", description = "Get paginated user transaction history with filter by type/status/date/search")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Transaction history retrieved successfully")
+    })
+    @GetMapping("/transactions/history")
+    public ResponseEntity<ApiResponse<Page<TransactionResponse>>> getUserTransactionHistory(
+            @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Date filter: 7days, 15days, 30days, 3m, 6m", example = "30days") @RequestParam(defaultValue = "30days") String period,
+            @Parameter(description = "Transaction type: WALLET, CARD, WALLET_TOPUP or ALL", example = "WALLET_TOPUP") @RequestParam(required = false) String type,
+            @Parameter(description = "Transaction status: PENDING, COMPLETED, FAILED", example = "COMPLETED") @RequestParam(required = false) String status,
+            @Parameter(description = "Search by eSewa ID", example = "txn_123") @RequestParam(required = false) String search,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00") @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-11T23:59:59") @RequestParam(required = false) LocalDateTime toDate,
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        if (page < 0 || size <= 0) {
+            throw new IllegalArgumentException("Page must be >= 0 and size must be > 0");
         }
 
-        return current.subtract(previous)
-                .multiply(BigDecimal.valueOf(100))
-                .divide(previous, 1, RoundingMode.HALF_UP);
+        DateRange dateRange = resolveBillingDateRange(period, fromDate, toDate);
+        TransactionType transactionType = parseTransactionType(type);
+        TransactionStatus transactionStatus = parseTransactionStatus(status);
+
+        Page<Transaction> transactionPage = transactionService.getUserTransactionsByFilters(
+                user.getUserId(),
+                transactionType,
+                transactionStatus,
+                search,
+                dateRange.from(),
+                dateRange.to(),
+                page,
+                size
+        );
+
+        Page<TransactionResponse> responsePage = transactionPage.map(t -> TransactionResponse.builder()
+                .transactionId(t.getTransactionId())
+                .userId(t.getUser().getUserId())
+                .userName(t.getUser().getFullName())
+                .amount(t.getAmount())
+                .type(t.getType())
+                .status(t.getStatus())
+                .esewaTransactionId(t.getEsewaTransactionId())
+                .relatedTaskId(t.getRelatedTask() != null ? t.getRelatedTask().getTaskId() : null)
+                .completedAt(t.getCompletedAt())
+                .createdAt(t.getCreatedAt())
+                .build());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Transaction history retrieved successfully", responsePage, request));
+    }
+
+    private TransactionType parseTransactionType(String type) {
+        if (type == null || type.trim().isEmpty() || "all".equalsIgnoreCase(type.trim())) {
+            return null;
+        }
+
+        try {
+            return TransactionType.valueOf(type.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid type filter. Allowed values: ALL, WALLET, CARD, WALLET_TOPUP");
+        }
+    }
+
+    private TransactionStatus parseTransactionStatus(String status) {
+        if (status == null || status.trim().isEmpty() || "all".equalsIgnoreCase(status.trim())) {
+            return null;
+        }
+
+        try {
+            return TransactionStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid status filter. Allowed values: ALL, PENDING, COMPLETED, FAILED");
+        }
+    }
+
+    private DateRange resolveBillingDateRange(String period, LocalDateTime fromDate, LocalDateTime toDate) {
+        if (fromDate != null && toDate != null) {
+            return new DateRange(fromDate, toDate, "custom");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String normalized = period == null ? "30days" : period.trim().toLowerCase();
+        LocalDateTime from;
+
+        switch (normalized) {
+            case "7days", "7day" -> normalized = "7days";
+            case "15days", "15day" -> normalized = "15days";
+            case "30days", "30day", "month" -> normalized = "30days";
+            case "3m", "3month", "3months" -> normalized = "3m";
+            case "6m", "6month", "6months" -> normalized = "6m";
+            default -> normalized = "30days";
+        }
+
+        from = switch (normalized) {
+            case "7days" -> now.minusDays(7);
+            case "15days" -> now.minusDays(15);
+            case "3m" -> now.minusMonths(3);
+            case "6m" -> now.minusMonths(6);
+            default -> now.minusDays(30);
+        };
+
+        return new DateRange(from, now, normalized);
+    }
+
+    private record DateRange(LocalDateTime from, LocalDateTime to, String period) {
     }
 
 }

@@ -6,17 +6,27 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleebug.corerouter.dto.billing.request.RecordUsageRequest;
+import com.fleebug.corerouter.dto.billing.response.DailySpendingPoint;
+import com.fleebug.corerouter.dto.billing.response.MonthlySpendingPoint;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryItem;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
+import com.fleebug.corerouter.dto.billing.response.UserBillingInsightsResponse;
+import com.fleebug.corerouter.dto.billing.response.UserDashboardOverviewResponse;
+import com.fleebug.corerouter.dto.billing.response.UserDashboardInsightsResponse;
+import com.fleebug.corerouter.dto.billing.response.UserSpendingResponse;
+import com.fleebug.corerouter.dto.billing.response.UserUsageByModelTypeResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
 import com.fleebug.corerouter.entity.billing.BillingConfig;
 import com.fleebug.corerouter.entity.billing.UsageRecord;
 import com.fleebug.corerouter.entity.model.Model;
 import com.fleebug.corerouter.entity.task.Task;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.enums.billing.UsageUnitType;
+import com.fleebug.corerouter.enums.model.ModelType;
 import com.fleebug.corerouter.exception.billing.BillingCalculationException;
 import com.fleebug.corerouter.exception.task.TaskNotFoundException;
+import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
 import com.fleebug.corerouter.repository.billing.UsageRecordRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
@@ -32,9 +42,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +62,7 @@ public class UsageService {
     private final TelemetryClient telemetryClient;
 
     private final UsageRecordRepository usageRecordRepository;
+    private final ApiKeyRepository apiKeyRepository;
     private final TaskRepository taskRepository;
     private final ModelRepository modelRepository;
     private final BillingConfigService billingConfigService;
@@ -230,6 +246,156 @@ public class UsageService {
     }
 
     @Transactional(readOnly = true)
+    public UserDashboardInsightsResponse getUserDashboardInsights(Integer userId, BigDecimal currentBalance) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+
+        long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
+        long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
+        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+
+        return UserDashboardInsightsResponse.builder()
+            .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
+            .activeApiKeys(activeApiKeys)
+            .tasksThisMonth(tasksThisMonth)
+            .todaysConsumption(todaysConsumption.setScale(2, RoundingMode.HALF_UP))
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserSpendingResponse getUserSpending(Integer userId, LocalDateTime from, LocalDateTime to, String filterPeriod) {
+        BigDecimal totalSpending = usageRecordRepository.sumCostByUserAndPeriod(userId, from, to).setScale(2, RoundingMode.HALF_UP);
+
+        List<DailySpendingPoint> dailyTrend = new ArrayList<>();
+        for (Object[] row : usageRecordRepository.sumCostByUserGroupedByDateAndPeriod(userId, from, to)) {
+            LocalDate date = (LocalDate) row[0];
+            BigDecimal amount = ((BigDecimal) row[1]).setScale(2, RoundingMode.HALF_UP);
+            dailyTrend.add(DailySpendingPoint.builder()
+                .date(date.toString())
+                .value(amount)
+                .build());
+        }
+
+        return UserSpendingResponse.builder()
+            .filterPeriod(filterPeriod)
+            .fromDate(from)
+            .toDate(to)
+            .totalSpending(totalSpending)
+            .dailyTrend(dailyTrend)
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserUsageByModelTypeResponse getUserUsageByModelType(Integer userId, LocalDateTime from, LocalDateTime to, String filterPeriod) {
+        return UserUsageByModelTypeResponse.builder()
+            .usageByModelTypeCounts(getUsageByModelTypeCounts(userId, from, to))
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserUsageByModelTypeResponse getUserUsageByModelTypeLifetime(Integer userId) {
+        return UserUsageByModelTypeResponse.builder()
+            .usageByModelTypeCounts(getUsageByModelTypeCountsLifetimeActive(userId))
+            .build();
+    }
+
+        @Transactional(readOnly = true)
+        public UserDashboardOverviewResponse getUserDashboardOverview(Integer userId, BigDecimal currentBalance) {
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
+        long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
+
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+
+        YearMonth currentMonth = YearMonth.from(now);
+        List<MonthlySpendingPoint> trend = new ArrayList<>();
+        BigDecimal spendingLast12Months = BigDecimal.ZERO;
+
+        for (int i = 11; i >= 0; i--) {
+            YearMonth month = currentMonth.minusMonths(i);
+            LocalDateTime monthStart = month.atDay(1).atStartOfDay();
+            LocalDateTime monthEnd = month.equals(currentMonth)
+                ? now
+                : month.plusMonths(1).atDay(1).atStartOfDay().minusNanos(1);
+
+            BigDecimal value = usageRecordRepository.sumCostByUserAndPeriod(userId, monthStart, monthEnd)
+                .setScale(2, RoundingMode.HALF_UP);
+            spendingLast12Months = spendingLast12Months.add(value);
+
+                trend.add(MonthlySpendingPoint.builder()
+                    .monthLabel(month.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+                .month(month.getMonthValue())
+                .year(month.getYear())
+                .value(value)
+                .build());
+        }
+
+        return UserDashboardOverviewResponse.builder()
+            .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
+            .activeApiKeys(activeApiKeys)
+            .tasksThisMonth(tasksThisMonth)
+            .todaysConsumption(todaysConsumption.setScale(2, RoundingMode.HALF_UP))
+            .spendingLast12Months(spendingLast12Months.setScale(2, RoundingMode.HALF_UP))
+            .monthlySpendingTrend(trend)
+            .build();
+        }
+
+    @Transactional(readOnly = true)
+    public UserBillingInsightsResponse getUserBillingInsights(Integer userId, BigDecimal currentBalance, String period) {
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
+        LocalDateTime comparableLastMonthEnd = lastMonthStart.plusSeconds(java.time.Duration.between(thisMonthStart, now).getSeconds());
+
+        BigDecimal creditsUsedThisMonth = usageRecordRepository.sumCostByUserAndPeriod(userId, thisMonthStart, now);
+        BigDecimal creditsUsedComparableLastMonth = usageRecordRepository.sumCostByUserAndPeriod(userId, lastMonthStart, comparableLastMonthEnd);
+
+        long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
+        long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
+
+        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+
+        PeriodRange selectedRange = resolvePeriodRange(period, now);
+        BigDecimal spendingInSelectedPeriod = usageRecordRepository.sumCostByUserAndPeriod(
+                userId,
+                selectedRange.from(),
+                selectedRange.to()
+        );
+        long totalRequestsCurrentPeriod = usageRecordRepository.countDistinctRequestsByUserAndPeriod(
+            userId,
+            selectedRange.from(),
+            selectedRange.to()
+        );
+        BigDecimal avgCostPerRequest = calculateAverage(spendingInSelectedPeriod, totalRequestsCurrentPeriod);
+
+        Map<String, Long> usageByModelTypeCounts = getUsageByModelTypeCounts(userId, selectedRange.from(), selectedRange.to());
+
+        return UserBillingInsightsResponse.builder()
+                .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
+                .creditsUsedThisMonth(creditsUsedThisMonth.setScale(2, RoundingMode.HALF_UP))
+                .creditsUsedChangeFromLastMonthPercent(calculatePercentChange(creditsUsedThisMonth, creditsUsedComparableLastMonth))
+                .activeApiKeys(activeApiKeys)
+                .tasksThisMonth(tasksThisMonth)
+                .todaysConsumption(todaysConsumption.setScale(2, RoundingMode.HALF_UP))
+                .spendingPeriod(selectedRange.normalizedPeriod())
+                .spendingPeriodStart(selectedRange.from())
+                .spendingPeriodEnd(selectedRange.to())
+                .spendingInSelectedPeriod(spendingInSelectedPeriod.setScale(2, RoundingMode.HALF_UP))
+                .currentPeriod(selectedRange.normalizedPeriod())
+                .totalSpend(spendingInSelectedPeriod.setScale(2, RoundingMode.HALF_UP))
+                .totalRequestsCurrentPeriod(totalRequestsCurrentPeriod)
+                .avgCostPerRequest(avgCostPerRequest)
+                .usageByModelTypeCounts(usageByModelTypeCounts)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
     public UserUsageInsightsResponse getUserUsageInsights(Integer userId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime currentStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
@@ -286,6 +452,71 @@ public class UsageService {
         return current.subtract(previous)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(previous, 1, RoundingMode.HALF_UP);
+    }
+
+    private PeriodRange resolvePeriodRange(String period, LocalDateTime now) {
+        String normalized = normalizePeriod(period);
+        LocalDateTime from;
+
+        switch (normalized) {
+            case "7days" -> from = now.minusDays(7);
+            case "15days" -> from = now.minusDays(15);
+            case "30days" -> from = now.minusDays(30);
+            case "week" -> from = now.minusWeeks(1);
+            case "3m" -> from = now.minusMonths(3);
+            case "6m" -> from = now.minusMonths(6);
+            case "year" -> from = now.minusYears(1);
+            default -> from = now.minusDays(30);
+        }
+
+        return new PeriodRange(normalized, from, now);
+    }
+
+    private String normalizePeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return "month";
+        }
+
+        String value = period.trim().toLowerCase();
+        return switch (value) {
+            case "7days", "7day", "week" -> "7days";
+            case "15days", "15day" -> "15days";
+            case "30days", "30day", "month", "1m" -> "30days";
+            case "3m", "3month", "3months" -> "3m";
+            case "6m", "6month", "6months" -> "6m";
+            case "year", "1y", "12m" -> "year";
+            default -> "30days";
+        };
+    }
+
+    private Map<String, Long> getUsageByModelTypeCounts(Integer userId, LocalDateTime from, LocalDateTime to) {
+        Map<ModelType, Long> rawCounts = new EnumMap<>(ModelType.class);
+        for (Object[] row : usageRecordRepository.countDistinctRequestsByUserGroupedByModelTypeAndPeriod(userId, from, to)) {
+            ModelType type = (ModelType) row[0];
+            Number countNumber = (Number) row[1];
+            rawCounts.put(type, countNumber.longValue());
+        }
+
+        Map<String, Long> counts = new HashMap<>();
+        counts.put(ModelType.LLM.name(), rawCounts.getOrDefault(ModelType.LLM, 0L));
+        counts.put(ModelType.OCR.name(), rawCounts.getOrDefault(ModelType.OCR, 0L));
+        counts.put(ModelType.OTHER.name(), rawCounts.getOrDefault(ModelType.OTHER, 0L));
+        return counts;
+    }
+
+    private Map<String, Long> getUsageByModelTypeCountsLifetimeActive(Integer userId) {
+        Map<ModelType, Long> rawCounts = new EnumMap<>(ModelType.class);
+        for (Object[] row : usageRecordRepository.countDistinctRequestsByUserGroupedByModelTypeAndActiveApiKeyStatus(userId, ApiKeyStatus.ACTIVE)) {
+            ModelType type = (ModelType) row[0];
+            Number countNumber = (Number) row[1];
+            rawCounts.put(type, countNumber.longValue());
+        }
+
+        Map<String, Long> counts = new HashMap<>();
+        counts.put(ModelType.LLM.name(), rawCounts.getOrDefault(ModelType.LLM, 0L));
+        counts.put(ModelType.OCR.name(), rawCounts.getOrDefault(ModelType.OCR, 0L));
+        counts.put(ModelType.OTHER.name(), rawCounts.getOrDefault(ModelType.OTHER, 0L));
+        return counts;
     }
 
     private BigDecimal extractRate(BillingConfig billingConfig, UsageUnitType unitType) {
@@ -406,5 +637,8 @@ public class UsageService {
                 consumed,
                 thresholdPercent == 100 ? 100 : percentConsumed
         );
+    }
+
+    private record PeriodRange(String normalizedPeriod, LocalDateTime from, LocalDateTime to) {
     }
 }

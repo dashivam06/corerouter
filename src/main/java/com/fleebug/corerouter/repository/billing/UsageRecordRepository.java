@@ -2,6 +2,7 @@ package com.fleebug.corerouter.repository.billing;
 
 import com.fleebug.corerouter.entity.billing.UsageRecord;
 import com.fleebug.corerouter.entity.task.Task;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.enums.billing.UsageUnitType;
 
 import org.springframework.data.domain.Page;
@@ -120,5 +121,38 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("from") LocalDateTime from,
         @Param("to") LocalDateTime to,
         Pageable pageable
+    );
+
+    @Query("SELECT u.model.type, COUNT(DISTINCT u.task.taskId) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to " +
+           "GROUP BY u.model.type")
+    List<Object[]> countDistinctRequestsByUserGroupedByModelTypeAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
+
+    @Query("SELECT u.model.type, COUNT(DISTINCT u.task.taskId) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.apiKey.status = :status " +
+           "GROUP BY u.model.type")
+    List<Object[]> countDistinctRequestsByUserGroupedByModelTypeAndActiveApiKeyStatus(
+        @Param("userId") Integer userId,
+        @Param("status") ApiKeyStatus status
+    );
+
+    @Query("SELECT FUNCTION('DATE', u.recordedAt), COALESCE(SUM(u.cost), 0) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to " +
+           "GROUP BY FUNCTION('DATE', u.recordedAt) " +
+           "ORDER BY FUNCTION('DATE', u.recordedAt)")
+    List<Object[]> sumCostByUserGroupedByDateAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
     );
 }

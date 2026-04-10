@@ -52,6 +52,8 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     long countByApiKey_User_UserId(Integer userId);
 
+    long countByApiKey_User_UserIdAndCreatedAtBetween(Integer userId, LocalDateTime from, LocalDateTime to);
+
     long countByApiKey_User_UserIdAndStatus(Integer userId, TaskStatus status);
 
         @Query("SELECT FUNCTION('DATE', t.createdAt), t.status, COUNT(t) " +

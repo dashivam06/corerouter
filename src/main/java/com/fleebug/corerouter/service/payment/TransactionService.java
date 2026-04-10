@@ -5,6 +5,8 @@ import com.microsoft.applicationinsights.telemetry.SeverityLevel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fleebug.corerouter.dto.billing.response.DailySpendingPoint;
+import com.fleebug.corerouter.dto.billing.response.UserBalanceHistoryResponse;
 import com.fleebug.corerouter.entity.payment.Transaction;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.payment.TransactionStatus;
@@ -42,6 +44,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.scheduling.annotation.Scheduled;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -401,6 +404,83 @@ public class TransactionService {
             LocalDateTime from,
             LocalDateTime to) {
         return getTransactionsByFilters(type, status, null, from, to, 0, 1000).getContent();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Transaction> getUserTransactionsByFilters(
+            Integer userId,
+            TransactionType type,
+            TransactionStatus status,
+            String search,
+            LocalDateTime from,
+            LocalDateTime to,
+            int page,
+            int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Specification<Transaction> specification = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            predicates.add(cb.equal(root.get("user").get("userId"), userId));
+            predicates.add(cb.between(root.get("createdAt"), from, to));
+
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (search != null && !search.trim().isEmpty()) {
+                String keyword = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+                predicates.add(cb.like(cb.lower(root.get("esewaTransactionId")), keyword));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        return transactionRepository.findAll(specification, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public UserBalanceHistoryResponse getUserBalanceHistory(Integer userId, LocalDateTime from, LocalDateTime to, String period) {
+        Page<Transaction> page = getUserTransactionsByFilters(
+                userId,
+                TransactionType.WALLET_TOPUP,
+                TransactionStatus.COMPLETED,
+                null,
+                from,
+                to,
+                0,
+                10000
+        );
+
+        List<Transaction> transactions = page.getContent();
+        Map<LocalDate, BigDecimal> byDate = new TreeMap<>();
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (Transaction transaction : transactions) {
+            LocalDate date = transaction.getCreatedAt().toLocalDate();
+            BigDecimal amount = transaction.getAmount() == null ? BigDecimal.ZERO : transaction.getAmount();
+            byDate.put(date, byDate.getOrDefault(date, BigDecimal.ZERO).add(amount));
+            total = total.add(amount);
+        }
+
+        List<DailySpendingPoint> history = byDate.entrySet().stream()
+                .map(entry -> DailySpendingPoint.builder()
+                        .date(entry.getKey().toString())
+                        .value(entry.getValue())
+                        .build())
+                .collect(Collectors.toList());
+
+        return UserBalanceHistoryResponse.builder()
+                .period(period)
+                .fromDate(from)
+                .toDate(to)
+                .totalTopUp(total)
+                .balanceHistory(history)
+                .build();
     }
 
     /**
