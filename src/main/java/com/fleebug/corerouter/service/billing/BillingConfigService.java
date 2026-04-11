@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ public class BillingConfigService {
             BillingConfig config = existingConfig.get();
             config.setPricingType(request.getPricingType());
             config.setPricingMetadata(request.getPricingMetadata());
+            config.setChargeMultiplier(resolveChargeMultiplier(request.getChargeMultiplier(), config.getChargeMultiplier()));
             config.setActive(true);
             config.setUpdatedAt(LocalDateTime.now());
 
@@ -69,6 +72,7 @@ public class BillingConfigService {
                 .model(model)
                 .pricingType(request.getPricingType())
                 .pricingMetadata(request.getPricingMetadata())
+                .chargeMultiplier(resolveChargeMultiplier(request.getChargeMultiplier(), null))
             .active(true)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -101,6 +105,9 @@ public class BillingConfigService {
         }
         if (request.getPricingMetadata() != null) {
             config.setPricingMetadata(request.getPricingMetadata());
+        }
+        if (request.getChargeMultiplier() != null) {
+            config.setChargeMultiplier(resolveChargeMultiplier(request.getChargeMultiplier(), config.getChargeMultiplier()));
         }
         config.setUpdatedAt(LocalDateTime.now());
 
@@ -192,8 +199,20 @@ public class BillingConfigService {
                 .modelName(config.getModel().getFullname())
                 .pricingType(config.getPricingType())
                 .pricingMetadata(config.getPricingMetadata())
+                .chargeMultiplier(resolveChargeMultiplier(config.getChargeMultiplier(), null))
                 .createdAt(config.getCreatedAt())
                 .updatedAt(config.getUpdatedAt())
                 .build();
+    }
+
+    private BigDecimal resolveChargeMultiplier(BigDecimal requested, BigDecimal fallback) {
+        BigDecimal value = requested != null ? requested : fallback;
+        if (value == null) {
+            value = BigDecimal.ONE;
+        }
+        if (value.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("chargeMultiplier must be greater than 0");
+        }
+        return value.setScale(4, RoundingMode.HALF_UP);
     }
 }

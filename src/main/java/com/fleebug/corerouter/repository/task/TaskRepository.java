@@ -26,10 +26,18 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status")
     java.math.BigDecimal sumTotalCostByStatus(@Param("status") TaskStatus status);
 
+        @Query("SELECT COALESCE(SUM(COALESCE(t.chargedCost, t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status")
+        java.math.BigDecimal sumChargedCostByStatus(@Param("status") TaskStatus status);
+
     @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status AND t.completedAt BETWEEN :from AND :to")
     java.math.BigDecimal sumTotalCostByStatusAndCompletedAtBetween(@Param("status") TaskStatus status,
                                                                    @Param("from") LocalDateTime from,
                                                                    @Param("to") LocalDateTime to);
+
+        @Query("SELECT COALESCE(SUM(COALESCE(t.chargedCost, t.totalCost, 0)), 0) FROM Task t WHERE t.status = :status AND t.completedAt BETWEEN :from AND :to")
+        java.math.BigDecimal sumChargedCostByStatusAndCompletedAtBetween(@Param("status") TaskStatus status,
+                                                                                                                                          @Param("from") LocalDateTime from,
+                                                                                                                                          @Param("to") LocalDateTime to);
 
     @Query("SELECT COUNT(DISTINCT t.apiKey.user.userId) FROM Task t WHERE t.createdAt BETWEEN :from AND :to")
     long countDistinctUsersByCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
@@ -44,8 +52,16 @@ public interface TaskRepository extends JpaRepository<Task, String> {
             "AND t.status = :status " +
             "GROUP BY FUNCTION('HOUR', t.completedAt)")
         List<Object[]> sumTotalCostByHourBetween(@Param("from") LocalDateTime from,
-                             @Param("to") LocalDateTime to,
-                             @Param("status") TaskStatus status);
+                                                                                         @Param("to") LocalDateTime to,
+                                                                                         @Param("status") TaskStatus status);
+
+    @Query("SELECT FUNCTION('HOUR', t.completedAt), COALESCE(SUM(COALESCE(t.chargedCost, t.totalCost, 0)), 0) FROM Task t " +
+            "WHERE t.completedAt BETWEEN :from AND :to " +
+            "AND t.status = :status " +
+            "GROUP BY FUNCTION('HOUR', t.completedAt)")
+    List<Object[]> sumChargedCostByHourBetween(@Param("from") LocalDateTime from,
+                                                @Param("to") LocalDateTime to,
+                                                @Param("status") TaskStatus status);
 
     List<Task> findTop10ByStatusAndCompletedAtIsNotNullOrderByCompletedAtDesc(TaskStatus status);
 

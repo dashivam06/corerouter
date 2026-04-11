@@ -72,11 +72,11 @@ public class AdminDashboardController {
         List<String> recentActivity = Collections.emptyList();
 
         try {
-            totalEarnings = taskRepository.sumTotalCostByStatus(TaskStatus.COMPLETED).setScale(2, RoundingMode.HALF_UP);
-            todayEarning = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, todayStartUtc, nowUtc)
+            totalEarnings = taskRepository.sumChargedCostByStatus(TaskStatus.COMPLETED).setScale(2, RoundingMode.HALF_UP);
+            todayEarning = taskRepository.sumChargedCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, todayStartUtc, nowUtc)
                     .setScale(2, RoundingMode.HALF_UP);
-            BigDecimal thisMonthRevenue = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, monthStartUtc, nowUtc);
-            BigDecimal lastMonthRevenue = taskRepository.sumTotalCostByStatusAndCompletedAtBetween(
+            BigDecimal thisMonthRevenue = taskRepository.sumChargedCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, monthStartUtc, nowUtc);
+            BigDecimal lastMonthRevenue = taskRepository.sumChargedCostByStatusAndCompletedAtBetween(
                     TaskStatus.COMPLETED,
                     lastMonthStartUtc,
                     monthStartUtc.minusNanos(1)
@@ -169,7 +169,7 @@ public class AdminDashboardController {
 
         List<Object[]> rows;
         try {
-            rows = taskRepository.sumTotalCostByHourBetween(dayStartUtc, dayEndUtc, TaskStatus.COMPLETED);
+            rows = taskRepository.sumChargedCostByHourBetween(dayStartUtc, dayEndUtc, TaskStatus.COMPLETED);
         } catch (RuntimeException ex) {
             rows = buildRevenueRowsInMemory(dayStartUtc, dayEndUtc);
         }
@@ -209,7 +209,8 @@ public class AdminDashboardController {
                 continue;
             }
             int hour = completedAt.getHour();
-            BigDecimal cost = task.getTotalCost() == null ? BigDecimal.ZERO : task.getTotalCost();
+            BigDecimal cost = task.getChargedCost() != null ? task.getChargedCost() :
+                    (task.getTotalCost() == null ? BigDecimal.ZERO : task.getTotalCost());
             sums.put(hour, sums.getOrDefault(hour, BigDecimal.ZERO).add(cost));
         }
 

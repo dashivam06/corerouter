@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -37,6 +38,9 @@ public class BillingConfigResponse {
         example = "{\"inputRate\": 0.00003, \"outputRate\": 0.00006}"
     )
     private String pricingMetadata;
+
+    @Schema(description = "Charge multiplier applied over computed task cost", example = "1.2500")
+    private BigDecimal chargeMultiplier;
 
     @Schema(description = "When this config was created")
     private LocalDateTime createdAt;

@@ -24,7 +24,8 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
     List<UsageRecord> findByTaskTaskId(String taskId);
 
     // Total cost for an API key in a date range
-    @Query("SELECT COALESCE(SUM(u.cost), 0) FROM UsageRecord u " +
+    @Query("SELECT COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.apiKeyId = :apiKeyId " +
            "AND u.recordedAt BETWEEN :from AND :to")
     BigDecimal sumCostByApiKeyAndPeriod(
@@ -34,8 +35,9 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
     );
 
     // Usage breakdown by unit type [UsageUnitType, totalQuantity, totalCost]
-    @Query("SELECT u.usageUnitType, COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0) " +
+    @Query("SELECT u.usageUnitType, COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) " +
            "FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.apiKeyId = :apiKeyId " +
            "AND u.recordedAt BETWEEN :from AND :to " +
            "GROUP BY u.usageUnitType")
@@ -47,8 +49,9 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
 
     // Usage breakdown by model + unit type [modelId, usageUnitType, totalQty, totalCost, count]
     @Query("SELECT u.model.modelId, u.usageUnitType, " +
-           "COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0), COUNT(u) " +
+           "COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0), COUNT(u) " +
            "FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.apiKeyId = :apiKeyId " +
            "AND u.recordedAt BETWEEN :from AND :to " +
            "GROUP BY u.model.modelId, u.usageUnitType")
@@ -72,8 +75,9 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
     );
 
     // Total usage for a model + unit type
-    @Query("SELECT COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0) " +
+    @Query("SELECT COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) " +
            "FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.model.modelId = :modelId " +
            "AND u.usageUnitType = :unitType " +
            "AND u.recordedAt BETWEEN :from AND :to")
@@ -85,7 +89,8 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
     );
 
     // Total cost for a user across all their API keys
-    @Query("SELECT COALESCE(SUM(u.cost), 0) FROM UsageRecord u " +
+    @Query("SELECT COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.user.userId = :userId " +
            "AND u.recordedAt BETWEEN :from AND :to")
     BigDecimal sumCostByUserAndPeriod(
@@ -94,7 +99,8 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("to") LocalDateTime to
     );
 
-    @Query("SELECT COALESCE(SUM(u.cost), 0) FROM UsageRecord u " +
+    @Query("SELECT COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.recordedAt BETWEEN :from AND :to")
     BigDecimal sumCostByPeriod(
         @Param("from") LocalDateTime from,
@@ -144,8 +150,9 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("status") ApiKeyStatus status
     );
 
-    @Query("SELECT FUNCTION('DATE', u.recordedAt), COALESCE(SUM(u.cost), 0) " +
+    @Query("SELECT FUNCTION('DATE', u.recordedAt), COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) " +
            "FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.user.userId = :userId " +
            "AND u.recordedAt BETWEEN :from AND :to " +
            "GROUP BY FUNCTION('DATE', u.recordedAt) " +
@@ -156,8 +163,9 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("to") LocalDateTime to
     );
 
-    @Query("SELECT FUNCTION('DATE', u.recordedAt), u.usageUnitType, COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0) " +
+    @Query("SELECT FUNCTION('DATE', u.recordedAt), u.usageUnitType, COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost * COALESCE(bc.chargeMultiplier, 1)), 0) " +
            "FROM UsageRecord u " +
+           "LEFT JOIN u.billingConfig bc " +
            "WHERE u.apiKey.user.userId = :userId " +
            "AND u.recordedAt BETWEEN :from AND :to " +
            "GROUP BY FUNCTION('DATE', u.recordedAt), u.usageUnitType " +

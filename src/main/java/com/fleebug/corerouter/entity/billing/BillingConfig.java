@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.entity.billing;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -44,6 +45,10 @@ public class BillingConfig {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String pricingMetadata;
+
+    @Column(name = "charge_multiplier", nullable = false, precision = 8, scale = 4, columnDefinition = "numeric(8,4) default 1.0000")
+    @Builder.Default
+    private BigDecimal chargeMultiplier = new BigDecimal("1.0000");
 
     @Column(nullable = false, columnDefinition = "boolean default true")
     @Builder.Default

@@ -27,7 +27,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -527,7 +526,7 @@ public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHist
         LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
 
         BigDecimal totalBalance = userRepository.sumAllBalancesByRole(UserRole.USER);
-        BigDecimal thisMonthVolume = transactionService.getTopUpAmountByPeriod(monthStart, now);
+        BigDecimal thisMonthVolume = usageService.getTotalCostForAllUsers(monthStart, now);
         BigDecimal todayTopUpAmount = transactionService.getTopUpAmountByPeriod(todayStart, now);
 
         BillingInsightsResponse insights = BillingInsightsResponse.builder()

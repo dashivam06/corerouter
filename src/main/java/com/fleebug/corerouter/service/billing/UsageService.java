@@ -246,12 +246,12 @@ public class UsageService {
      */
     @Transactional(readOnly = true)
     public BigDecimal getTotalCostByUser(Integer userId, LocalDateTime from, LocalDateTime to) {
-        return usageRecordRepository.sumCostByUserAndPeriod(userId, from, to);
+        return taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, from, to);
     }
 
     @Transactional(readOnly = true)
     public BigDecimal getTotalCostForAllUsers(LocalDateTime from, LocalDateTime to) {
-        return usageRecordRepository.sumCostByPeriod(from, to);
+        return taskRepository.sumChargedCostByStatusAndCompletedAtBetween(TaskStatus.COMPLETED, from, to);
     }
 
     @Transactional(readOnly = true)
@@ -262,7 +262,7 @@ public class UsageService {
 
         long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
-        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
+        BigDecimal todaysConsumption = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         return UserDashboardInsightsResponse.builder()
             .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
@@ -275,11 +275,11 @@ public class UsageService {
     @Transactional(readOnly = true)
     public UserSpendingResponse getUserSpending(Integer userId, LocalDateTime from, LocalDateTime to, String filterPeriod) {
         BigDecimal totalSpending = taskRepository
-            .sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, from, to)
+            .sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, from, to)
             .setScale(3, RoundingMode.HALF_UP);
 
         List<DailySpendingPoint> dailyTrend = new ArrayList<>();
-        for (Object[] row : taskRepository.sumTotalCostByUserAndStatusGroupedByDateBetween(userId, TaskStatus.COMPLETED, from, to)) {
+        for (Object[] row : taskRepository.sumChargedCostByUserAndStatusGroupedByDateBetween(userId, TaskStatus.COMPLETED, from, to)) {
             if (row == null || row.length < 2 || row[0] == null) {
                 continue;
             }
@@ -323,7 +323,7 @@ public class UsageService {
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
 
         LocalDateTime todayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
-        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
+        BigDecimal todaysConsumption = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         YearMonth currentMonth = YearMonth.from(now);
         List<MonthlySpendingPoint> trend = new ArrayList<>();
@@ -337,7 +337,7 @@ public class UsageService {
                 : month.plusMonths(1).atDay(1).atStartOfDay().minusNanos(1);
 
             BigDecimal value = taskRepository
-                .sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, monthStart, monthEnd)
+                .sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, monthStart, monthEnd)
                 .setScale(2, RoundingMode.HALF_UP);
             spendingLast12Months = spendingLast12Months.add(value);
 

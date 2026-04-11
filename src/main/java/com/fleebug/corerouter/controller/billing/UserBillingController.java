@@ -175,7 +175,7 @@ public class UserBillingController {
      * @param request        HTTP servlet request
      * @return total cost
      */
-    @Operation(summary = "Get total cost", description = "Get total cost for the authenticated user across all their API keys within a date range")
+    @Operation(summary = "Get total charged amount", description = "Get total charged amount for the authenticated user across all completed tasks within a date range")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Total cost retrieved successfully")
     })
@@ -189,11 +189,11 @@ public class UserBillingController {
         
         Map<String, String> properties = new HashMap<>();
         properties.put("userId", String.valueOf(user.getUserId()));
-        telemetryClient.trackTrace("User: get total cost", SeverityLevel.Information, properties);
+        telemetryClient.trackTrace("User: get total charged amount", SeverityLevel.Information, properties);
 
         BigDecimal totalCost = usageService.getTotalCostByUser(user.getUserId(), from, to);
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total cost retrieved successfully", totalCost, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Total charged amount retrieved successfully", totalCost, request));
     }
 
     @Operation(summary = "Get billing insights", description = "Get current balance, credits used this month, and change from last month for the authenticated user")
