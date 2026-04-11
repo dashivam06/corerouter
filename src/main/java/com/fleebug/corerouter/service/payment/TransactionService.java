@@ -310,11 +310,6 @@ public class TransactionService {
         }
     }
 
-    @Scheduled(fixedDelay = 60000) // Run every minute
-    @Transactional
-    public void expirePendingTransactions() {
-        // No-op: top-up sessions now expire in Redis with TTL and only COMPLETED transactions are persisted.
-    }
 
     @Transactional(readOnly = true)
     public BigDecimal getTopUpAmountByUserAndPeriod(Integer userId, LocalDateTime from, LocalDateTime to) {
