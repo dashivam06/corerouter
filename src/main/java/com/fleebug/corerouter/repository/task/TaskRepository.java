@@ -81,6 +81,16 @@ public interface TaskRepository extends JpaRepository<Task, String> {
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
+    @Query("SELECT COALESCE(SUM(COALESCE(t.chargedCost, t.totalCost, 0)), 0) FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to")
+    java.math.BigDecimal sumChargedCostByUserAndStatusAndCompletedAtBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
     @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) " +
             "FROM Task t " +
             "WHERE t.apiKey.user.userId = :userId " +
@@ -153,6 +163,20 @@ public interface TaskRepository extends JpaRepository<Task, String> {
             @Param("userId") Integer userId,
             @Param("apiKeyStatus") ApiKeyStatus apiKeyStatus,
             @Param("status") TaskStatus status);
+
+    @Query("SELECT t.model.fullname, COUNT(t) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to " +
+            "GROUP BY t.model.fullname " +
+            "ORDER BY COUNT(t) DESC")
+    List<Object[]> findTopModelsByUserAndStatusAndCompletedAtBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable);
 
     Page<Task> findByStatus(TaskStatus status, Pageable pageable);
 }

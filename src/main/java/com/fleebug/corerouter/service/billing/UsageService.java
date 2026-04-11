@@ -367,11 +367,11 @@ public class UsageService {
         LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
         LocalDateTime comparableLastMonthEnd = lastMonthStart.plusSeconds(java.time.Duration.between(thisMonthStart, now).getSeconds());
 
-        BigDecimal creditsUsedThisMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, thisMonthStart, now);
-        BigDecimal creditsUsedComparableLastMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, lastMonthStart, comparableLastMonthEnd);
+        BigDecimal creditsUsedThisMonth = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, thisMonthStart, now);
+        BigDecimal creditsUsedComparableLastMonth = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, lastMonthStart, comparableLastMonthEnd);
 
         PeriodRange selectedRange = resolvePeriodRange("30days", now);
-        BigDecimal totalSpend = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(
+        BigDecimal totalSpend = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(
                 userId,
             TaskStatus.COMPLETED,
             selectedRange.from(),
@@ -414,8 +414,16 @@ public class UsageService {
         LocalDateTime previousEnd = from.minusSeconds(1);
         LocalDateTime previousStart = previousEnd.minusSeconds(seconds);
 
-        BigDecimal totalSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, from, to);
-        BigDecimal priorSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, previousStart, previousEnd);
+        BigDecimal totalSpend = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(
+            userId,
+            TaskStatus.COMPLETED,
+            from,
+            to);
+        BigDecimal priorSpend = taskRepository.sumChargedCostByUserAndStatusAndCompletedAtBetween(
+            userId,
+            TaskStatus.COMPLETED,
+            previousStart,
+            previousEnd);
 
         long totalRequests = taskRepository.countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(
             userId,
@@ -435,8 +443,9 @@ public class UsageService {
         BigDecimal totalRequestsChangePercent = calculatePercentChange(BigDecimal.valueOf(totalRequests), BigDecimal.valueOf(priorRequests));
         BigDecimal avgCostPerRequestChangePercent = calculatePercentChange(avgCostPerRequest, priorAvgCostPerRequest);
 
-        List<Object[]> topModels = usageRecordRepository.findTopModelsByUserAndPeriod(
+        List<Object[]> topModels = taskRepository.findTopModelsByUserAndStatusAndCompletedAtBetween(
             userId,
+            TaskStatus.COMPLETED,
             from,
             to,
             PageRequest.of(0, 1)
