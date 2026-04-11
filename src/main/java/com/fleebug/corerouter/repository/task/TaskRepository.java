@@ -1,6 +1,7 @@
 package com.fleebug.corerouter.repository.task;
 
 import com.fleebug.corerouter.entity.task.Task;
+import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.enums.task.TaskStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +57,31 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     long countByApiKey_User_UserIdAndStatus(Integer userId, TaskStatus status);
 
+        long countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(Integer userId, TaskStatus status, LocalDateTime from, LocalDateTime to);
+
+        @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to")
+        java.math.BigDecimal sumTotalCostByUserAndStatusAndCompletedAtBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+        @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to " +
+            "GROUP BY FUNCTION('DATE', t.completedAt) " +
+            "ORDER BY FUNCTION('DATE', t.completedAt)")
+        List<Object[]> sumTotalCostByUserAndStatusGroupedByDateBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
         @Query("SELECT FUNCTION('DATE', t.createdAt), t.status, COUNT(t) " +
             "FROM Task t " +
             "WHERE t.createdAt BETWEEN :from AND :to " +
@@ -65,6 +91,29 @@ public interface TaskRepository extends JpaRepository<Task, String> {
         List<Object[]> countPerDayAndStatusBetween(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
+            @Param("status") TaskStatus status);
+
+        @Query("SELECT t.model.type, COUNT(t) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.createdAt BETWEEN :from AND :to " +
+            "GROUP BY t.model.type")
+        List<Object[]> countByUserGroupedByModelTypeAndCreatedAtBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+        @Query("SELECT t.model.type, COUNT(t) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.apiKey.status = :apiKeyStatus " +
+            "AND t.status = :status " +
+            "GROUP BY t.model.type")
+        List<Object[]> countByUserGroupedByModelTypeAndActiveApiKeyStatus(
+            @Param("userId") Integer userId,
+            @Param("apiKeyStatus") ApiKeyStatus apiKeyStatus,
             @Param("status") TaskStatus status);
 
         Page<Task> findByStatus(TaskStatus status, Pageable pageable);

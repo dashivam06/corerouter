@@ -24,6 +24,7 @@ import com.fleebug.corerouter.entity.task.Task;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
 import com.fleebug.corerouter.enums.billing.UsageUnitType;
 import com.fleebug.corerouter.enums.model.ModelType;
+import com.fleebug.corerouter.enums.task.TaskStatus;
 import com.fleebug.corerouter.exception.billing.BillingCalculationException;
 import com.fleebug.corerouter.exception.task.TaskNotFoundException;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
@@ -253,7 +254,7 @@ public class UsageService {
 
         long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
-        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         return UserDashboardInsightsResponse.builder()
             .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
@@ -265,12 +266,17 @@ public class UsageService {
 
     @Transactional(readOnly = true)
     public UserSpendingResponse getUserSpending(Integer userId, LocalDateTime from, LocalDateTime to, String filterPeriod) {
-        BigDecimal totalSpending = usageRecordRepository.sumCostByUserAndPeriod(userId, from, to).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalSpending = taskRepository
+            .sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, from, to)
+            .setScale(3, RoundingMode.HALF_UP);
 
         List<DailySpendingPoint> dailyTrend = new ArrayList<>();
-        for (Object[] row : usageRecordRepository.sumCostByUserGroupedByDateAndPeriod(userId, from, to)) {
-            LocalDate date = (LocalDate) row[0];
-            BigDecimal amount = ((BigDecimal) row[1]).setScale(2, RoundingMode.HALF_UP);
+        for (Object[] row : taskRepository.sumTotalCostByUserAndStatusGroupedByDateBetween(userId, TaskStatus.COMPLETED, from, to)) {
+            if (row == null || row.length < 2 || row[0] == null) {
+                continue;
+            }
+            LocalDate date = toLocalDate(row[0]);
+            BigDecimal amount = toBigDecimal(row[1]).setScale(3, RoundingMode.HALF_UP);
             dailyTrend.add(DailySpendingPoint.builder()
                 .date(date.toString())
                 .value(amount)
@@ -309,7 +315,7 @@ public class UsageService {
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
 
         LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
-        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         YearMonth currentMonth = YearMonth.from(now);
         List<MonthlySpendingPoint> trend = new ArrayList<>();
@@ -322,7 +328,8 @@ public class UsageService {
                 ? now
                 : month.plusMonths(1).atDay(1).atStartOfDay().minusNanos(1);
 
-            BigDecimal value = usageRecordRepository.sumCostByUserAndPeriod(userId, monthStart, monthEnd)
+            BigDecimal value = taskRepository
+                .sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, monthStart, monthEnd)
                 .setScale(2, RoundingMode.HALF_UP);
             spendingLast12Months = spendingLast12Months.add(value);
 
@@ -352,23 +359,25 @@ public class UsageService {
         LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
         LocalDateTime comparableLastMonthEnd = lastMonthStart.plusSeconds(java.time.Duration.between(thisMonthStart, now).getSeconds());
 
-        BigDecimal creditsUsedThisMonth = usageRecordRepository.sumCostByUserAndPeriod(userId, thisMonthStart, now);
-        BigDecimal creditsUsedComparableLastMonth = usageRecordRepository.sumCostByUserAndPeriod(userId, lastMonthStart, comparableLastMonthEnd);
+        BigDecimal creditsUsedThisMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, thisMonthStart, now);
+        BigDecimal creditsUsedComparableLastMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, lastMonthStart, comparableLastMonthEnd);
 
         long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
 
         LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
-        BigDecimal todaysConsumption = usageRecordRepository.sumCostByUserAndPeriod(userId, todayStart, now);
+        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         PeriodRange selectedRange = resolvePeriodRange(period, now);
-        BigDecimal spendingInSelectedPeriod = usageRecordRepository.sumCostByUserAndPeriod(
+        BigDecimal spendingInSelectedPeriod = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(
                 userId,
-                selectedRange.from(),
-                selectedRange.to()
+            TaskStatus.COMPLETED,
+            selectedRange.from(),
+            selectedRange.to()
         );
-        long totalRequestsCurrentPeriod = usageRecordRepository.countDistinctRequestsByUserAndPeriod(
+        long totalRequestsCurrentPeriod = taskRepository.countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(
             userId,
+            TaskStatus.COMPLETED,
             selectedRange.from(),
             selectedRange.to()
         );
@@ -444,6 +453,32 @@ public class UsageService {
         return total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
     }
 
+    private LocalDate toLocalDate(Object rawDate) {
+        if (rawDate instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (rawDate instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+        if (rawDate instanceof java.sql.Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        return LocalDate.parse(rawDate.toString());
+    }
+
+    private BigDecimal toBigDecimal(Object rawValue) {
+        if (rawValue == null) {
+            return BigDecimal.ZERO;
+        }
+        if (rawValue instanceof BigDecimal value) {
+            return value;
+        }
+        if (rawValue instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(rawValue.toString());
+    }
+
     private BigDecimal calculatePercentChange(BigDecimal current, BigDecimal previous) {
         if (previous.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
@@ -491,7 +526,7 @@ public class UsageService {
 
     private Map<String, Long> getUsageByModelTypeCounts(Integer userId, LocalDateTime from, LocalDateTime to) {
         Map<ModelType, Long> rawCounts = new EnumMap<>(ModelType.class);
-        for (Object[] row : usageRecordRepository.countDistinctRequestsByUserGroupedByModelTypeAndPeriod(userId, from, to)) {
+        for (Object[] row : taskRepository.countByUserGroupedByModelTypeAndCreatedAtBetween(userId, TaskStatus.COMPLETED, from, to)) {
             ModelType type = (ModelType) row[0];
             Number countNumber = (Number) row[1];
             rawCounts.put(type, countNumber.longValue());
@@ -506,7 +541,7 @@ public class UsageService {
 
     private Map<String, Long> getUsageByModelTypeCountsLifetimeActive(Integer userId) {
         Map<ModelType, Long> rawCounts = new EnumMap<>(ModelType.class);
-        for (Object[] row : usageRecordRepository.countDistinctRequestsByUserGroupedByModelTypeAndActiveApiKeyStatus(userId, ApiKeyStatus.ACTIVE)) {
+        for (Object[] row : taskRepository.countByUserGroupedByModelTypeAndActiveApiKeyStatus(userId, ApiKeyStatus.ACTIVE, TaskStatus.COMPLETED)) {
             ModelType type = (ModelType) row[0];
             Number countNumber = (Number) row[1];
             rawCounts.put(type, countNumber.longValue());
