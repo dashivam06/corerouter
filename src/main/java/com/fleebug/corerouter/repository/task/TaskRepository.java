@@ -51,71 +51,96 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     List<Task> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to);
 
+    List<Task> findByApiKey_User_UserIdAndStatusAndCompletedAtBetweenOrderByCompletedAtDesc(
+            Integer userId,
+            TaskStatus status,
+            LocalDateTime from,
+            LocalDateTime to);
+
+    List<Task> findByApiKey_User_UserIdAndStatusAndCompletedAtBetweenAndRemainingBalanceIsNotNullOrderByCompletedAtDesc(
+                Integer userId,
+                TaskStatus status,
+                LocalDateTime from,
+                LocalDateTime to);
+
     long countByApiKey_User_UserId(Integer userId);
 
     long countByApiKey_User_UserIdAndCreatedAtBetween(Integer userId, LocalDateTime from, LocalDateTime to);
 
     long countByApiKey_User_UserIdAndStatus(Integer userId, TaskStatus status);
 
-        long countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(Integer userId, TaskStatus status, LocalDateTime from, LocalDateTime to);
+    long countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(Integer userId, TaskStatus status, LocalDateTime from, LocalDateTime to);
 
-        @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t " +
+    @Query("SELECT COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) FROM Task t " +
             "WHERE t.apiKey.user.userId = :userId " +
             "AND t.status = :status " +
             "AND t.completedAt BETWEEN :from AND :to")
-        java.math.BigDecimal sumTotalCostByUserAndStatusAndCompletedAtBetween(
+    java.math.BigDecimal sumTotalCostByUserAndStatusAndCompletedAtBetween(
             @Param("userId") Integer userId,
             @Param("status") TaskStatus status,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
-        @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) " +
+    @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(COALESCE(t.totalCost, 0)), 0) " +
             "FROM Task t " +
             "WHERE t.apiKey.user.userId = :userId " +
             "AND t.status = :status " +
             "AND t.completedAt BETWEEN :from AND :to " +
             "GROUP BY FUNCTION('DATE', t.completedAt) " +
             "ORDER BY FUNCTION('DATE', t.completedAt)")
-        List<Object[]> sumTotalCostByUserAndStatusGroupedByDateBetween(
+    List<Object[]> sumTotalCostByUserAndStatusGroupedByDateBetween(
             @Param("userId") Integer userId,
             @Param("status") TaskStatus status,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
-        @Query("SELECT FUNCTION('DATE', t.createdAt), t.status, COUNT(t) " +
+    @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(COALESCE(t.chargedCost, t.totalCost, 0)), 0) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to " +
+            "GROUP BY FUNCTION('DATE', t.completedAt) " +
+            "ORDER BY FUNCTION('DATE', t.completedAt)")
+    List<Object[]> sumChargedCostByUserAndStatusGroupedByDateBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    @Query("SELECT FUNCTION('DATE', t.createdAt), t.status, COUNT(t) " +
             "FROM Task t " +
             "WHERE t.createdAt BETWEEN :from AND :to " +
             "AND (:status IS NULL OR t.status = :status) " +
             "GROUP BY FUNCTION('DATE', t.createdAt), t.status " +
             "ORDER BY FUNCTION('DATE', t.createdAt)")
-        List<Object[]> countPerDayAndStatusBetween(
+    List<Object[]> countPerDayAndStatusBetween(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("status") TaskStatus status);
 
-        @Query("SELECT t.model.type, COUNT(t) " +
+    @Query("SELECT t.model.type, COUNT(t) " +
             "FROM Task t " +
             "WHERE t.apiKey.user.userId = :userId " +
             "AND t.status = :status " +
             "AND t.createdAt BETWEEN :from AND :to " +
             "GROUP BY t.model.type")
-        List<Object[]> countByUserGroupedByModelTypeAndCreatedAtBetween(
+    List<Object[]> countByUserGroupedByModelTypeAndCreatedAtBetween(
             @Param("userId") Integer userId,
             @Param("status") TaskStatus status,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
-        @Query("SELECT t.model.type, COUNT(t) " +
+    @Query("SELECT t.model.type, COUNT(t) " +
             "FROM Task t " +
             "WHERE t.apiKey.user.userId = :userId " +
             "AND t.apiKey.status = :apiKeyStatus " +
             "AND t.status = :status " +
             "GROUP BY t.model.type")
-        List<Object[]> countByUserGroupedByModelTypeAndActiveApiKeyStatus(
+    List<Object[]> countByUserGroupedByModelTypeAndActiveApiKeyStatus(
             @Param("userId") Integer userId,
             @Param("apiKeyStatus") ApiKeyStatus apiKeyStatus,
             @Param("status") TaskStatus status);
 
-        Page<Task> findByStatus(TaskStatus status, Pageable pageable);
+    Page<Task> findByStatus(TaskStatus status, Pageable pageable);
 }
 

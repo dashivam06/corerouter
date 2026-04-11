@@ -23,6 +23,7 @@ import com.fleebug.corerouter.exception.task.TaskPayloadInvalidException;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
 import com.fleebug.corerouter.repository.model.ModelRepository;
 import com.fleebug.corerouter.repository.task.TaskRepository;
+import com.fleebug.corerouter.service.billing.TaskBillingService;
 import com.fleebug.corerouter.service.redis.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,6 +56,7 @@ public class TaskService {
     private final ApiKeyRepository apiKeyRepository;
     private final ModelRepository modelRepository;
     private final RedisService redisService;
+    private final TaskBillingService taskBillingService;
     private final ObjectMapper objectMapper ;
 
     @Transactional
@@ -131,6 +133,11 @@ public class TaskService {
         }
 
         Task saved = taskRepository.save(task);
+
+        if (request.getStatus() == TaskStatus.COMPLETED) {
+            taskBillingService.applyDebitIfEligible(saved);
+        }
+
         telemetryClient.trackTrace("Task status updated - taskId=" + saved.getTaskId() + ", status=" + saved.getStatus(), SeverityLevel.Information, Map.of("taskId", saved.getTaskId(), "status", saved.getStatus().toString()));
         return saved;
     }

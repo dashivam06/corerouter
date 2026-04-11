@@ -57,6 +57,14 @@ public class Task {
     @Column(precision = 12, scale = 6)
     private BigDecimal totalCost;
 
+    // Amount deducted from user wallet for this task (rounded to wallet precision)
+    @Column(precision = 12, scale = 2)
+    private BigDecimal chargedCost;
+
+    // User wallet balance immediately after this task deduction
+    @Column(precision = 10, scale = 2)
+    private BigDecimal remainingBalance;
+
     private Long processingTimeMs;
 
     // Raw provider response for audit/debugging — billing uses UsageRecord

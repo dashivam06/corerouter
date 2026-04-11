@@ -42,6 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -67,6 +69,7 @@ public class UsageService {
     private final TaskRepository taskRepository;
     private final ModelRepository modelRepository;
     private final BillingConfigService billingConfigService;
+    private final TaskBillingService taskBillingService;
     private final ObjectMapper objectMapper;
     private final OtpService otpService;
     private final RedisService redisService;
@@ -108,6 +111,9 @@ public class UsageService {
 
         // Update task totalCost
         updateTaskCost(task);
+
+        // Charge wallet only after task is completed; repeated calls are idempotent.
+        taskBillingService.applyDebitIfEligible(task);
 
         checkAndNotifyMonthlyApiKeyUsage(saved.getApiKey());
 
@@ -248,9 +254,9 @@ public class UsageService {
 
     @Transactional(readOnly = true)
     public UserDashboardInsightsResponse getUserDashboardInsights(Integer userId, BigDecimal currentBalance) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
         LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+        LocalDateTime todayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
 
         long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
@@ -308,13 +314,13 @@ public class UsageService {
 
         @Transactional(readOnly = true)
         public UserDashboardOverviewResponse getUserDashboardOverview(Integer userId, BigDecimal currentBalance) {
-        LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
 
         LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
         long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
         long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
 
-        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
+        LocalDateTime todayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay();
         BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
 
         YearMonth currentMonth = YearMonth.from(now);
@@ -352,8 +358,8 @@ public class UsageService {
         }
 
     @Transactional(readOnly = true)
-    public UserBillingInsightsResponse getUserBillingInsights(Integer userId, BigDecimal currentBalance, String period) {
-        LocalDateTime now = LocalDateTime.now();
+    public UserBillingInsightsResponse getUserBillingInsights(Integer userId, BigDecimal currentBalance) {
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
 
         LocalDateTime thisMonthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
         LocalDateTime lastMonthStart = thisMonthStart.minusMonths(1);
@@ -362,14 +368,8 @@ public class UsageService {
         BigDecimal creditsUsedThisMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, thisMonthStart, now);
         BigDecimal creditsUsedComparableLastMonth = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, lastMonthStart, comparableLastMonthEnd);
 
-        long activeApiKeys = apiKeyRepository.countByUserUserIdAndStatus(userId, ApiKeyStatus.ACTIVE);
-        long tasksThisMonth = taskRepository.countByApiKey_User_UserIdAndCreatedAtBetween(userId, thisMonthStart, now);
-
-        LocalDateTime todayStart = now.toLocalDate().atStartOfDay();
-        BigDecimal todaysConsumption = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(userId, TaskStatus.COMPLETED, todayStart, now);
-
-        PeriodRange selectedRange = resolvePeriodRange(period, now);
-        BigDecimal spendingInSelectedPeriod = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(
+        PeriodRange selectedRange = resolvePeriodRange("30days", now);
+        BigDecimal totalSpend = taskRepository.sumTotalCostByUserAndStatusAndCompletedAtBetween(
                 userId,
             TaskStatus.COMPLETED,
             selectedRange.from(),
@@ -381,26 +381,14 @@ public class UsageService {
             selectedRange.from(),
             selectedRange.to()
         );
-        BigDecimal avgCostPerRequest = calculateAverage(spendingInSelectedPeriod, totalRequestsCurrentPeriod);
-
-        Map<String, Long> usageByModelTypeCounts = getUsageByModelTypeCounts(userId, selectedRange.from(), selectedRange.to());
+        BigDecimal avgCostPerRequest = calculateAverage(totalSpend, totalRequestsCurrentPeriod);
 
         return UserBillingInsightsResponse.builder()
                 .currentBalance(currentBalance.setScale(2, RoundingMode.HALF_UP))
                 .creditsUsedThisMonth(creditsUsedThisMonth.setScale(2, RoundingMode.HALF_UP))
                 .creditsUsedChangeFromLastMonthPercent(calculatePercentChange(creditsUsedThisMonth, creditsUsedComparableLastMonth))
-                .activeApiKeys(activeApiKeys)
-                .tasksThisMonth(tasksThisMonth)
-                .todaysConsumption(todaysConsumption.setScale(2, RoundingMode.HALF_UP))
-                .spendingPeriod(selectedRange.normalizedPeriod())
-                .spendingPeriodStart(selectedRange.from())
-                .spendingPeriodEnd(selectedRange.to())
-                .spendingInSelectedPeriod(spendingInSelectedPeriod.setScale(2, RoundingMode.HALF_UP))
-                .currentPeriod(selectedRange.normalizedPeriod())
-                .totalSpend(spendingInSelectedPeriod.setScale(2, RoundingMode.HALF_UP))
-                .totalRequestsCurrentPeriod(totalRequestsCurrentPeriod)
+            .totalSpend(totalSpend.setScale(2, RoundingMode.HALF_UP))
                 .avgCostPerRequest(avgCostPerRequest)
-                .usageByModelTypeCounts(usageByModelTypeCounts)
                 .build();
     }
 

@@ -201,16 +201,13 @@ public class UserBillingController {
     })
     @GetMapping("/insights")
     public ResponseEntity<ApiResponse<UserBillingInsightsResponse>> getBillingInsights(
-            @Parameter(description = "Spending filter period: 7days, 15days, 30days, 3m, 6m, year", example = "30days")
-            @RequestParam(defaultValue = "30days") String period,
             Authentication authentication,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
 
         UserBillingInsightsResponse insights = usageService.getUserBillingInsights(
             user.getUserId(),
-            user.getBalance(),
-            period
+            user.getBalance()
         );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Billing insights retrieved successfully", insights, request));
@@ -231,13 +228,13 @@ public class UserBillingController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage insights retrieved successfully", insights, request));
     }
 
-    @Operation(summary = "Get balance history", description = "Get user top-up balance history trend by period")
+    @Operation(summary = "Get balance history", description = "Get user balance history (credit/debit timeline) by period")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Balance history retrieved successfully")
     })
-    @GetMapping("/transactions/balance-history")
+    @GetMapping({"/balance-history", "/transactions/balance-history"})
     public ResponseEntity<ApiResponse<UserBalanceHistoryResponse>> getBalanceHistory(
-            @Parameter(description = "Period: 7days, 15days, 30days, 3m, 6m", example = "30days")
+            @Parameter(description = "Period: 7days, 15days, 30days, 3m, 6m, year", example = "30days")
             @RequestParam(defaultValue = "30days") String period,
             @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00")
             @RequestParam(required = false) LocalDateTime fromDate,
@@ -249,10 +246,11 @@ public class UserBillingController {
         DateRange dateRange = resolveBillingDateRange(period, fromDate, toDate);
 
         UserBalanceHistoryResponse response = transactionService.getUserBalanceHistory(
-                user.getUserId(),
-                dateRange.from(),
-                dateRange.to(),
-                dateRange.period()
+            user.getUserId(),
+            user.getBalance(),
+            dateRange.from(),
+            dateRange.to(),
+            dateRange.period()
         );
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Balance history retrieved successfully", response, request));
@@ -262,11 +260,11 @@ public class UserBillingController {
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Transaction history retrieved successfully")
     })
-    @GetMapping("/transactions/history")
+    @GetMapping({"/transaction-history", "/transactions/history"})
     public ResponseEntity<ApiResponse<Page<TransactionResponse>>> getUserTransactionHistory(
             @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size", example = "20") @RequestParam(defaultValue = "20") int size,
-            @Parameter(description = "Date filter: 7days, 15days, 30days, 3m, 6m", example = "30days") @RequestParam(defaultValue = "30days") String period,
+            @Parameter(description = "Date filter: 7days, 15days, 30days, 3m, 6m, year", example = "30days") @RequestParam(defaultValue = "30days") String period,
             @Parameter(description = "Transaction type: WALLET, CARD, WALLET_TOPUP or ALL", example = "WALLET_TOPUP") @RequestParam(required = false) String type,
             @Parameter(description = "Transaction status: PENDING, COMPLETED, FAILED", example = "COMPLETED") @RequestParam(required = false) String status,
             @Parameter(description = "Search by eSewa ID", example = "txn_123") @RequestParam(required = false) String search,
@@ -350,6 +348,7 @@ public class UserBillingController {
             case "30days", "30day", "month" -> normalized = "30days";
             case "3m", "3month", "3months" -> normalized = "3m";
             case "6m", "6month", "6months" -> normalized = "6m";
+            case "year", "1y", "12m" -> normalized = "year";
             default -> normalized = "30days";
         }
 
@@ -358,6 +357,7 @@ public class UserBillingController {
             case "15days" -> now.minusDays(15);
             case "3m" -> now.minusMonths(3);
             case "6m" -> now.minusMonths(6);
+            case "year" -> now.minusYears(1);
             default -> now.minusDays(30);
         };
 

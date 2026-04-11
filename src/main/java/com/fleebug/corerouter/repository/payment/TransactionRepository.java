@@ -36,6 +36,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("to") LocalDateTime to
     );
 
+    @Query("SELECT FUNCTION('DATE', t.completedAt), COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+            "WHERE t.user.userId = :userId AND t.type = :type AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to " +
+            "GROUP BY FUNCTION('DATE', t.completedAt) " +
+            "ORDER BY FUNCTION('DATE', t.completedAt)")
+    List<Object[]> sumAmountByUserAndTypeAndStatusGroupedByDateBetween(
+            @Param("userId") Integer userId,
+            @Param("type") TransactionType type,
+            @Param("status") TransactionStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.type = :type AND t.status = :status AND t.completedAt BETWEEN :from AND :to")
     BigDecimal sumAmountByTypeAndStatusAndCompletedAtBetween(
             @Param("type") TransactionType type,
