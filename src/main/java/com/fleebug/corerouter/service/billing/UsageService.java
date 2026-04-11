@@ -15,6 +15,7 @@ import com.fleebug.corerouter.dto.billing.response.UserBillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UserDashboardOverviewResponse;
 import com.fleebug.corerouter.dto.billing.response.UserDashboardInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UserSpendingResponse;
+import com.fleebug.corerouter.dto.billing.response.UserUsageHistoryResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageByModelTypeResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
 import com.fleebug.corerouter.entity.billing.BillingConfig;
@@ -54,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
@@ -394,16 +396,37 @@ public class UsageService {
 
     @Transactional(readOnly = true)
     public UserUsageInsightsResponse getUserUsageInsights(Integer userId) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime currentStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime previousStart = currentStart.minusMonths(1);
-        LocalDateTime previousEnd = previousStart.plusSeconds(java.time.Duration.between(currentStart, now).getSeconds());
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
+        PeriodRange current = resolvePeriodRange("30days", now);
+        return getUserUsageInsights(userId, current.normalizedPeriod(), current.from(), current.to());
+    }
 
-        BigDecimal totalSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, currentStart, now);
+    @Transactional(readOnly = true)
+    public UserUsageInsightsResponse getUserUsageInsights(Integer userId,
+                                                          String period,
+                                                          LocalDateTime from,
+                                                          LocalDateTime to) {
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("from must be before to");
+        }
+
+        long seconds = Math.max(1L, java.time.Duration.between(from, to).getSeconds());
+        LocalDateTime previousEnd = from.minusSeconds(1);
+        LocalDateTime previousStart = previousEnd.minusSeconds(seconds);
+
+        BigDecimal totalSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, from, to);
         BigDecimal priorSpend = usageRecordRepository.sumCostByUserAndPeriod(userId, previousStart, previousEnd);
 
-        long totalRequests = usageRecordRepository.countDistinctRequestsByUserAndPeriod(userId, currentStart, now);
-        long priorRequests = usageRecordRepository.countDistinctRequestsByUserAndPeriod(userId, previousStart, previousEnd);
+        long totalRequests = taskRepository.countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(
+            userId,
+            TaskStatus.COMPLETED,
+            from,
+            to);
+        long priorRequests = taskRepository.countByApiKey_User_UserIdAndStatusAndCompletedAtBetween(
+            userId,
+            TaskStatus.COMPLETED,
+            previousStart,
+            previousEnd);
 
         BigDecimal avgCostPerRequest = calculateAverage(totalSpend, totalRequests);
         BigDecimal priorAvgCostPerRequest = calculateAverage(priorSpend, priorRequests);
@@ -413,23 +436,91 @@ public class UsageService {
         BigDecimal avgCostPerRequestChangePercent = calculatePercentChange(avgCostPerRequest, priorAvgCostPerRequest);
 
         List<Object[]> topModels = usageRecordRepository.findTopModelsByUserAndPeriod(
-                userId,
-                currentStart,
-                now,
-                PageRequest.of(0, 1)
+            userId,
+            from,
+            to,
+            PageRequest.of(0, 1)
         );
 
         String mostUsedModel = topModels.isEmpty() ? "N/A" : String.valueOf(topModels.get(0)[0]);
 
         return UserUsageInsightsResponse.builder()
-                .totalSpend(totalSpend.setScale(2, RoundingMode.HALF_UP))
-                .totalSpendChangePercent(totalSpendChangePercent)
-                .totalRequests(totalRequests)
-                .totalRequestsChangePercent(totalRequestsChangePercent)
-                .mostUsedModel(mostUsedModel)
-                .avgCostPerRequest(avgCostPerRequest)
-                .avgCostPerRequestChangePercent(avgCostPerRequestChangePercent)
-                .build();
+            .totalSpend(totalSpend.setScale(2, RoundingMode.HALF_UP))
+            .totalSpendChangePercent(totalSpendChangePercent)
+            .totalRequests(totalRequests)
+            .totalRequestsChangePercent(totalRequestsChangePercent)
+            .mostUsedModel(mostUsedModel)
+            .avgCostPerRequest(avgCostPerRequest)
+            .avgCostPerRequestChangePercent(avgCostPerRequestChangePercent)
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserUsageHistoryResponse getUserUsageHistory(Integer userId,
+                                                        String period,
+                                                        LocalDateTime from,
+                                                        LocalDateTime to) {
+        List<Object[]> unitRows = usageRecordRepository.sumUsageByUserGroupedByDateAndUnitTypeAndPeriod(userId, from, to);
+        List<Object[]> requestRows = taskRepository.countByUserAndStatusGroupedByCompletedDateBetween(
+            userId,
+            TaskStatus.COMPLETED,
+            from,
+            to);
+
+        Map<LocalDate, Long> requestCountByDate = new HashMap<>();
+        for (Object[] row : requestRows) {
+            LocalDate date = toLocalDate(row[0]);
+            long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
+            requestCountByDate.put(date, count);
+        }
+
+        Map<LocalDate, UserUsageHistoryResponse.DailyUsageHistoryDay> dayMap = new LinkedHashMap<>();
+        LocalDate startDate = from.toLocalDate();
+        LocalDate endDate = to.toLocalDate();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            dayMap.put(date, UserUsageHistoryResponse.DailyUsageHistoryDay.builder()
+                    .date(date.toString())
+                    .totalCost(BigDecimal.ZERO.setScale(3, RoundingMode.HALF_UP))
+                    .totalRequests(requestCountByDate.getOrDefault(date, 0L))
+                    .usageByUnit(new LinkedHashMap<>())
+                    .build());
+        }
+
+        for (Object[] row : unitRows) {
+            LocalDate date = toLocalDate(row[0]);
+            UsageUnitType unitType = (UsageUnitType) row[1];
+            BigDecimal quantity = toBigDecimal(row[2]);
+            BigDecimal cost = toBigDecimal(row[3]);
+
+            UserUsageHistoryResponse.DailyUsageHistoryDay day = dayMap.get(date);
+            if (day == null) {
+            continue;
+            }
+
+            Map<String, UserUsageHistoryResponse.UnitUsageSummary> usageByUnit = day.getUsageByUnit();
+
+            BigDecimal avgRate = quantity.compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : cost.divide(quantity, 6, RoundingMode.HALF_UP);
+
+            usageByUnit.put(unitType.name(), UserUsageHistoryResponse.UnitUsageSummary.builder()
+                .quantity(quantity.setScale(4, RoundingMode.HALF_UP))
+                .totalCost(cost.setScale(6, RoundingMode.HALF_UP))
+                .avgRatePerUnit(avgRate)
+                .build());
+
+                day.setTotalCost(day.getTotalCost().add(cost).setScale(3, RoundingMode.HALF_UP));
+                day.setUsageByUnit(usageByUnit);
+        }
+
+            List<UserUsageHistoryResponse.DailyUsageHistoryDay> dailyHistory = new ArrayList<>(dayMap.values());
+
+        return UserUsageHistoryResponse.builder()
+            .period(period)
+            .fromDate(from)
+            .toDate(to)
+            .dailyHistory(dailyHistory)
+            .build();
     }
 
     // ---- Internal helpers ----

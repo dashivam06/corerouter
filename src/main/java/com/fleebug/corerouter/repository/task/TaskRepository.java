@@ -107,6 +107,19 @@ public interface TaskRepository extends JpaRepository<Task, String> {
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
+    @Query("SELECT FUNCTION('DATE', t.completedAt), COUNT(t) " +
+            "FROM Task t " +
+            "WHERE t.apiKey.user.userId = :userId " +
+            "AND t.status = :status " +
+            "AND t.completedAt BETWEEN :from AND :to " +
+            "GROUP BY FUNCTION('DATE', t.completedAt) " +
+            "ORDER BY FUNCTION('DATE', t.completedAt)")
+    List<Object[]> countByUserAndStatusGroupedByCompletedDateBetween(
+            @Param("userId") Integer userId,
+            @Param("status") TaskStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
     @Query("SELECT FUNCTION('DATE', t.createdAt), t.status, COUNT(t) " +
             "FROM Task t " +
             "WHERE t.createdAt BETWEEN :from AND :to " +

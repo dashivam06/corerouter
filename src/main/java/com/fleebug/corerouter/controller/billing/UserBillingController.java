@@ -6,6 +6,7 @@ import com.fleebug.corerouter.dto.billing.response.UserBillingInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.UserBalanceHistoryResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageRecordResponse;
 import com.fleebug.corerouter.dto.billing.response.UsageSummaryResponse;
+import com.fleebug.corerouter.dto.billing.response.UserUsageHistoryResponse;
 import com.fleebug.corerouter.dto.billing.response.UserUsageInsightsResponse;
 import com.fleebug.corerouter.dto.billing.response.TransactionResponse;
 import com.fleebug.corerouter.dto.common.ApiResponse;
@@ -219,13 +220,50 @@ public class UserBillingController {
     })
     @GetMapping("/usage/insights")
     public ResponseEntity<ApiResponse<UserUsageInsightsResponse>> getUsageInsights(
+            @Parameter(description = "Period: 7days, 15days, 30days, 3m, 6m, year", example = "30days")
+            @RequestParam(defaultValue = "30days") String period,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00")
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-11T23:59:59")
+            @RequestParam(required = false) LocalDateTime toDate,
             Authentication authentication,
             HttpServletRequest request) {
         User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+        DateRange dateRange = resolveBillingDateRange(period, fromDate, toDate);
 
-        UserUsageInsightsResponse insights = usageService.getUserUsageInsights(user.getUserId());
+        UserUsageInsightsResponse insights = usageService.getUserUsageInsights(
+                user.getUserId(),
+                dateRange.period(),
+                dateRange.from(),
+                dateRange.to());
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Usage insights retrieved successfully", insights, request));
+    }
+
+    @Operation(summary = "Get daily usage history", description = "Get per-day usage unit breakdown with pricing for authenticated user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Daily usage history retrieved successfully")
+    })
+    @GetMapping("/usage/history")
+    public ResponseEntity<ApiResponse<UserUsageHistoryResponse>> getDailyUsageHistory(
+            @Parameter(description = "Period: 7days, 15days, 30days, 3m, 6m, year", example = "30days")
+            @RequestParam(defaultValue = "30days") String period,
+            @Parameter(description = "Custom start date (ISO 8601, optional)", example = "2026-04-01T00:00:00")
+            @RequestParam(required = false) LocalDateTime fromDate,
+            @Parameter(description = "Custom end date (ISO 8601, optional)", example = "2026-04-11T23:59:59")
+            @RequestParam(required = false) LocalDateTime toDate,
+            Authentication authentication,
+            HttpServletRequest request) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+        DateRange dateRange = resolveBillingDateRange(period, fromDate, toDate);
+
+        UserUsageHistoryResponse response = usageService.getUserUsageHistory(
+                user.getUserId(),
+                dateRange.period(),
+                dateRange.from(),
+                dateRange.to());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Daily usage history retrieved successfully", response, request));
     }
 
     @Operation(summary = "Get balance history", description = "Get user balance history (credit/debit timeline) by period")

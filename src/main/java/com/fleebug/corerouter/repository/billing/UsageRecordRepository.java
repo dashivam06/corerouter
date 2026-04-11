@@ -155,4 +155,28 @@ public interface UsageRecordRepository extends JpaRepository<UsageRecord, Long> 
         @Param("from") LocalDateTime from,
         @Param("to") LocalDateTime to
     );
+
+    @Query("SELECT FUNCTION('DATE', u.recordedAt), u.usageUnitType, COALESCE(SUM(u.quantity), 0), COALESCE(SUM(u.cost), 0) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to " +
+           "GROUP BY FUNCTION('DATE', u.recordedAt), u.usageUnitType " +
+           "ORDER BY FUNCTION('DATE', u.recordedAt)")
+    List<Object[]> sumUsageByUserGroupedByDateAndUnitTypeAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
+
+    @Query("SELECT FUNCTION('DATE', u.recordedAt), COUNT(DISTINCT u.task.taskId) " +
+           "FROM UsageRecord u " +
+           "WHERE u.apiKey.user.userId = :userId " +
+           "AND u.recordedAt BETWEEN :from AND :to " +
+           "GROUP BY FUNCTION('DATE', u.recordedAt) " +
+           "ORDER BY FUNCTION('DATE', u.recordedAt)")
+    List<Object[]> countDistinctRequestsByUserGroupedByDateAndPeriod(
+        @Param("userId") Integer userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
 }
