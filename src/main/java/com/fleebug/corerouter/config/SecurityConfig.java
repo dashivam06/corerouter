@@ -55,7 +55,7 @@ public class SecurityConfig {
         private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
         private final OAuth2LoginFailureHandler oauth2LoginFailureHandler;
 
-        @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:8080,https://corerouter.me,https://www.corerouter.me,https://api.corerouter.me}")
+        @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:7777,https://corerouter.me,https://www.corerouter.me,https://api.corerouter.me}")
         private String allowedOrigins;
 
 
