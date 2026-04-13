@@ -50,7 +50,7 @@ jobs:
 
             DOCKER_IMAGE="corerouter:latest"
 
-            APP_DIR="/home/fleebug/corerouter"
+            APP_DIR="/home/$(whoami)/corerouter"
             LOG_DIR="$APP_DIR/logs"
             LOG_FILE="$LOG_DIR/deploy.log"
 
