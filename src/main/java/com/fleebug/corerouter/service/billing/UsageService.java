@@ -90,6 +90,9 @@ public class UsageService {
         Task task = taskRepository.findByTaskId(request.getTaskId())
                 .orElseThrow(() -> new TaskNotFoundException(request.getTaskId()));
 
+        // Validate daily and monthly usage limits for API key before processing
+        validateApiKeyLimits(task.getApiKey(), request.getQuantity());
+
         Model model = task.getModel();
         BillingConfig billingConfig = billingConfigService.getBillingConfigEntityByModelId(model.getModelId());
 
@@ -760,6 +763,32 @@ public class UsageService {
                 consumed,
                 thresholdPercent == 100 ? 100 : percentConsumed
         );
+    }
+
+    private void validateApiKeyLimits(com.fleebug.corerouter.entity.apikey.ApiKey apiKey, BigDecimal quantity) {
+        if (apiKey == null || apiKey.getApiKeyId() == null) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (apiKey.getDailyLimit() != null && apiKey.getDailyLimit() > 0) {
+            LocalDateTime dayStart = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+            long consumedDaily = usageRecordRepository.countByApiKeyApiKeyIdAndRecordedAtBetween(apiKey.getApiKeyId(), dayStart, now);
+            if (consumedDaily >= apiKey.getDailyLimit()) {
+                telemetryClient.trackTrace("Daily limit exceeded for API key ID: " + apiKey.getApiKeyId(), SeverityLevel.Warning);
+                throw new com.fleebug.corerouter.exception.apikey.ApiKeyLimitExceededException("Daily usage limit of " + apiKey.getDailyLimit() + " exceeded for API key.");
+            }
+        }
+
+        if (apiKey.getMonthlyLimit() != null && apiKey.getMonthlyLimit() > 0) {
+            LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+            long consumedMonthly = usageRecordRepository.countByApiKeyApiKeyIdAndRecordedAtBetween(apiKey.getApiKeyId(), monthStart, now);
+            if (consumedMonthly >= apiKey.getMonthlyLimit()) {
+                telemetryClient.trackTrace("Monthly limit exceeded for API key ID: " + apiKey.getApiKeyId(), SeverityLevel.Warning);
+                throw new com.fleebug.corerouter.exception.apikey.ApiKeyLimitExceededException("Monthly usage limit of " + apiKey.getMonthlyLimit() + " exceeded for API key.");
+            }
+        }
     }
 
     private record PeriodRange(String normalizedPeriod, LocalDateTime from, LocalDateTime to) {
