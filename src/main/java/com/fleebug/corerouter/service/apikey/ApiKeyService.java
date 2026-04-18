@@ -18,6 +18,8 @@ import com.fleebug.corerouter.entity.apikey.ApiKey;
 import com.fleebug.corerouter.entity.apikey.ApiKeyStatusAudit;
 import com.fleebug.corerouter.entity.user.User;
 import com.fleebug.corerouter.enums.apikey.ApiKeyStatus;
+import com.fleebug.corerouter.exception.apikey.ApiKeyNotFoundException;
+import com.fleebug.corerouter.exception.apikey.ApiKeyRevokedException;
 import com.fleebug.corerouter.repository.apikey.ApiKeyRepository;
 import com.fleebug.corerouter.repository.apikey.ApiKeyStatusAuditRepository;
 import org.springframework.data.domain.Page;
@@ -207,7 +209,7 @@ public class ApiKeyService {
 
     public ApiKeyResponse updateApiKeyStatusByAdmin(Integer apiKeyId, ApiKeyStatus newStatus) {
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
-                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
+                .orElseThrow(() -> new ApiKeyNotFoundException(apiKeyId));
 
         ApiKeyStatus oldStatus = apiKey.getStatus();
         if (oldStatus == newStatus) {
@@ -310,7 +312,7 @@ public class ApiKeyService {
 
     private ApiKey getOwnedNonRevokedApiKey(Integer apiKeyId, Integer userId, String operation) {
         ApiKey apiKey = apiKeyRepository.findById(apiKeyId)
-                .orElseThrow(() -> new IllegalArgumentException("API key not found"));
+                .orElseThrow(() -> new ApiKeyNotFoundException(apiKeyId));
 
         if (!apiKey.getUser().getUserId().equals(userId)) {
             telemetryClient.trackTrace("Unauthorized " + operation + " attempt for API key ID: " + apiKeyId, SeverityLevel.Warning, Map.of("apiKeyId", String.valueOf(apiKeyId)));
@@ -318,7 +320,7 @@ public class ApiKeyService {
         }
 
         if (apiKey.getStatus() == ApiKeyStatus.REVOKED) {
-            throw new IllegalArgumentException("API key not found");
+            throw new ApiKeyRevokedException();
         }
 
         return apiKey;
