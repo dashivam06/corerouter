@@ -331,10 +331,10 @@ public class AzureInsightsService {
 
     private String genuineUserFilterClause() {
         return """
-                | where not(name has "AdminTechnicalController")
-                | where not(name has "InternalWorkerController")
-                | where not(tostring(url) has "/api/v1/admin/")
-                | where not(tostring(url) has "/api/v1/internal/")
+                // | where not(name has "AdminTechnicalController")
+                // | where not(name has "InternalWorkerController")
+                // | where not(tostring(url) has "/api/v1/admin/")
+                // | where not(tostring(url) has "/api/v1/internal/")
                 """;
     }
 
