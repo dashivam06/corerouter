@@ -675,6 +675,25 @@ public class UserService {
     }
 
     /**
+     * Admin-only role update for any user.
+     */
+    public UserProfileResponse updateUserRoleByAdmin(Integer userId, UserRole newRole) {
+        telemetryClient.trackTrace("Admin updating user role", SeverityLevel.Information,
+                Map.of("userId", String.valueOf(userId), "newRole", newRole.name()));
+
+        User user = getUserById(userId);
+
+        if (user.getRole() == newRole) {
+            throw new IllegalArgumentException("User already has role " + newRole);
+        }
+
+        user.setRole(newRole);
+        User saved = userRepository.save(user);
+
+        return mapToProfileResponse(saved);
+    }
+
+    /**
      * Admin-only status update for any user.
      */
     public UserProfileResponse updateUserStatusByAdmin(Integer userId, UserStatus newStatus) {
