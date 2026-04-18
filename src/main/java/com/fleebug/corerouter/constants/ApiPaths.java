@@ -12,6 +12,8 @@ public final class ApiPaths {
     public static final String AUTH_FORGOT_PASSWORD_REQUEST_OTP = "/api/v1/auth/forgot-password/request-otp";
     public static final String AUTH_FORGOT_PASSWORD_VERIFY_OTP = "/api/v1/auth/forgot-password/verify-otp";
     public static final String AUTH_FORGOT_PASSWORD_RESET = "/api/v1/auth/forgot-password/reset";
+    public static final String AUTH_REFRESH     = "/api/v1/auth/refresh";
+    public static final String AUTH_LOGOUT      = "/api/v1/auth/logout";
     public static final String AUTH_ALL         = "/api/v1/auth/**";
 
     // ── Models ─────────────────────────────────────────────────────────

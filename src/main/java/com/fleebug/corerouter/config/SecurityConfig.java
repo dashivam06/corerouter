@@ -137,7 +137,9 @@ public class SecurityConfig {
                         ApiPaths.AUTH_VERIFY_OTP,
                         ApiPaths.AUTH_FORGOT_PASSWORD_REQUEST_OTP,
                         ApiPaths.AUTH_FORGOT_PASSWORD_VERIFY_OTP,
-                        ApiPaths.AUTH_FORGOT_PASSWORD_RESET).permitAll()
+                        ApiPaths.AUTH_FORGOT_PASSWORD_RESET,
+                        ApiPaths.AUTH_REFRESH,
+                        ApiPaths.AUTH_LOGOUT).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         ApiPaths.MODELS,
                         "/test-payment.html",

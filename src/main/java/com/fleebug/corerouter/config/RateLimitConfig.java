@@ -39,11 +39,11 @@ public class RateLimitConfig {
                 .build();
     }
 
-    // 20 token refresh attempts per IP per minute
+    // 5 token refresh attempts per IP per minute
     public Bandwidth refreshIpBandwidth() {
         return Bandwidth.builder()
-                .capacity(20)
-                .refillIntervally(20, Duration.ofMinutes(1))
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(1))
                 .build();
     }
 

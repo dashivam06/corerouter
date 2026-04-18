@@ -80,7 +80,8 @@ class TaskBillingServiceTest {
     }
 
     @Test
-    // BILL-03,04: Cost calculation and wallet debit -> SELECT wallet balance BEFORE task -> task completion -> AFTER
+    // BILL-03,04: Cost calculation and wallet debit -> SELECT wallet balance BEFORE 
+    // task -> task completion -> AFTER
     void applyDebitIfEligible_CalculatesCostAndDebitsWallet() {
         // Arrange
         BillingConfig config = BillingConfig.builder()
@@ -104,9 +105,12 @@ class TaskBillingServiceTest {
         // The raw cost is 2.00. Multiplier is 1.5. Target charged cost = 2.00 * 1.5 = 3.00.
         // Wallet before: 10.00 -> Wallet after: 10.00 - 3.00 = 7.00
         BigDecimal expectedBalance = new BigDecimal("7.00");
-        assertEquals(expectedBalance, user.getBalance(), "User balance should be exactly deducted by target cost");
-        assertEquals(new BigDecimal("3.00"), task.getChargedCost(), "Task should record the final charged deduction");
-        assertEquals(expectedBalance, task.getRemainingBalance(), "Task ledger should snapshot the closing balance");
+        assertEquals(expectedBalance, user.getBalance(), 
+                "User balance should be exactly deducted by target cost");
+        assertEquals(new BigDecimal("3.00"), task.getChargedCost(), 
+                "Task should record the final charged deduction");
+        assertEquals(expectedBalance, task.getRemainingBalance(), 
+                "Task ledger should snapshot the closing balance");
         
         verify(userRepository).save(user);
         verify(taskRepository).save(task);
