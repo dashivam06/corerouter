@@ -23,6 +23,13 @@ public final class ApiPaths {
     // ── Chat ───────────────────────────────────────────────────────────
     public static final String CHAT_COMPLETIONS = "/api/v1/chat/completions";
 
+    // ── OCR ────────────────────────────────────────────────────────────
+    public static final String OCR_PARSE_IMAGE_URL = "/api/v1/ocr/parse/imageurl";
+
+    // ── Speech To Text ─────────────────────────────────────────────────
+    public static final String SPEECH_TO_TEXT_JOBS = "/api/v1/speech-to-text/jobs";
+    public static final String SPEECH_TO_TEXT_ALL = "/api/v1/speech-to-text/**";
+
     // ── Wallet ─────────────────────────────────────────────────────────
     public static final String WALLET_TOPUP_INITIATE = "/api/wallet/topup/initiate";
     public static final String WALLET_TOPUP_SUCCESS = "/api/wallet/topup/success";

@@ -7,7 +7,9 @@ import com.fleebug.corerouter.security.filter.AuthRateLimitFilter;
 import com.fleebug.corerouter.security.filter.ChatRateLimitFilter;
 import com.fleebug.corerouter.security.filter.JwtAuthenticationFilter;
 import com.fleebug.corerouter.security.filter.MdcLoggingFilter;
+import com.fleebug.corerouter.security.filter.OcrRateLimitFilter;
 import com.fleebug.corerouter.security.filter.ServiceTokenAuthenticationFilter;
+import com.fleebug.corerouter.security.filter.SpeechRateLimitFilter;
 import com.fleebug.corerouter.security.filter.TaskRateLimitFilter;
 import com.fleebug.corerouter.security.oauth2.OAuth2LoginFailureHandler;
 import com.fleebug.corerouter.security.oauth2.OAuth2LoginSuccessHandler;
@@ -50,6 +52,8 @@ public class SecurityConfig {
     private final AuthRateLimitFilter authRateLimitFilter;
     private final TaskRateLimitFilter taskRateLimitFilter;
     private final ChatRateLimitFilter chatRateLimitFilter;
+        private final OcrRateLimitFilter ocrRateLimitFilter;
+        private final SpeechRateLimitFilter speechRateLimitFilter;
     private final MdcLoggingFilter mdcLoggingFilter;
     private final ObjectMapper objectMapper;
         private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
@@ -94,6 +98,38 @@ public class SecurityConfig {
 
     @Bean
         @Order(3)
+        public SecurityFilterChain ocrFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .securityMatcher(ApiPaths.OCR_PARSE_IMAGE_URL)
+                                .csrf(csrf -> csrf.disable())
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .addFilterBefore(mdcLoggingFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(ocrRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .authorizeHttpRequests(authz -> authz
+                                        .anyRequest().permitAll()
+                                );
+                return http.build();
+        }
+
+        @Bean
+        @Order(4)
+        public SecurityFilterChain speechToTextFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .securityMatcher(ApiPaths.SPEECH_TO_TEXT_ALL)
+                                .csrf(csrf -> csrf.disable())
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .addFilterBefore(mdcLoggingFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(speechRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .authorizeHttpRequests(authz -> authz
+                                        .anyRequest().permitAll()
+                                );
+                return http.build();
+        }
+
+        @Bean
+        @Order(5)
     public SecurityFilterChain taskFilterChain(HttpSecurity http) throws Exception {
         http
             .securityMatcher(ApiPaths.TASKS_ALL)
@@ -121,7 +157,7 @@ public class SecurityConfig {
     }
 
     @Bean
-        @Order(4)
+                @Order(6)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())

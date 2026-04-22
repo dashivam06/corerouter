@@ -79,7 +79,8 @@ public class AzureInsightsService {
                     itemId = tostring(itemId)
                 | order by timestamp desc, itemId desc
                 | take %d
-                """.formatted(formatDate(resolvedFrom), formatDate(resolvedTo), cursorClause, resolvedPageSize);
+                """.formatted(formatDate(resolvedFrom), formatDate(resolvedTo), 
+                        cursorClause, resolvedPageSize);
 
         String countKql = """
                 traces
@@ -88,7 +89,8 @@ public class AzureInsightsService {
                 | summarize totalCount = count()
                 """.formatted(formatDate(resolvedFrom), formatDate(resolvedTo));
 
-        return buildPagedResponse(query(kql), query(countKql), resolvedFrom, resolvedTo, resolvedPageSize);
+        return buildPagedResponse(query(kql), query(countKql), resolvedFrom, 
+                    resolvedTo, resolvedPageSize);
     }
 
     public Object getErrors(LocalDateTime from, LocalDateTime to) {
@@ -116,7 +118,8 @@ public class AzureInsightsService {
                     itemId = tostring(itemId)
                 | order by timestamp desc, itemId desc
                 | take %d
-                """.formatted(formatDate(resolvedFrom), formatDate(resolvedTo), cursorClause, resolvedPageSize);
+                """.formatted(formatDate(resolvedFrom), formatDate(resolvedTo), cursorClause,
+                 resolvedPageSize);
 
         String countKql = """
                 exceptions
@@ -293,9 +296,6 @@ public class AzureInsightsService {
         return query(kql);
     }
 
-    public Object getFailedRequestsOverTime(String rangeKey) {
-        return getFailedRequestsOverTime(null, null, rangeKey);
-    }
 
     public Object getFailedRequestsOverTime(LocalDateTime from, LocalDateTime to, String rangeKey) {
         RangeConfig range = resolveRange(rangeKey);
@@ -311,6 +311,11 @@ public class AzureInsightsService {
                 """.formatted(timeFilterClause, genuineUserFilterClause(), interval);
         return query(kql);
     }
+
+        public Object getFailedRequestsOverTime(String rangeKey) {
+        return getFailedRequestsOverTime(null, null, rangeKey);
+    }
+
 
     public Object getTopEndpointsForRange(String rangeKey) {
         return getTopEndpointsForRange(null, null, rangeKey);

@@ -92,4 +92,18 @@ public class RedisBucketService {
                 .build();
         return proxyManager.builder().build("rl:chat:apikey:" + apiKeyHash, config);
     }
+
+    public Bucket resolveOcrApiKeyBucket(String apiKeyHash) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.ocrApiKeyBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:ocr:apikey:" + apiKeyHash, config);
+    }
+
+    public Bucket resolveSpeechApiKeyBucket(String apiKeyHash) {
+        Supplier<BucketConfiguration> config = () -> BucketConfiguration.builder()
+                .addLimit(rateLimitConfig.speechApiKeyBandwidth())
+                .build();
+        return proxyManager.builder().build("rl:speech:apikey:" + apiKeyHash, config);
+    }
 }

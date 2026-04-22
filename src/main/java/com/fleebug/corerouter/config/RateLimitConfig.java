@@ -62,4 +62,20 @@ public class RateLimitConfig {
                 .refillIntervally(10, Duration.ofMinutes(1))
                 .build();
     }
+
+    // OCR image-to-text: 5 per API key per minute
+    public Bandwidth ocrApiKeyBandwidth() {
+        return Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(1))
+                .build();
+    }
+
+    // Speech-to-text job creation: 5 per API key per minute
+    public Bandwidth speechApiKeyBandwidth() {
+        return Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(1))
+                .build();
+    }
 }
